@@ -1,0 +1,12 @@
+{
+  "task_id": "EXAMPLE-DEV-1",
+  "sprint": "P1.1",
+  "assignee": "<ATM_CODEX_AGENT>",
+  "description": "Implement <feature description>.",
+  "worktree_path": "/path/to/repo-worktrees/feature-p1-s1-slug",
+  "branch": "feature/p1-s1-slug",
+  "pr_target": "integrate/phase-1",
+  "deliverables": "Implement X; add Y; update Z.",
+  "acceptance_criteria": "<build command> PASS; <test command> PASS; <lint command> PASS.",
+  "references": "docs/requirements.md; docs/architecture.md; docs/project-plan.md"
+}

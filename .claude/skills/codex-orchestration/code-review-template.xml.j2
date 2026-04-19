@@ -1,0 +1,49 @@
+---
+name: code-review
+version: 1.0.0
+description: Codex agent critical code review template. Read-only analysis — no code changes, no commits. Reports findings with BLOCKING/IMPORTANT/MINOR severity.
+format: xml
+required_variables:
+  - task_id
+  - review_id
+  - assignee
+  - description
+  - scope
+  - codebase_root
+  - review_focus
+  - references
+---
+<atm-code-review id="{{ task_id }}" review="{{ review_id }}" assignee="{{ assignee }}">
+  <description>{{ description }}</description>
+
+  <codebase-root>{{ codebase_root }}</codebase-root>
+  <scope>{{ scope }}</scope>
+
+  <review-focus>
+{{ review_focus }}
+  </review-focus>
+
+  <references>
+{{ references }}
+  </references>
+
+  <workflow>
+    <step id="a">ACK this message immediately. This is a READ-ONLY review — do not commit, push, or modify any files.</step>
+    <step id="b">Read the references listed above to understand the architecture, requirements, and design constraints before reviewing code.</step>
+    <step id="c">Review the codebase at {{ codebase_root }} across the scope: {{ scope }}. Apply critical production-readiness judgment — flag issues that would prevent a 1.0 release.</step>
+    <step id="d">
+      Classify every finding:
+      - BLOCKING: must be fixed before 1.0 release (correctness, safety, data integrity, API contract violations, missing error recovery)
+      - IMPORTANT: should be fixed but does not block release (code quality, performance, maintainability)
+      - MINOR: advisory, low-effort improvements
+      For each finding include: severity, file:line, description, and recommended fix.
+    </step>
+    <step id="e">Send your complete findings report to team-lead. Format:
+      VERDICT: PASS | FAIL (fail if any BLOCKING findings)
+      BLOCKING findings (numbered list)
+      IMPORTANT findings (numbered list)
+      MINOR findings (numbered list)
+      Overall production-readiness assessment for 1.0 release.
+    </step>
+  </workflow>
+</atm-code-review>

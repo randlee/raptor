@@ -1,0 +1,16 @@
+{
+  "task_id": "EXAMPLE-QA-1",
+  "sprint": "P1.1",
+  "review_type": "sprint_review",
+  "description": "Run QA on P1.1 <feature> implementation.",
+  "pr_number": "1",
+  "branch": "feature/p1-s1-slug",
+  "worktree_path": "/path/to/repo-worktrees/feature-p1-s1-slug",
+  "commits": "abc1234",
+  "deliverables": "Implement X; add Y; update Z.",
+  "references": "docs/requirements.md; docs/architecture.md; docs/project-plan.md",
+  "changed_scope": "src/feature/; tests/feature/",
+  "touched_ssot_sections": "",
+  "baseline_ref": "",
+  "artifact_regeneration_required": "false"
+}

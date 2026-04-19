@@ -1,0 +1,148 @@
+---
+name: qa-task
+version: 1.5.0
+description: quality-mgr QA assignment template for codex-orchestration phases.
+format: xml
+required_variables:
+  - task_id
+  - sprint
+  - review_type
+  - description
+  - pr_number
+  - branch
+  - worktree_path
+  - commits
+  - deliverables
+  - references
+  - changed_scope
+  - touched_ssot_sections
+optional_variables:
+  - baseline_ref
+  - artifact_regeneration_required
+  - artifact_commands
+  - known_findings_to_check
+  - fixed_findings
+  - plan_path
+  - plan_line_range
+defaults:
+  baseline_ref: ""
+  artifact_regeneration_required: "true"
+  artifact_commands: ""
+  known_findings_to_check: ""
+  fixed_findings: ""
+  plan_path: ""
+  plan_line_range: ""
+---
+<atm-qa-task id="{{ task_id }}" sprint="{{ sprint }}" assignee="quality-mgr">
+  <review-type>{{ review_type }}</review-type>
+  <description>{{ description }}</description>
+
+  <pr-number>{{ pr_number }}</pr-number>
+  <branch>{{ branch }}</branch>
+  <worktree>{{ worktree_path }}</worktree>
+  <commits>{{ commits }}</commits>
+  <baseline-ref>{{ baseline_ref }}</baseline-ref>
+  <artifact-regeneration-required>{{ artifact_regeneration_required }}</artifact-regeneration-required>
+
+  <deliverables>
+{{ deliverables }}
+  </deliverables>
+
+  <references>
+{{ references }}
+  </references>
+
+  <changed-scope>
+{{ changed_scope }}
+  </changed-scope>
+
+  <touched-ssot-sections>
+{{ touched_ssot_sections }}
+  </touched-ssot-sections>
+
+  {% if artifact_commands %}
+  <artifact-commands>
+{{ artifact_commands }}
+  </artifact-commands>
+  {% endif %}
+
+  {% if known_findings_to_check %}
+  <known-findings-to-check>
+{{ known_findings_to_check }}
+  </known-findings-to-check>
+  {% endif %}
+
+  {% if fixed_findings %}
+  <fixed-findings>
+{{ fixed_findings }}
+  </fixed-findings>
+  {% endif %}
+
+  {% if plan_path %}
+  <plan-context>
+    <path>{{ plan_path }}</path>
+    <line-range>{{ plan_line_range }}</line-range>
+  </plan-context>
+  {% endif %}
+
+  <workflow>
+    <step id="a">ACK this message immediately.</step>
+    <step id="b">
+      Re-read `.claude/agents/quality-mgr.md` in full before classifying this assignment.
+      Do not rely on memory from previous QA runs.
+    </step>
+    <step id="c">
+      Review type for this assignment: {{ review_type }}.
+      Launch the required reviewers exactly as specified in `.claude/agents/quality-mgr.md` for this review type.
+      Do not substitute your own reviewer selection logic.
+      Every reviewer must be launched with `run_in_background: true`.
+      Required Agent tool shape:
+      ```json
+      {
+        "subagent_type": "qa-architect",
+        "prompt": "...",
+        "run_in_background": true
+      }
+      ```
+      Replace `subagent_type` and `prompt` as needed per reviewer, but keep `run_in_background: true`.
+
+      {% if review_type == "plan_gate" %}
+      This is a document / plan gate.
+      Launch:
+      - `requirements-plan-reviewer`
+      - `qa-architect`
+      Do not launch `ssot-auditor` unless the assignment explicitly includes SSOT implementation review.
+      {% elif review_type == "sprint_review" %}
+      This is a sprint / fix implementation review.
+      Always launch:
+      - `qa-architect`
+      - `regression-auditor`
+      - `simplification-reviewer`
+      Also launch one `ssot-auditor` if the changed scope touches SSOT-governed paths, as defined in `.claude/agents/quality-mgr.md`.
+      Regression-auditor must run full validation and return fenced JSON evidence. Do not accept a prose-only PASS.
+      If `baseline_ref` is blank, require regression-auditor to report that as a finding.
+      If artifact regeneration is required, pass the exact artifact commands through to regression-auditor.
+      {% elif review_type == "phase_ending_review" %}
+      This is a phase-ending review.
+      Follow the phase-ending review sequence in `.claude/agents/quality-mgr.md`:
+      - `requirements-plan-reviewer` when `docs/`, `plans/`, `pm/`, or checklist files changed
+      - one `ssot-auditor` per impacted SSOT section as the authoritative SSOT gate
+      - `regression-auditor` for build/test/stable-gate/artifact facts
+      - `qa-architect` as the final implementation gate
+      - `simplification-reviewer`
+      Do not substitute one broad single-sweep `ssot-auditor` for the phase-ending SSOT gate.
+      Regression-auditor must return the fenced JSON evidence block and quality-mgr must include it verbatim in the final report.
+      If `baseline_ref` is blank, require regression-auditor to report that as a finding.
+      If artifact regeneration is required, pass the exact artifact commands through to regression-auditor.
+      {% else %}
+      ERROR: unknown review_type `{{ review_type }}`. Fail the assignment back to team-lead instead of guessing.
+      {% endif %}
+    </step>
+    <step id="d">
+      Wait for all required reviewers to complete. Do not perform the review inline.
+    </step>
+    <step id="e">
+      Send one consolidated report to team-lead using the format specified in `.claude/agents/quality-mgr.md`.
+    </step>
+  </workflow>
+</atm-qa-task>

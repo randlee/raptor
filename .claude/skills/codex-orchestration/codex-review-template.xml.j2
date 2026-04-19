@@ -1,0 +1,94 @@
+---
+name: codex-review-task
+version: 1.0.0
+description: Codex agent review assignment template. Two modes: plan_document (plan/doc review) and critical_code (code review). Read-only — no code changes.
+format: xml
+required_variables:
+  - task_id
+  - sprint
+  - assignee
+  - review_mode
+  - branch
+  - worktree_path
+  - review_focus
+  - references
+optional_variables:
+  - plan_path
+  - plan_line_range
+  - commit
+defaults:
+  plan_path: ""
+  plan_line_range: ""
+  commit: ""
+---
+<atm-review id="{{ task_id }}" sprint="{{ sprint }}" assignee="{{ assignee }}" mode="{{ review_mode }}">
+
+  <branch>{{ branch }}</branch>
+  <worktree>{{ worktree_path }}</worktree>
+  {% if commit %}<commit>{{ commit }}</commit>{% endif %}
+
+  {% if plan_path %}
+  <source-plan>
+    <path>{{ plan_path }}</path>
+    <line-range>{{ plan_line_range }}</line-range>
+  </source-plan>
+  {% endif %}
+
+  <review-focus>
+{{ review_focus }}
+  </review-focus>
+
+  <references>
+{{ references }}
+  </references>
+
+  <task-sequencing>
+    Team-lead may queue this task before the current task is complete.
+    Reply to every assignment immediately when read.
+    If this task cannot start yet, reply with a queued status message that names the active task it is queued behind.
+    Do not run `atm ack` when merely queuing a task.
+    Run `atm ack` only when this task becomes the active task and execution is starting.
+    Execute queued assignments in order received unless this assignment explicitly says `INTERRUPT CURRENT TASK`.
+    For /codex-orchestration phased work, execute fixes from earliest sprint to latest sprint before starting later sprint work.
+    Do not switch branches or worktrees mid-task unless this assignment explicitly says `INTERRUPT CURRENT TASK`.
+    Normal dev/QA loop findings do not justify interruption.
+  </task-sequencing>
+
+  <start-decision>
+    Protocol reminder: Do not start or `atm ack` this task unless it is now the active queued task.
+
+    <choose evaluated-by="assignee-at-read-time">
+      <when test="another-task-is-already-active">
+        <command>atm send team-lead "received {{ task_id }}, queued after &lt;ACTIVE-TASK-ID&gt;"</command>
+        <action>Return immediately to the current in-progress task.</action>
+      </when>
+      <otherwise>
+        <command>atm ack "{{ task_id }}"</command>
+        <command>atm send team-lead "starting {{ task_id }} on {{ branch }}"</command>
+        <action>Begin execution immediately.</action>
+      </otherwise>
+    </choose>
+
+    Do not restate or summarize the assignment unless a real blocker prevents execution.
+  </start-decision>
+
+  <workflow>
+    <step id="a">Reply to this message immediately in ATM. If the task is starting now, say so explicitly. If the task is queued behind active work, say that explicitly.</step>
+    <step id="a1">Do not run `atm ack` unless this task is becoming the active task now.</step>
+    <step id="a2">When this task becomes active, run `atm ack` and send a start message naming the task id and branch.</step>
+    <step id="b">This is a read-only review. Do NOT make any code changes.</step>
+
+    {% if review_mode == "plan_document" %}
+    <step id="c"><!-- plan_document: specific review instructions go here --></step>
+    <step id="d"><!-- plan_document: output format goes here --></step>
+    {% elif review_mode == "critical_code" %}
+    <step id="c"><!-- critical_code: specific review instructions go here --></step>
+    <step id="d"><!-- critical_code: output format goes here --></step>
+    {% else %}
+    <step id="c">ERROR: unknown review_mode `{{ review_mode }}`. Fail the assignment back to team-lead instead of guessing.</step>
+    {% endif %}
+
+    <step id="e">Send findings report via ATM. After sending, read ATM again for follow-up work.</step>
+  </workflow>
+
+</atm-review>

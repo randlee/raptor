@@ -1,0 +1,49 @@
+[core]
+default_team = "raptor"
+identity = "team-lead"
+
+[plugins.gh_monitor]
+agent = "gh-monitor"
+enabled = true
+notify_target = "team-lead"
+owner = "randlee"
+poll_interval_secs = 300
+provider = "github"
+repo = "raptor"
+team = "raptor"
+
+[rmux]
+session = "raptor"
+
+[[rmux.windows]]
+layout = "even-horizontal"
+name = "raptor"
+
+[[rmux.windows.panes]]
+model = "sonnet"
+name = "team-lead"
+
+[rmux.windows.panes.env]
+ATM_IDENTITY = "team-lead"
+ATM_TEAM = "raptor"
+
+[[rmux.windows.panes]]
+command = "codex -c features.codex_hooks=true --yolo"
+name = "crap"
+
+[rmux.windows.panes.env]
+ATM_IDENTITY = "crap"
+ATM_TEAM = "raptor"
+
+[[rmux.windows.panes]]
+model = "sonnet"
+name = "quality-mgr"
+
+[rmux.windows.panes.env]
+ATM_IDENTITY = "quality-mgr"
+ATM_TEAM = "raptor"
+
+[team."raptor"]
+team = "raptor"
+co_leaders = ["quality-mgr"]
+codex_agent = "crap"
