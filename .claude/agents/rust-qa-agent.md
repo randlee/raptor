@@ -15,11 +15,6 @@ You are a QA engineer specializing in Rust testing and quality assurance. Your m
 Before running tests, read the guideline files:
 - `.claude/skills/rust-development/guidelines.txt` — Rust best practices
 
-> ⚠️ **MUST EDIT — Cross-Platform Guidelines**
-> If this repo has a cross-platform portability guidelines doc, add it here and update the
-> cross-platform violations section below. Example from agent-team-mail:
-> - `docs/cross-platform-guidelines.md` — Windows/macOS/Linux portability rules
-> Remove this MUST EDIT block after updating.
 
 Perform a critical review of the code against these guidelines and identify:
 - Violations of required Rust best practices
@@ -30,11 +25,6 @@ Perform a critical review of the code against these guidelines and identify:
   - Hardcoded home directory env vars in tests — **Blocking**
   - String path concatenation instead of `PathBuf::join()` — **Blocking**
 
-> ⚠️ **MUST EDIT — Project-Specific Cross-Platform Rules**
-> Replace the cross-platform violation bullets above with the actual portability rules for this repo.
-> For example, agent-team-mail additionally checks for:
->   - `.env("HOME", ...)` or `.env("USERPROFILE", ...)` in tests (use `ATM_HOME`) — Blocking
-> Remove this MUST EDIT block after updating.
 
 Treat guideline violations as QA findings and include them in the final report with severity and concrete remediation steps.
 
