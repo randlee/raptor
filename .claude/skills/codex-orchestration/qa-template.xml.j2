@@ -94,46 +94,31 @@ defaults:
     <step id="c">
       Review type for this assignment: {{ review_type }}.
       Launch the required reviewers exactly as specified in `.claude/agents/quality-mgr.md` for this review type.
+      If the work touches Rust code, Cargo manifests, or Rust design docs, also read `.claude/assets/sc-rust/quality-mgr/quality-mgr.rust.md` and apply its Rust-specific reviewer rules.
       Do not substitute your own reviewer selection logic.
       Every reviewer must be launched with `run_in_background: true`.
       Required Agent tool shape:
       ```json
       {
-        "subagent_type": "qa-architect",
+        "subagent_type": "req-qa",
         "prompt": "...",
-        "run_in_background": true
+        "run_in_background": true,
+        "max_turns": 20
       }
       ```
-      Replace `subagent_type` and `prompt` as needed per reviewer, but keep `run_in_background: true`.
+      Replace `subagent_type`, `prompt`, and `max_turns` as needed per reviewer, but keep `run_in_background: true`.
 
       {% if review_type == "plan_gate" %}
       This is a document / plan gate.
-      Launch:
-      - `requirements-plan-reviewer`
-      - `qa-architect`
-      Do not launch `ssot-auditor` unless the assignment explicitly includes SSOT implementation review.
+      Follow the Plan Gate rules from `.claude/agents/quality-mgr.md`.
       {% elif review_type == "sprint_review" %}
       This is a sprint / fix implementation review.
-      Always launch:
-      - `qa-architect`
-      - `regression-auditor`
-      - `simplification-reviewer`
-      Also launch one `ssot-auditor` if the changed scope touches SSOT-governed paths, as defined in `.claude/agents/quality-mgr.md`.
-      Regression-auditor must run full validation and return fenced JSON evidence. Do not accept a prose-only PASS.
-      If `baseline_ref` is blank, require regression-auditor to report that as a finding.
-      If artifact regeneration is required, pass the exact artifact commands through to regression-auditor.
+      Follow the Sprint / Fix QA rules from `.claude/agents/quality-mgr.md`.
+      If Rust work is in scope, render the installed Rust assignment templates instead of inventing ad hoc JSON payloads.
       {% elif review_type == "phase_ending_review" %}
       This is a phase-ending review.
-      Follow the phase-ending review sequence in `.claude/agents/quality-mgr.md`:
-      - `requirements-plan-reviewer` when `docs/`, `plans/`, `pm/`, or checklist files changed
-      - one `ssot-auditor` per impacted SSOT section as the authoritative SSOT gate
-      - `regression-auditor` for build/test/stable-gate/artifact facts
-      - `qa-architect` as the final implementation gate
-      - `simplification-reviewer`
-      Do not substitute one broad single-sweep `ssot-auditor` for the phase-ending SSOT gate.
-      Regression-auditor must return the fenced JSON evidence block and quality-mgr must include it verbatim in the final report.
-      If `baseline_ref` is blank, require regression-auditor to report that as a finding.
-      If artifact regeneration is required, pass the exact artifact commands through to regression-auditor.
+      Follow the Phase-Ending Review rules from `.claude/agents/quality-mgr.md`.
+      If Rust work is in scope, apply the phase-ending Rust reviewer additions from `.claude/assets/sc-rust/quality-mgr/quality-mgr.rust.md`.
       {% else %}
       ERROR: unknown review_type `{{ review_type }}`. Fail the assignment back to team-lead instead of guessing.
       {% endif %}

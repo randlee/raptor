@@ -147,7 +147,7 @@ atm gh pr list       # open PRs and CI status
 ## Step 9 — Notify Teammates
 
 ```bash
-atm send arch-ctm "New session (session-id: <SESSION_ID>). Team $ATM_TEAM restored. Please acknowledge and confirm status."
+atm send crap "New session (session-id: <SESSION_ID>). Team $ATM_TEAM restored. Please acknowledge and confirm status."
 ```
 
 If no response within ~60s, nudge via tmux:

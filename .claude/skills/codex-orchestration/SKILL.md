@@ -1,12 +1,12 @@
 ---
 name: codex-orchestration
 version: 2.1.0
-description: Orchestrate multi-sprint phases where {CODEX_AGENT} (Codex) is the sole developer, with pipelined QA via quality-mgr teammate. Team-lead chooses the review type; quality-mgr chooses the reviewers.
+description: Orchestrate multi-sprint phases where crap (Codex) is the sole developer, with pipelined QA via quality-mgr teammate. Team-lead chooses the review type; quality-mgr chooses the reviewers.
 ---
 
 # Codex Orchestration
 
-This skill defines how team-lead orchestrates phases where **`{CODEX_AGENT}` (Codex)** is the sole developer, executing sprints sequentially while QA runs in parallel via a dedicated **quality-mgr** teammate.
+This skill defines how team-lead orchestrates phases where **`crap` (Codex)** is the sole developer, executing sprints sequentially while QA runs in parallel via a dedicated **quality-mgr** teammate.
 
 ## Core Rule
 
@@ -32,7 +32,7 @@ Team-lead must:
 - identify the exact sprint or fix slice being assigned
 - extract that sprint scope as written
 - wrap it in `dev-template.xml.j2`
-- send it to `{CODEX_AGENT}`
+- send it to `crap`
 
 Team-lead must **not**:
 
@@ -45,17 +45,17 @@ The correct workflow is:
 
 1. read the plan
 2. extract the sprint slice
-3. send that slice to `{CODEX_AGENT}` through the dev template
+3. send that slice to `crap` through the dev template
 
 The plan is the spec.
 
 ## Task Sequencing
 
-Team-lead must keep `{CODEX_AGENT}`'s ATM inbox preloaded during phased work.
+Team-lead must keep `crap`'s ATM inbox preloaded during phased work.
 
 Required execution model:
 
-- `{CODEX_AGENT}` replies immediately when a task is read
+- `crap` replies immediately when a task is read
 - queued tasks get a receipt message, not an `atm ack`
 - `atm ack` happens only when that task becomes active and execution starts
 - queued assignments execute in order received unless a task explicitly says `INTERRUPT CURRENT TASK`
@@ -63,7 +63,7 @@ Required execution model:
 - team-lead must queue the next known task as soon as the current task is started
 - do not wait for task completion or validation before queueing the next known task
 - failure to queue follow-on work can stall the phase and is a workflow failure
-- `{CODEX_AGENT}` prioritizes queued work using the assignment/template rules, not ad hoc nudges
+- `crap` prioritizes queued work using the assignment/template rules, not ad hoc nudges
 
 ## Interrupt Policy
 
@@ -71,9 +71,9 @@ Required execution model:
 
 Valid interrupt reasons:
 
-- `{CODEX_AGENT}` is working from incorrect instructions
-- `{CODEX_AGENT}` is on the wrong branch or worktree
-- `{CODEX_AGENT}`'s current work conflicts with another agent's work
+- `crap` is working from incorrect instructions
+- `crap` is on the wrong branch or worktree
+- `crap`'s current work conflicts with another agent's work
 - continuing the current task would produce invalid output because the task basis is wrong
 
 Not valid interrupt reasons:
@@ -83,7 +83,7 @@ Not valid interrupt reasons:
 - a new QA finding on another branch/worktree
 - team-lead preference to reprioritize work already correctly queued
 
-Do not interrupt for normal dev/QA loop work. Queue the fix and let `{CODEX_AGENT}` reach it in order.
+Do not interrupt for normal dev/QA loop work. Queue the fix and let `crap` reach it in order.
 
 ## Nudge Text
 
@@ -160,10 +160,7 @@ Use for:
 - phase plans
 - checklist/status corrections
 
-Expected reviewers:
-
-- `requirements-plan-reviewer`
-- `qa-architect`
+Expected reviewers are defined by `.claude/agents/quality-mgr.md` and, for Rust work, `.claude/assets/sc-rust/quality-mgr/quality-mgr.rust.md`.
 
 ### Sprint Review
 
@@ -173,12 +170,7 @@ Use for:
 - fix-pass QA
 - re-run QA after findings are addressed
 
-Expected reviewers:
-
-- always `qa-architect`
-- always `regression-auditor`
-- always `simplification-reviewer`
-- one `ssot-auditor` when the changed scope touches SSOT-governed paths
+Expected reviewers are defined by `.claude/agents/quality-mgr.md` and, for Rust work, `.claude/assets/sc-rust/quality-mgr/quality-mgr.rust.md`.
 
 ### Phase-Ending Review
 
@@ -187,15 +179,7 @@ Use for:
 - integration branch readiness
 - whole-phase closeout review
 
-Expected reviewers:
-
-- `requirements-plan-reviewer` when phase docs, plans, `pm/` files, or checklists changed
-- `simplification-reviewer` — mandatory, no exceptions
-- one `ssot-auditor` per impacted SSOT section as the authoritative SSOT gate
-- `regression-auditor` for build/test/stable-gate/artifact facts
-- `qa-architect` as the final implementation QA gate
-
-Do not substitute one broad single-sweep `ssot-auditor` for the phase-ending SSOT gate. A broad sweep may be run as an optional comparison pass only.
+Expected reviewers are defined by `.claude/agents/quality-mgr.md` and, for Rust work, `.claude/assets/sc-rust/quality-mgr/quality-mgr.rust.md`.
 
 ## Pre-PR Merge Check
 
@@ -206,7 +190,7 @@ git log origin/integrate/phase-{P}..origin/{branch} --oneline   # commits unique
 git log origin/{branch}..origin/integrate/phase-{P} --oneline   # commits missing from branch (must be empty)
 ```
 
-If the second command shows commits, have `{CODEX_AGENT}` merge forward before opening the PR:
+If the second command shows commits, have `crap` merge forward before opening the PR:
 
 ```bash
 git fetch origin && git merge origin/integrate/phase-{P}
@@ -216,14 +200,14 @@ Missing merges cause pre-existing test failures that block CI and cause QA agent
 
 ## Workflow
 
-1. `{CODEX_AGENT}` replies immediately when a new assignment is read.
-2. if the assignment is not starting yet, `{CODEX_AGENT}` reports it as queued behind the current task and continues active work.
-3. when a queued task becomes active, `{CODEX_AGENT}` runs `atm ack` and sends a start message with task id + branch/worktree.
-4. as soon as `{CODEX_AGENT}` starts task `N`, team-lead queues the next known task.
-5. `{CODEX_AGENT}` completes the task and reports branch + SHA.
+1. `crap` replies immediately when a new assignment is read.
+2. if the assignment is not starting yet, `crap` reports it as queued behind the current task and continues active work.
+3. when a queued task becomes active, `crap` runs `atm ack` and sends a start message with task id + branch/worktree.
+4. as soon as `crap` starts task `N`, team-lead queues the next known task.
+5. `crap` completes the task and reports branch + SHA.
 6. team-lead opens PR and starts CI monitoring.
-7. team-lead creates the next dev worktree for `{CODEX_AGENT}`.
-8. team-lead reads the active plan, extracts the next sprint slice verbatim, and sends that sprint assignment to `{CODEX_AGENT}`.
+7. team-lead creates the next dev worktree for `crap`.
+8. team-lead reads the active plan, extracts the next sprint slice verbatim, and sends that sprint assignment to `crap`.
 9. team-lead sends the QA assignment to `quality-mgr` using `qa-template.xml.j2` with the correct `review_type`.
 10. quality-mgr launches reviewers per its own prompt and returns one consolidated report.
 11. team-lead schedules fixes if needed.
@@ -231,9 +215,8 @@ Missing merges cause pre-existing test failures that block CI and cause QA agent
 
 ## Anti-Patterns
 
-- Do not hardcode "two QA agents" in team-lead workflow.
-- Do not choose reviewers in the template instead of `quality-mgr`.
-- Do not rewrite sprint scope before assigning it to `{CODEX_AGENT}`.
+- Do not hardcode reviewer names in team-lead workflow or templates. `quality-mgr` chooses the reviewers.
+- Do not rewrite sprint scope before assigning it to `crap`.
 - Do not summarize the plan when the sprint can be extracted directly.
 - Do not treat team-lead interpretation as authoritative over the plan text.
 - Do not assume every newly delivered assignment should start immediately.
@@ -242,10 +225,7 @@ Missing merges cause pre-existing test failures that block CI and cause QA agent
 - Do not schedule a later-sprint task ahead of an earlier-sprint fix in the same phase unless the assignment explicitly overrides queue order.
 - Do not wait for a task to finish before queueing the next known task.
 - Do not expand task content into a nudge.
-- Do not skip `qa-architect` on plan gates.
-- Do not skip the `regression-auditor` on sprint reviews.
-- Do not skip `simplification-reviewer` on sprint or phase-ending reviews.
-- Do not accept sprint or phase implementation QA without fenced JSON regression evidence.
-- Do not use one broad single-sweep `ssot-auditor` as the only SSOT gate for a phase-ending review.
-- Do not omit workflow steps from task messages — embed them every time; `{CODEX_AGENT}` does not remember prior instructions.
+- Do not skip the repo-defined mandatory reviewers from `quality-mgr.md`.
+- Do not accept sprint or phase implementation QA without fenced JSON evidence from the launched reviewers.
+- Do not omit workflow steps from task messages — embed them every time; `crap` does not remember prior instructions.
 - Do not open a PR without first running the Pre-PR Merge Check.

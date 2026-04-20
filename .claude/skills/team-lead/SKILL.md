@@ -49,34 +49,28 @@ After initialization, the team-lead uses these skills to coordinate the team:
 
 | Skill | Trigger |
 |-------|---------|
-| `/phase-orchestration` | Orchestrate a multi-sprint phase (sprint waves, scrum-master lifecycle, integration branch, arch-ctm reviews) |
-| `/codex-orchestration` | Run phases where arch-ctm (Codex) is sole dev, with pipelined QA via quality-mgr |
-| `/quality-management-gh` | Multi-pass QA on GitHub PRs; CI monitoring; findings/final quality reports. **Simple fixes/small features only** — team-lead runs `atm-qa-agent` + `rust-qa-agent` directly in parallel. For multi-sprint phases use `/phase-orchestration` or `/codex-orchestration` instead. |
+| `/rust-phase-orchestration` | Run a multi-sprint Rust phase where `quality-mgr` owns reviewer selection through `quality-mgr.rust` |
+| `/codex-orchestration` | Run phased development where `crap` is the sole developer and `quality-mgr` handles QA coordination |
+| `/quality-management-gh` | Multi-pass QA on GitHub PRs; CI monitoring; findings/final quality reports |
 | `/sprint-report` | Generate phase status table or detailed report |
-| `/atm-doctor` | Run ATM health diagnostics; escalate critical findings to atm-doctor agent |
-| `/named-teammate-launch` | Launch and verify named teammates (Claude/Codex/Gemini) with mailbox polling |
 
 > Additional orchestration guides are in `.claude/skills/*/SKILL.md`. Consult
 > the relevant skill before starting a new phase or delegating to a teammate.
 
 ### Phased Development — MANDATORY
 
-> ⚠️ **For any multi-sprint phased development, `/codex-orchestration` or
-> `/phase-orchestration` MUST be used as directed by the user. Using ad-hoc
+> ⚠️ **For any multi-sprint phased development, `/codex-orchestration`
+> or `/rust-phase-orchestration` MUST be used as directed by the user. Using ad-hoc
 > coordination instead of these skills leads to process drift, missed
 > communications, and inconsistent QA gates.**
 
 **After every session start or context compaction**, if a phase is in progress:
 
-1. Identify which **one** skill governs the active phase — either
-   `/codex-orchestration` or `/phase-orchestration`. **Read only that one.**
-2. If unsure which applies, **ask the user immediately** and read the correct
-   skill before taking any coordination action.
+1. Identify which one governs the active phase: `/codex-orchestration` or `/rust-phase-orchestration`. Read only that one unless the user explicitly redirects.
+2. If the user explicitly directs a different orchestration surface later, stop and confirm before taking coordination action.
 3. Resume execution from the last documented state — do not rely on memory
    alone.
 
-> Do not read both skills. Do not guess. If unsure — ask first, read immediately.
->
 > Skipping this re-read is the primary cause of process drift between sessions.
 
 ---
@@ -88,7 +82,7 @@ When assigning work to any teammate:
 1. **Create or update the task list** — `TaskCreate` or `TaskUpdate` with assignee and description before sending the first message.
 2. **Include in the assignment message**:
    - The task and its scope (link to worktree, relevant issues, design docs)
-   - Applicable development guidelines (`docs/cross-platform-guidelines.md`, Rust guidelines, etc.)
+   - Applicable development guidelines (`.claude/skills/team-lead/cross-platform-guidelines.md`, Rust guidelines, etc.)
    - Expected deliverables and acceptance criteria
 3. **Use Jinja2 templates** (see `/codex-orchestration` skill) that require:
    - **Immediate ACK** when the agent starts the skill
@@ -99,7 +93,7 @@ When assigning work to any teammate:
 
 - **No ACK = work is not being done.** If a teammate does not acknowledge within a reasonable
   window, assume the message was not received and follow up (nudge via tmux for Codex agents).
-- **Codex agents (`{CODEX_AGENT}`)** do not receive message injection — they only see
+- **Codex agents (`crap`)** do not receive message injection — they only see
   new messages when they check mail after their current task completes. Do not assume they
   received a message until they ACK.
 
