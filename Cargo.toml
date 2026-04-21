@@ -1,0 +1,26 @@
+[workspace]
+resolver = "2"
+members = [
+    "crates/raptor-core",
+    "crates/raptor-cli",
+]
+
+[workspace.package]
+version = "0.1.0"
+edition = "2024"
+authors = ["raptor contributors"]
+license = "MIT OR Apache-2.0"
+repository = "https://github.com/randlee/raptor"
+homepage = "https://github.com/randlee/raptor"
+rust-version = "1.85"
+
+[workspace.dependencies]
+# Error handling
+thiserror = "2.0"
+anyhow = "1.0"
+
+# CLI
+clap = { version = "4", features = ["derive"] }
+
+# Internal
+raptor-core = { path = "crates/raptor-core", version = "=0.1.0" }
