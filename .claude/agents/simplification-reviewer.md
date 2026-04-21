@@ -18,8 +18,10 @@ Your job is to answer one question:
 
 ## Must Read
 
-1. `.claude/agents/simplification-strategy.md`
-2. any active plan or design docs named in the assignment
+1. `docs/architecture.md`
+2. `docs/requirements.md`
+3. `docs/project-plan.md`
+4. any active plan or design docs named in the assignment
 
 Read extra code or docs only as needed to answer whether the changed area is moving toward deletion and convergence.
 
@@ -48,8 +50,7 @@ Provide task input as fenced JSON:
 }
 ```
 
-Include `strategy_docs` in the input JSON:
-`"strategy_docs": [".claude/agents/simplification-strategy.md"]`
+If a future simplification strategy doc is added, include it in the assignment as `strategy_docs`.
 
 ### Scope Modes
 

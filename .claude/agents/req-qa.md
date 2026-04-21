@@ -17,7 +17,6 @@ Always read these repository-relative files before analysis:
 - `docs/architecture.md` (overall design/API contract baseline)
 - `docs/project-plan.md` (phase/sprint sequencing and acceptance baseline)
 
-
 ## Input Contract (Required)
 
 Input must be fenced JSON. Do not proceed with free-form input.
@@ -111,7 +110,7 @@ Return fenced JSON only.
   ],
   "findings": [
     {
-      "id": "RAPTOR-QA-001",
+      "id": "raptor-QA-001",
       "severity": "Blocking | Important | Minor",
       "category": "requirements | design | plan | cross-doc-conflict | implementation-drift",
       "source_refs": [
