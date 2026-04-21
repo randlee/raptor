@@ -1,0 +1,19 @@
+[package]
+name = "raptor-cli"
+version.workspace = true
+edition.workspace = true
+authors.workspace = true
+license.workspace = true
+repository.workspace = true
+homepage.workspace = true
+rust-version.workspace = true
+description = "CLI for raptor"
+
+[[bin]]
+name = "raptor"
+path = "src/main.rs"
+
+[dependencies]
+raptor-core.workspace = true
+clap.workspace = true
+anyhow.workspace = true

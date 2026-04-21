@@ -1,0 +1,54 @@
+agents:
+  quality-mgr:
+    path: .claude/agents/quality-mgr.md
+    version: 1.12.0
+  req-qa:
+    path: .claude/agents/req-qa.md
+    version: 1.0.0
+  arch-qa:
+    path: .claude/agents/arch-qa.md
+    version: 1.0.0
+  simplification-reviewer:
+    path: .claude/agents/simplification-reviewer.md
+    version: 1.0.0
+  rust-architect:
+    path: .claude/agents/rust-architect.md
+    version: 0.11.0
+  rust-best-practices-agent:
+    path: .claude/agents/rust-best-practices-agent.md
+    version: 0.11.0
+  rust-code-explorer:
+    path: .claude/agents/rust-code-explorer.md
+    version: 0.11.0
+  rust-code-reviewer:
+    path: .claude/agents/rust-code-reviewer.md
+    version: 0.11.0
+  rust-developer:
+    path: .claude/agents/rust-developer.md
+    version: 0.11.0
+  rust-qa-agent:
+    path: .claude/agents/rust-qa-agent.md
+    version: 0.11.0
+  rust-service-hardening-agent:
+    path: .claude/agents/rust-service-hardening-agent.md
+    version: 0.11.0
+skills:
+  rust-development:
+    depends_on:
+      rust-architect: 0.x
+      rust-code-reviewer: 0.x
+      rust-code-explorer: 0.x
+      rust-developer: 0.x
+  rust-best-practices:
+    depends_on:
+      rust-best-practices-agent: 0.x
+      rust-architect: 0.x
+      rust-code-reviewer: 0.x
+      rust-code-explorer: 0.x
+  rust-service-hardening:
+    depends_on:
+      rust-service-hardening-agent: 0.x
+      rust-architect: 0.x
+      rust-code-reviewer: 0.x
+      rust-code-explorer: 0.x
+      rust-qa-agent: 0.x

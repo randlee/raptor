@@ -46,7 +46,7 @@ Use fenced JSON for machine-readable status payloads:
   },
   "blocking_ids": ["QA-001"],
   "next_action": "Fix failing validation",
-  "owner": "{CODEX_AGENT}",
+  "owner": "crap",
   "merge_readiness": "not ready",
   "merge_reason": "Blocking findings remain"
 }
@@ -90,13 +90,15 @@ Template: `.claude/skills/quality-management-gh/findings-report.md.j2`
 
 For `FAIL` — post as blocking review:
 ```bash
-sc-compose render .claude/skills/quality-management-gh/findings-report.md.j2 \
+sc-compose render --root .claude/skills/quality-management-gh \
+  --file findings-report.md.j2 \
   --var-file <vars.json> | gh pr review <PR> --request-changes --body-file -
 ```
 
 For `IN-FLIGHT` — post as comment (do not oscillate review states):
 ```bash
-sc-compose render .claude/skills/quality-management-gh/findings-report.md.j2 \
+sc-compose render --root .claude/skills/quality-management-gh \
+  --file findings-report.md.j2 \
   --var-file <vars.json> | gh pr comment <PR> --body-file -
 ```
 
@@ -112,7 +114,8 @@ gh pr review <PR> --request-changes --body-file <fallback.md>
 Template: `.claude/skills/quality-management-gh/quality-report.md.j2`
 
 ```bash
-sc-compose render .claude/skills/quality-management-gh/quality-report.md.j2 \
+sc-compose render --root .claude/skills/quality-management-gh \
+  --file quality-report.md.j2 \
   --var-file <vars.json> | gh pr review <PR> --approve --body-file -
 ```
 

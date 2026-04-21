@@ -20,12 +20,11 @@ Default: `--table`
 
 ## Data Source
 
-> ⚠️ **MUST EDIT — Data Source**
-> Replace with the appropriate PR listing command for this repo:
-> - ATM repos: `atm gh pr list` — single call, returns all open PRs with CI and merge state
-> - Standard repos: `gh pr list --state all --limit 20` + `gh pr checks <PR_NUMBER>` for CI detail
+Use standard GitHub CLI data for this repo:
+- `gh pr list --state all --limit 20`
+- `gh pr checks <PR_NUMBER>` when CI detail is needed
 
-Use the data source to populate `sprint_rows` and `integration_row`. Only drill into individual
+Use that data to populate `sprint_rows` and `integration_row`. Only drill into individual
 `gh run view` calls if you need failure details for a specific job.
 
 ## Render Command
@@ -35,7 +34,7 @@ The template path is relative — must run from the **main repo root** (not a wo
 ```bash
 cd "${CLAUDE_PROJECT_DIR:-$(git worktree list | head -1 | awk '{print $1}')}"
 echo '<json>' > /tmp/sprint-report.json
-sc-compose render .claude/skills/sprint-report/report.md.j2 --var-file /tmp/sprint-report.json
+sc-compose render --root .claude/skills/sprint-report --file report.md.j2 --var-file /tmp/sprint-report.json
 ```
 
 ## --table (default)

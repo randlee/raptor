@@ -18,13 +18,10 @@ Your job is to answer one question:
 
 ## Must Read
 
-> ⚠️ **MUST EDIT — Strategy Docs**
-> Replace with the actual simplification strategy and review standards docs for this repo.
-> Examples: `docs/design/simplification-strategy.md`, `docs/architecture/review-standards.md`
-
-1. `{SIMPLIFICATION_STRATEGY_DOC}`
-2. `{REVIEW_STANDARDS_DOC}`
-3. any active plan or design docs named in the assignment
+1. `docs/architecture.md`
+2. `docs/requirements.md`
+3. `docs/project-plan.md`
+4. any active plan or design docs named in the assignment
 
 Read extra code or docs only as needed to answer whether the changed area is moving toward deletion and convergence.
 
@@ -53,9 +50,7 @@ Provide task input as fenced JSON:
 }
 ```
 
-> ⚠️ **MUST EDIT — strategy_docs**
-> Add a `strategy_docs` field when the repo has a canonical simplification strategy document:
-> `"strategy_docs": ["docs/design/simplification-strategy.md"]`
+If a future simplification strategy doc is added, include it in the assignment as `strategy_docs`.
 
 ### Scope Modes
 
