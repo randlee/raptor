@@ -1,16 +1,11 @@
-[core]
+[atm]
 default_team = "raptor"
-identity = "team-lead"
-
-[plugins.gh_monitor]
-agent = "gh-monitor"
-enabled = true
-notify_target = "team-lead"
-owner = "randlee"
-poll_interval_secs = 300
-provider = "github"
-repo = "raptor"
-team = "raptor"
+post_send_hook = [
+    "/bin/bash",
+    "-c",
+    "task_id=$(echo \"$ATM_POST_SEND\" | jq -r '.task_id // empty' 2>/dev/null); msg=\"You have unread ATM messages. Run: atm read --team raptor${task_id:+ (task: $task_id)}\"; tmux send-keys -t raptor:raptor.2 -l \"$msg\" && sleep 0.2 && tmux send-keys -t raptor:raptor.2 Enter && sleep 0.5 && tmux send-keys -t raptor:raptor.2 Enter"
+]
+post_send_hook_recipients = ["c-rap"]
 
 [rmux]
 session = "raptor"
@@ -29,10 +24,10 @@ ATM_TEAM = "raptor"
 
 [[rmux.windows.panes]]
 command = "codex -c features.codex_hooks=true --yolo"
-name = "crap"
+name = "c-rap"
 
 [rmux.windows.panes.env]
-ATM_IDENTITY = "crap"
+ATM_IDENTITY = "c-rap"
 ATM_TEAM = "raptor"
 
 [[rmux.windows.panes]]
@@ -46,4 +41,12 @@ ATM_TEAM = "raptor"
 [team."raptor"]
 team = "raptor"
 co_leaders = ["quality-mgr"]
-codex_agent = "crap"
+codex_agent = "c-rap"
+
+[startup.team-lead]
+"startup,resume" = [ "Load /team-lead skill and verify team communications is working before proceeding.", ]
+clear = [ "Load /team-lead skill and verify team communications is working before proceeding.", ]
+compact = [ "Load /codex-orchestration skill.", "Use sc-compose and jinja2 templates for all task assignment.", ]
+
+[startup.quality-mgr]
+all = [ "This is your directive:", "@file:.claude/agents/quality-mgr.md", ]

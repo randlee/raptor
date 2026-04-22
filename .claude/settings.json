@@ -1,0 +1,42 @@
+{
+  "hooks": {
+    "SessionStart": [
+      {
+        "matcher": "startup",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "python3 \"$CLAUDE_PROJECT_DIR/.claude/hooks/session_start_context.py\" --mode startup --atm-team \"$ATM_TEAM\" --atm-identity \"$ATM_IDENTITY\""
+          }
+        ]
+      },
+      {
+        "matcher": "resume",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "python3 \"$CLAUDE_PROJECT_DIR/.claude/hooks/session_start_context.py\" --mode resume --atm-team \"$ATM_TEAM\" --atm-identity \"$ATM_IDENTITY\""
+          }
+        ]
+      },
+      {
+        "matcher": "clear",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "python3 \"$CLAUDE_PROJECT_DIR/.claude/hooks/session_start_context.py\" --mode clear --atm-team \"$ATM_TEAM\" --atm-identity \"$ATM_IDENTITY\""
+          }
+        ]
+      },
+      {
+        "matcher": "compact",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "python3 \"$CLAUDE_PROJECT_DIR/.claude/hooks/session_start_context.py\" --mode compact --atm-team \"$ATM_TEAM\" --atm-identity \"$ATM_IDENTITY\""
+          }
+        ]
+      }
+    ]
+  }
+}
