@@ -1,52 +1,49 @@
 [atm]
+identity = "team-lead"
 default_team = "raptor"
-post_send_hook = [
-    "/bin/bash",
-    "-c",
-    "task_id=$(echo \"$ATM_POST_SEND\" | jq -r '.task_id // empty' 2>/dev/null); msg=\"You have unread ATM messages. Run: atm read --team raptor${task_id:+ (task: $task_id)}\"; tmux send-keys -t raptor:raptor.2 -l \"$msg\" && sleep 0.2 && tmux send-keys -t raptor:raptor.2 Enter && sleep 0.5 && tmux send-keys -t raptor:raptor.2 Enter"
-]
-post_send_hook_recipients = ["c-rap"]
 
 [rmux]
 session = "raptor"
 
+# Window 1: core agents (lead + primary codex + QA)
 [[rmux.windows]]
+name = "agents"
 layout = "even-horizontal"
-name = "raptor"
 
 [[rmux.windows.panes]]
-model = "sonnet"
 name = "team-lead"
-
-[rmux.windows.panes.env]
-ATM_IDENTITY = "team-lead"
-ATM_TEAM = "raptor"
-
-[[rmux.windows.panes]]
-command = "codex -c features.codex_hooks=true --yolo"
-name = "c-rap"
-
-[rmux.windows.panes.env]
-ATM_IDENTITY = "c-rap"
-ATM_TEAM = "raptor"
-
-[[rmux.windows.panes]]
+alias = "rap-lead"
 model = "sonnet"
+env = { ATM_IDENTITY = "team-lead", ATM_TEAM = "raptor" }
+
+[[rmux.windows.panes]]
+name = "c-rap"
+command = "codex -c features.hooks=true --model gpt-5.6-terra --yolo"
+env = { ATM_IDENTITY = "c-rap", ATM_TEAM = "raptor" }
+
+[[rmux.windows.panes]]
 name = "quality-mgr"
+alias = "rap-quality-mgr"
+model = "sonnet"
+env = { ATM_IDENTITY = "quality-mgr", ATM_TEAM = "raptor" }
 
-[rmux.windows.panes.env]
-ATM_IDENTITY = "quality-mgr"
-ATM_TEAM = "raptor"
+# Window 2: additional workers (luna + astra)
+[[rmux.windows]]
+name = "workers"
+layout = "even-horizontal"
 
-[team."raptor"]
-team = "raptor"
-co_leaders = ["quality-mgr"]
-codex_agent = "c-rap"
+[[rmux.windows.panes]]
+name = "l-rap"
+command = "codex -c features.hooks=true --model gpt-5.6-luna --yolo"
+env = { ATM_IDENTITY = "l-rap", ATM_TEAM = "raptor" }
+
+[[rmux.windows.panes]]
+name = "a-rap"
+command = "codex -c features.hooks=true --model gpt-6-astra --yolo"
+env = { ATM_IDENTITY = "a-rap", ATM_TEAM = "raptor" }
 
 [startup.team-lead]
-"startup,resume" = [ "Load /team-lead skill and verify team communications is working before proceeding.", ]
-clear = [ "Load /team-lead skill and verify team communications is working before proceeding.", ]
-compact = [ "Load /codex-orchestration skill.", "Use sc-compose and jinja2 templates for all task assignment.", ]
+all = ["Read /codex-orchestration SKILL.md"]
 
 [startup.quality-mgr]
-all = [ "This is your directive:", "@file:.claude/agents/quality-mgr.md", ]
+all = ["This is your directive:", "@file:.claude/agents/quality-mgr.md"]
