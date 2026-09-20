@@ -2,9 +2,11 @@ from __future__ import annotations
 
 from typing import Literal
 
-from pydantic import ConfigDict, model_validator
+from pydantic import ConfigDict, Field, GetJsonSchemaHandler, model_validator
+from pydantic.json_schema import JsonSchemaValue
+from pydantic_core import core_schema
 
-from .base import ContractModel, DocumentId, ProfileId, ProfileVersion, RepositoryId, RepositoryPath, Sha256
+from .base import ContractModel, DocumentId, NonEmptyText, ProfileId, ProfileVersion, RepositoryId, RepositoryPath, Sha256
 
 
 class OriginProvenance(ContractModel):
@@ -26,7 +28,7 @@ class MaterializationProvenance(ContractModel):
     parent_content_sha256: Sha256 | None = None
     parser_profile: ProfileId
     parser_profile_version: ProfileVersion
-    template_set: str | None = None
+    template_set: NonEmptyText | None = None
     template_version: ProfileVersion | None = None
 
     @model_validator(mode="after")
@@ -48,9 +50,39 @@ class MaterializationProvenance(ContractModel):
                 raise ValueError("rendered materialization requires template identity")
         return self
 
+    @classmethod
+    def __get_pydantic_json_schema__(
+        cls, schema: core_schema.CoreSchema, handler: GetJsonSchemaHandler
+    ) -> JsonSchemaValue:
+        result = handler(schema)
+        result["allOf"] = [
+            {
+                "if": {"properties": {"operation": {"const": "imported"}}},
+                "then": {
+                    "properties": {
+                        "parent_content_sha256": {"type": "null"},
+                        "template_set": {"type": "null"},
+                        "template_version": {"type": "null"},
+                    }
+                },
+            },
+            {
+                "if": {"properties": {"operation": {"const": "rendered"}}},
+                "then": {
+                    "required": ["parent_content_sha256", "template_set", "template_version"],
+                    "properties": {
+                        "parent_content_sha256": {"type": "string"},
+                        "template_set": {"type": "string", "minLength": 1, "pattern": r"\S"},
+                        "template_version": {"type": "string"},
+                    },
+                },
+            },
+        ]
+        return result
+
 
 class SourceProvenance(ContractModel):
-    origin: OriginProvenance
+    origin: OriginProvenance = Field(frozen=True)
     materialization: MaterializationProvenance
 
     @model_validator(mode="after")

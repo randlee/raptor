@@ -84,8 +84,7 @@ def test_render_helper_recomputes_hash_and_allows_transport_location_change(docu
     )
     assert provenance.materialization.content_sha256 == hashlib.sha256(content).hexdigest()
     assert validate_provenance_transition(baseline.provenance, provenance) is provenance
-    moved = baseline.model_copy(deep=True)
-    moved.provenance = provenance
+    moved = baseline.model_copy(deep=True, update={"provenance": provenance})
     moved.artifacts[0].source_location = {"start_line": 1, "start_column": 1}  # type: ignore[assignment]
     assert moved.artifacts[0].source_location != baseline.artifacts[0].source_location
     assert moved.provenance.origin == baseline.provenance.origin
@@ -126,6 +125,19 @@ def test_origin_provenance_rejects_assignment(
 ) -> None:
     with pytest.raises(ValidationError, match="frozen"):
         setattr(document.provenance.origin, field, value)
+
+
+def test_origin_and_document_provenance_reject_whole_replacement(
+    document: SourceDocument,
+) -> None:
+    other_origin = document.provenance.origin.model_copy(
+        update={"document_id": "DOC-RAP-099"}
+    )
+    with pytest.raises(ValidationError, match="frozen"):
+        setattr(document.provenance, "origin", other_origin)
+    other_provenance = document.provenance.model_copy(update={"origin": other_origin})
+    with pytest.raises(ValidationError, match="frozen"):
+        setattr(document, "provenance", other_provenance)
 
 
 def imported_materialization() -> dict[str, object]:

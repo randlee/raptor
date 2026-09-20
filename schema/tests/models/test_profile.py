@@ -84,6 +84,54 @@ def test_profile_descriptor_is_data_only() -> None:
 
 
 @pytest.mark.parametrize(
+    ("field", "value", "error"),
+    [
+        ("profile_id", "Bad Profile", ValidationError),
+        ("profile_version", "1", ValidationError),
+        ("api_version", "2", ValueError),
+        ("entrypoint", "   ", ValueError),
+        ("entrypoint", 1, ValueError),
+        ("module_sha256", "A" * 64, ValidationError),
+    ],
+)
+def test_profile_descriptor_runtime_constraints(
+    field: str, value: object, error: type[Exception]
+) -> None:
+    values: dict[str, object] = {
+        "profile_id": "consumer",
+        "profile_version": "1.0.0",
+        "api_version": "1",
+        "entrypoint": "profile.py:Profile",
+        "module_sha256": "a" * 64,
+    }
+    values[field] = value
+    with pytest.raises(error):
+        ProfileDescriptor(**values)  # type: ignore[arg-type]
+
+
+@pytest.mark.parametrize(
+    ("field", "value", "error"),
+    [
+        ("schema_version", "2.0.0", ValidationError),
+        ("origin", object(), TypeError),
+        ("artifacts", [], TypeError),
+        ("artifacts", (object(),), TypeError),
+    ],
+)
+def test_comparable_document_runtime_constraints(
+    document: SourceDocument, field: str, value: object, error: type[Exception]
+) -> None:
+    values: dict[str, object] = {
+        "schema_version": document.schema_version,
+        "origin": document.provenance.origin,
+        "artifacts": tuple(ArtifactSnapshot.from_artifact(item) for item in document.artifacts),
+    }
+    values[field] = value
+    with pytest.raises(error):
+        ComparableDocument(**values)  # type: ignore[arg-type]
+
+
+@pytest.mark.parametrize(
     "path",
     [PurePosixPath("."), PurePosixPath(""), PurePosixPath("/absolute.md"), PurePosixPath("../escape.md")],
     ids=["current-directory", "empty", "absolute", "parent-escape"],
@@ -157,14 +205,19 @@ def test_boundary_types_are_deeply_immutable(
         setattr(source, "content", b"changed")
 
     attributes: dict[str, object] = {"nested": {"items": [1, 2]}}
+    location = SourceLocation(start_line=1, start_column=1)
     section = ParsedSection(
         kind="requirement",
         heading="Requirement",
         body="body",
-        location=SourceLocation(start_line=1, start_column=1),
+        location=location,
         attributes=attributes,  # type: ignore[arg-type]
     )
     attributes["nested"] = "changed"
+    assert section.location is not location
+    with pytest.raises(ValidationError, match="frozen"):
+        setattr(location, "start_line", 2)
+    assert section.location.start_line == 1
     assert section.attributes["nested"] != "changed"
     with pytest.raises(TypeError):
         section.attributes["new"] = True  # type: ignore[index]
@@ -176,6 +229,8 @@ def test_boundary_types_are_deeply_immutable(
     assert isinstance(items, tuple)
     with pytest.raises(AttributeError):
         items.append(3)  # type: ignore[union-attr]
+    with pytest.raises(ValidationError, match="frozen"):
+        setattr(section.location, "start_line", 2)
 
     frontmatter: dict[str, object] = {"tags": ["one"]}
     sections = [section]

@@ -36,6 +36,22 @@ def test_location_negative_matrix(value: dict[str, int | None]) -> None:
         SourceLocation.model_validate(value)
 
 
+@pytest.mark.parametrize("field", ["start_line", "start_column", "end_line", "end_column"])
+@pytest.mark.parametrize("value", [True, "1", 1.5, 0, -1])
+def test_location_rejects_non_strict_or_non_positive_integers(
+    field: str, value: object
+) -> None:
+    candidate: dict[str, object] = {
+        "start_line": 1,
+        "start_column": 1,
+        "end_line": 2,
+        "end_column": 1,
+    }
+    candidate[field] = value
+    with pytest.raises(ValidationError):
+        SourceLocation.model_validate(candidate)
+
+
 def diagnostic_value() -> dict[str, object]:
     return {
         "code": "RAPTOR.PROFILE.VALIDATION",

@@ -1,8 +1,15 @@
 from __future__ import annotations
 
-from pydantic import TypeAdapter, model_validator
+from pydantic import Field, TypeAdapter, model_validator
 
-from .base import ContractModel, DocumentId, RepositoryId, RepositoryPath, SchemaVersion
+from .base import (
+    DOCUMENT_ID_RE,
+    ContractModel,
+    DocumentId,
+    RepositoryId,
+    RepositoryPath,
+    SchemaVersion,
+)
 
 IDENTITY_MISSING = "RAPTOR.IDENTITY.MISSING"
 IDENTITY_REPOSITORY_CONFLICT = "RAPTOR.IDENTITY.REPOSITORY_CONFLICT"
@@ -18,7 +25,9 @@ class IdentityDocument(ContractModel):
 class IdentityManifest(ContractModel):
     identity_version: SchemaVersion
     repository_id: RepositoryId
-    documents: dict[DocumentId, IdentityDocument]
+    documents: dict[DocumentId, IdentityDocument] = Field(
+        json_schema_extra={"propertyNames": {"pattern": DOCUMENT_ID_RE}}
+    )
 
     @model_validator(mode="after")
     def unique_paths(self) -> "IdentityManifest":

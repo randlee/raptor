@@ -5,6 +5,8 @@
       "properties": {
         "alternatives": {
           "items": {
+            "minLength": 1,
+            "pattern": "\\S",
             "type": "string"
           },
           "title": "Alternatives",
@@ -17,6 +19,8 @@
         },
         "consequences": {
           "items": {
+            "minLength": 1,
+            "pattern": "\\S",
             "type": "string"
           },
           "minItems": 1,
@@ -24,10 +28,14 @@
           "type": "array"
         },
         "context": {
+          "minLength": 1,
+          "pattern": "\\S",
           "title": "Context",
           "type": "string"
         },
         "decision": {
+          "minLength": 1,
+          "pattern": "\\S",
           "title": "Decision",
           "type": "string"
         },
@@ -36,6 +44,9 @@
             "^[a-z][a-z0-9]*(\\.[a-z][a-z0-9_-]*)+$": {
               "$ref": "#/$defs/JsonValue"
             }
+          },
+          "propertyNames": {
+            "pattern": "^[a-z][a-z0-9]*(\\.[a-z][a-z0-9_-]*)+$"
           },
           "title": "Extensions",
           "type": "object"
@@ -69,6 +80,8 @@
         "summary": {
           "anyOf": [
             {
+              "minLength": 1,
+              "pattern": "\\S",
               "type": "string"
             },
             {
@@ -80,6 +93,8 @@
         },
         "title": {
           "maxLength": 200,
+          "minLength": 1,
+          "pattern": "\\S",
           "title": "Title",
           "type": "string"
         }
@@ -123,6 +138,8 @@
         "description": {
           "anyOf": [
             {
+              "minLength": 1,
+              "pattern": "\\S",
               "type": "string"
             },
             {
@@ -200,10 +217,14 @@
         },
         "name": {
           "maxLength": 200,
+          "minLength": 1,
+          "pattern": "\\S",
           "title": "Name",
           "type": "string"
         },
         "responsibility": {
+          "minLength": 1,
+          "pattern": "\\S",
           "title": "Responsibility",
           "type": "string"
         }
@@ -237,6 +258,9 @@
               "$ref": "#/$defs/JsonValue"
             }
           },
+          "propertyNames": {
+            "pattern": "^[a-z][a-z0-9]*(\\.[a-z][a-z0-9_-]*)+$"
+          },
           "title": "Extensions",
           "type": "object"
         },
@@ -253,6 +277,8 @@
           "type": "array"
         },
         "overview": {
+          "minLength": 1,
+          "pattern": "\\S",
           "title": "Overview",
           "type": "string"
         },
@@ -280,6 +306,8 @@
         "summary": {
           "anyOf": [
             {
+              "minLength": 1,
+              "pattern": "\\S",
               "type": "string"
             },
             {
@@ -291,6 +319,8 @@
         },
         "title": {
           "maxLength": 200,
+          "minLength": 1,
+          "pattern": "\\S",
           "title": "Title",
           "type": "string"
         }
@@ -310,17 +340,23 @@
       "additionalProperties": false,
       "properties": {
         "description": {
+          "minLength": 1,
+          "pattern": "\\S",
           "title": "Description",
           "type": "string"
         },
         "name": {
           "maxLength": 200,
+          "minLength": 1,
+          "pattern": "\\S",
           "title": "Name",
           "type": "string"
         },
         "participants": {
           "items": {
             "maxLength": 200,
+            "minLength": 1,
+            "pattern": "\\S",
             "type": "string"
           },
           "minItems": 2,
@@ -353,6 +389,59 @@
     },
     "MaterializationProvenance": {
       "additionalProperties": false,
+      "allOf": [
+        {
+          "if": {
+            "properties": {
+              "operation": {
+                "const": "imported"
+              }
+            }
+          },
+          "then": {
+            "properties": {
+              "parent_content_sha256": {
+                "type": "null"
+              },
+              "template_set": {
+                "type": "null"
+              },
+              "template_version": {
+                "type": "null"
+              }
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "operation": {
+                "const": "rendered"
+              }
+            }
+          },
+          "then": {
+            "properties": {
+              "parent_content_sha256": {
+                "type": "string"
+              },
+              "template_set": {
+                "minLength": 1,
+                "pattern": "\\S",
+                "type": "string"
+              },
+              "template_version": {
+                "type": "string"
+              }
+            },
+            "required": [
+              "parent_content_sha256",
+              "template_set",
+              "template_version"
+            ]
+          }
+        }
+      ],
       "properties": {
         "content_sha256": {
           "pattern": "^[0-9a-f]{64}$",
@@ -391,12 +480,16 @@
           "type": "string"
         },
         "repository_path": {
+          "minLength": 1,
+          "pattern": "^(?!/)(?!\\.{1,2}(?:/|$))(?!.*(?:/\\.{1,2})(?:/|$))(?!.*//)(?!.*\\\\).+$",
           "title": "Repository Path",
           "type": "string"
         },
         "template_set": {
           "anyOf": [
             {
+              "minLength": 1,
+              "pattern": "\\S",
               "type": "string"
             },
             {
@@ -574,6 +667,8 @@
           "type": "string"
         },
         "name": {
+          "minLength": 1,
+          "pattern": "\\S",
           "title": "Name",
           "type": "string"
         },
@@ -624,6 +719,8 @@
         "unit": {
           "anyOf": [
             {
+              "minLength": 1,
+              "pattern": "\\S",
               "type": "string"
             },
             {
@@ -647,6 +744,8 @@
       "properties": {
         "acceptance_criteria": {
           "items": {
+            "minLength": 1,
+            "pattern": "\\S",
             "type": "string"
           },
           "minItems": 1,
@@ -663,6 +762,9 @@
             "^[a-z][a-z0-9]*(\\.[a-z][a-z0-9_-]*)+$": {
               "$ref": "#/$defs/JsonValue"
             }
+          },
+          "propertyNames": {
+            "pattern": "^[a-z][a-z0-9]*(\\.[a-z][a-z0-9_-]*)+$"
           },
           "title": "Extensions",
           "type": "object"
@@ -694,6 +796,8 @@
         "rationale": {
           "anyOf": [
             {
+              "minLength": 1,
+              "pattern": "\\S",
               "type": "string"
             },
             {
@@ -722,6 +826,8 @@
           "default": null
         },
         "statement": {
+          "minLength": 1,
+          "pattern": "\\S",
           "title": "Statement",
           "type": "string"
         },
@@ -731,6 +837,8 @@
         "summary": {
           "anyOf": [
             {
+              "minLength": 1,
+              "pattern": "\\S",
               "type": "string"
             },
             {
@@ -742,6 +850,8 @@
         },
         "title": {
           "maxLength": 200,
+          "minLength": 1,
+          "pattern": "\\S",
           "title": "Title",
           "type": "string"
         }
@@ -768,6 +878,8 @@
           "type": "string"
         },
         "initial_repository_path": {
+          "minLength": 1,
+          "pattern": "^(?!/)(?!\\.{1,2}(?:/|$))(?!.*(?:/\\.{1,2})(?:/|$))(?!.*//)(?!.*\\\\).+$",
           "title": "Initial Repository Path",
           "type": "string"
         },
@@ -836,6 +948,8 @@
       "properties": {
         "acceptance_criteria": {
           "items": {
+            "minLength": 1,
+            "pattern": "\\S",
             "type": "string"
           },
           "minItems": 1,
@@ -852,6 +966,9 @@
             "^[a-z][a-z0-9]*(\\.[a-z][a-z0-9_-]*)+$": {
               "$ref": "#/$defs/JsonValue"
             }
+          },
+          "propertyNames": {
+            "pattern": "^[a-z][a-z0-9]*(\\.[a-z][a-z0-9_-]*)+$"
           },
           "title": "Extensions",
           "type": "object"
@@ -875,6 +992,8 @@
         "rationale": {
           "anyOf": [
             {
+              "minLength": 1,
+              "pattern": "\\S",
               "type": "string"
             },
             {
@@ -903,6 +1022,8 @@
           "default": null
         },
         "statement": {
+          "minLength": 1,
+          "pattern": "\\S",
           "title": "Statement",
           "type": "string"
         },
@@ -912,6 +1033,8 @@
         "summary": {
           "anyOf": [
             {
+              "minLength": 1,
+              "pattern": "\\S",
               "type": "string"
             },
             {
@@ -923,6 +1046,8 @@
         },
         "title": {
           "maxLength": 200,
+          "minLength": 1,
+          "pattern": "\\S",
           "title": "Title",
           "type": "string"
         }
@@ -940,6 +1065,32 @@
     },
     "SourceLocation": {
       "additionalProperties": false,
+      "allOf": [
+        {
+          "if": {
+            "required": [
+              "end_line"
+            ]
+          },
+          "then": {
+            "required": [
+              "end_column"
+            ]
+          }
+        },
+        {
+          "if": {
+            "required": [
+              "end_column"
+            ]
+          },
+          "then": {
+            "required": [
+              "end_line"
+            ]
+          }
+        }
+      ],
       "properties": {
         "end_column": {
           "anyOf": [
@@ -1006,6 +1157,8 @@
       "additionalProperties": false,
       "properties": {
         "expected_result": {
+          "minLength": 1,
+          "pattern": "\\S",
           "title": "Expected Result",
           "type": "string"
         },
@@ -1016,6 +1169,8 @@
         },
         "steps": {
           "items": {
+            "minLength": 1,
+            "pattern": "\\S",
             "type": "string"
           },
           "minItems": 1,
@@ -1024,6 +1179,8 @@
         },
         "title": {
           "maxLength": 200,
+          "minLength": 1,
+          "pattern": "\\S",
           "title": "Title",
           "type": "string"
         },
@@ -1056,6 +1213,8 @@
         },
         "entry_criteria": {
           "items": {
+            "minLength": 1,
+            "pattern": "\\S",
             "type": "string"
           },
           "title": "Entry Criteria",
@@ -1063,6 +1222,8 @@
         },
         "exit_criteria": {
           "items": {
+            "minLength": 1,
+            "pattern": "\\S",
             "type": "string"
           },
           "title": "Exit Criteria",
@@ -1074,6 +1235,9 @@
               "$ref": "#/$defs/JsonValue"
             }
           },
+          "propertyNames": {
+            "pattern": "^[a-z][a-z0-9]*(\\.[a-z][a-z0-9_-]*)+$"
+          },
           "title": "Extensions",
           "type": "object"
         },
@@ -1083,6 +1247,8 @@
           "type": "string"
         },
         "objective": {
+          "minLength": 1,
+          "pattern": "\\S",
           "title": "Objective",
           "type": "string"
         },
@@ -1094,6 +1260,8 @@
           "type": "array"
         },
         "scope": {
+          "minLength": 1,
+          "pattern": "\\S",
           "title": "Scope",
           "type": "string"
         },
@@ -1114,6 +1282,8 @@
         "summary": {
           "anyOf": [
             {
+              "minLength": 1,
+              "pattern": "\\S",
               "type": "string"
             },
             {
@@ -1133,6 +1303,8 @@
         },
         "title": {
           "maxLength": 200,
+          "minLength": 1,
+          "pattern": "\\S",
           "title": "Title",
           "type": "string"
         }
@@ -1158,6 +1330,7 @@
           "type": "string"
         },
         "target_uri": {
+          "pattern": "^(?:https?://[^/\\s]+(?:[/?#].*)?|urn:[^\\s]+)$",
           "title": "Target Uri",
           "type": "string"
         }
@@ -1210,7 +1383,7 @@
       "$ref": "#/$defs/SourceProvenance"
     },
     "schema_version": {
-      "pattern": "^[1-9][0-9]*\\.[0-9]+\\.[0-9]+$",
+      "pattern": "^1\\.[0-9]+\\.[0-9]+$",
       "title": "Schema Version",
       "type": "string"
     }

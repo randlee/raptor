@@ -31,7 +31,7 @@ def test_unknown_field_and_bad_version_rejected(document_dict: dict[str, object]
         SourceDocument.model_validate(document_dict)
     document_dict.pop("surprise")
     document_dict["schema_version"] = "2.0.0"
-    with pytest.raises(ValidationError, match="unsupported schema major"):
+    with pytest.raises(ValidationError, match="String should match pattern"):
         SourceDocument.model_validate(document_dict)
 
 
@@ -65,7 +65,7 @@ def test_relationship_ordering_duplicate_and_extension_namespace(document_dict: 
 def test_uri_and_json_extension_constraints(document_dict: dict[str, object]) -> None:
     artifact = document_dict["artifacts"][0]  # type: ignore[index]
     artifact["relationships"][0]["target"]["target_uri"] = "relative"  # type: ignore[index]
-    with pytest.raises(ValidationError, match="URI scheme"):
+    with pytest.raises(ValidationError, match="String should match pattern"):
         SourceDocument.model_validate(document_dict)
     artifact["relationships"][0]["target"]["target_uri"] = "urn:raptor:test"  # type: ignore[index]
     artifact["extensions"] = {"raptor.number": float("nan")}  # type: ignore[index]

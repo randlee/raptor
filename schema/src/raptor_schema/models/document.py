@@ -9,7 +9,7 @@ from .provenance import SourceProvenance
 
 class SourceDocument(ContractModel):
     schema_version: SchemaVersion
-    provenance: SourceProvenance
+    provenance: SourceProvenance = Field(frozen=True)
     artifacts: list[Artifact] = Field(min_length=1)
 
     @model_validator(mode="after")

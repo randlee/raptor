@@ -4,7 +4,9 @@ from enum import Enum
 from typing import Annotated, Literal
 from urllib.parse import urlparse
 
-from pydantic import Field, field_validator, model_validator
+from pydantic import ConfigDict, Field, GetJsonSchemaHandler, StrictInt, field_validator, model_validator
+from pydantic.json_schema import JsonSchemaValue
+from pydantic_core import core_schema
 
 from .base import (
     ArtifactId,
@@ -72,10 +74,12 @@ class ArtifactKey(ContractModel):
 
 
 class SourceLocation(ContractModel):
-    start_line: int = Field(ge=1)
-    start_column: int = Field(ge=1)
-    end_line: int | None = Field(default=None, ge=1)
-    end_column: int | None = Field(default=None, ge=1)
+    model_config = ConfigDict(extra="forbid", validate_assignment=True, frozen=True)
+
+    start_line: StrictInt = Field(ge=1)
+    start_column: StrictInt = Field(ge=1)
+    end_line: StrictInt | None = Field(default=None, ge=1)
+    end_column: StrictInt | None = Field(default=None, ge=1)
 
     @model_validator(mode="after")
     def validate_end(self) -> "SourceLocation":
@@ -87,6 +91,17 @@ class SourceLocation(ContractModel):
         ):
             raise ValueError("end position may not precede start position")
         return self
+
+    @classmethod
+    def __get_pydantic_json_schema__(
+        cls, schema: core_schema.CoreSchema, handler: GetJsonSchemaHandler
+    ) -> JsonSchemaValue:
+        result = handler(schema)
+        result["allOf"] = [
+            {"if": {"required": ["end_line"]}, "then": {"required": ["end_column"]}},
+            {"if": {"required": ["end_column"]}, "then": {"required": ["end_line"]}},
+        ]
+        return result
 
 
 class ArtifactTarget(ContractModel):
@@ -100,7 +115,7 @@ class ArtifactTarget(ContractModel):
 
 class UriTarget(ContractModel):
     target_kind: Literal["uri"]
-    target_uri: str
+    target_uri: str = Field(pattern=r"^(?:https?://[^/\s]+(?:[/?#].*)?|urn:[^\s]+)$")
 
     @field_validator("target_uri")
     @classmethod

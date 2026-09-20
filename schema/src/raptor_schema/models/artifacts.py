@@ -7,7 +7,16 @@ from pydantic import Field, GetJsonSchemaHandler, JsonValue, StrictBool, StrictF
 from pydantic.json_schema import JsonSchemaValue
 from pydantic_core import core_schema
 
-from .base import ArtifactId, ContractModel, ExtensionKey, NonEmptyText, TestCaseId, Title, reject_non_finite
+from .base import (
+    EXTENSION_KEY_RE,
+    ArtifactId,
+    ContractModel,
+    ExtensionKey,
+    NonEmptyText,
+    TestCaseId,
+    Title,
+    reject_non_finite,
+)
 from .common import (
     ArtifactKey,
     ArtifactRelationship,
@@ -136,7 +145,10 @@ class ArtifactBase(ContractModel):
     status: LifecycleStatus
     summary: NonEmptyText | None = None
     relationships: list[ArtifactRelationship] = Field(default_factory=list)
-    extensions: dict[ExtensionKey, JsonValue] = Field(default_factory=dict)
+    extensions: dict[ExtensionKey, JsonValue] = Field(
+        default_factory=dict,
+        json_schema_extra={"propertyNames": {"pattern": EXTENSION_KEY_RE}},
+    )
     source_location: SourceLocation | None = None
 
     @field_validator("relationships")

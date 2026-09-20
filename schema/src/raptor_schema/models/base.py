@@ -1,10 +1,9 @@
 from __future__ import annotations
 
 import math
-import posixpath
 from typing import Annotated, TypeAlias
 
-from pydantic import AfterValidator, BaseModel, ConfigDict, JsonValue, StringConstraints
+from pydantic import AfterValidator, BaseModel, ConfigDict, JsonValue, StringConstraints, WithJsonSchema
 
 SCHEMA_VERSION_RE = r"^[1-9][0-9]*\.[0-9]+\.[0-9]+$"
 REPOSITORY_ID_RE = r"^urn:raptor:repo:[a-z0-9][a-z0-9._-]{2,127}$"
@@ -24,26 +23,16 @@ def _trim(value: str) -> str:
     return value
 
 
-def _schema_version(value: str) -> str:
-    if value.split(".", 1)[0] != "1":
-        raise ValueError("unsupported schema major; only major 1 is accepted")
-    return value
-
-
 def _repository_path(value: str) -> str:
     if not value or value.startswith("/") or "\\" in value:
         raise ValueError("must be a non-empty repository-relative POSIX path")
     parts = value.split("/")
     if any(part in {"", ".", ".."} for part in parts):
         raise ValueError("path may not contain empty, '.' or '..' segments")
-    if posixpath.normpath(value) != value:
-        raise ValueError("path must be normalized")
     return value
 
 
-SchemaVersion = Annotated[
-    str, StringConstraints(pattern=SCHEMA_VERSION_RE), AfterValidator(_schema_version)
-]
+SchemaVersion = Annotated[str, StringConstraints(pattern=r"^1\.[0-9]+\.[0-9]+$")]
 ProfileVersion = Annotated[str, StringConstraints(pattern=SCHEMA_VERSION_RE)]
 RepositoryId = Annotated[str, StringConstraints(pattern=REPOSITORY_ID_RE)]
 DocumentId = Annotated[str, StringConstraints(pattern=DOCUMENT_ID_RE)]
@@ -53,9 +42,25 @@ ExtensionKey = Annotated[str, StringConstraints(pattern=EXTENSION_KEY_RE)]
 ProfileId = Annotated[str, StringConstraints(pattern=PROFILE_ID_RE)]
 DiagnosticCode = Annotated[str, StringConstraints(pattern=DIAGNOSTIC_CODE_RE)]
 TestCaseId = Annotated[str, StringConstraints(pattern=TEST_CASE_ID_RE)]
-RepositoryPath = Annotated[str, AfterValidator(_repository_path)]
-Title = Annotated[str, StringConstraints(max_length=200), AfterValidator(_trim)]
-NonEmptyText = Annotated[str, AfterValidator(_trim)]
+RepositoryPath = Annotated[
+    str,
+    WithJsonSchema(
+        {
+            "type": "string",
+            "minLength": 1,
+            "pattern": r"^(?!/)(?!\.{1,2}(?:/|$))(?!.*(?:/\.{1,2})(?:/|$))(?!.*//)(?!.*\\).+$",
+        }
+    ),
+    AfterValidator(_repository_path),
+]
+Title = Annotated[
+    str,
+    StringConstraints(min_length=1, max_length=200, pattern=r"\S"),
+    AfterValidator(_trim),
+]
+NonEmptyText = Annotated[
+    str, StringConstraints(min_length=1, pattern=r"\S"), AfterValidator(_trim)
+]
 JsonObject: TypeAlias = dict[str, JsonValue]
 
 

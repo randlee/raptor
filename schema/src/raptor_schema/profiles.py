@@ -27,6 +27,10 @@ from .models.base import reject_non_finite
 _REPOSITORY_ID_ADAPTER = TypeAdapter(RepositoryId)
 _DOCUMENT_ID_ADAPTER = TypeAdapter(DocumentId)
 _JSON_OBJECT_ADAPTER = TypeAdapter(JsonObject)
+_SCHEMA_VERSION_ADAPTER = TypeAdapter(SchemaVersion)
+_PROFILE_ID_ADAPTER = TypeAdapter(ProfileId)
+_PROFILE_VERSION_ADAPTER = TypeAdapter(ProfileVersion)
+_SHA256_ADAPTER = TypeAdapter(Sha256)
 
 FrozenJsonValue: TypeAlias = (
     None | bool | int | float | str | tuple["FrozenJsonValue", ...] | Mapping[str, "FrozenJsonValue"]
@@ -91,7 +95,6 @@ class SourceInput:
         relative = self.repository_path
         if (
             str(relative) == "."
-            or not relative.parts
             or relative.is_absolute()
             or any(part in {"", ".", ".."} for part in relative.parts)
         ):
@@ -113,6 +116,9 @@ class ParsedSection:
     attributes: FrozenJsonObject
 
     def __post_init__(self) -> None:
+        if not isinstance(self.location, SourceLocation):
+            raise TypeError("location must be SourceLocation")
+        object.__setattr__(self, "location", self.location.model_copy(deep=True))
         source = cast(Mapping[str, JsonValue], self.attributes)
         object.__setattr__(self, "attributes", _snapshot_mapping(source))
 
@@ -150,6 +156,14 @@ class ComparableDocument:
     artifacts: tuple[ArtifactSnapshot, ...]
 
     def __post_init__(self) -> None:
+        schema_version = _SCHEMA_VERSION_ADAPTER.validate_python(self.schema_version)
+        if not isinstance(self.origin, OriginProvenance):
+            raise TypeError("origin must be OriginProvenance")
+        if not isinstance(self.artifacts, tuple) or any(
+            not isinstance(item, ArtifactSnapshot) for item in self.artifacts
+        ):
+            raise TypeError("artifacts must be a tuple of ArtifactSnapshot values")
+        object.__setattr__(self, "schema_version", schema_version)
         object.__setattr__(self, "artifacts", tuple(self.artifacts))
 
 
@@ -160,6 +174,19 @@ class ProfileDescriptor:
     api_version: Literal["1"]
     entrypoint: str
     module_sha256: Sha256
+
+    def __post_init__(self) -> None:
+        profile_id = _PROFILE_ID_ADAPTER.validate_python(self.profile_id)
+        profile_version = _PROFILE_VERSION_ADAPTER.validate_python(self.profile_version)
+        module_sha256 = _SHA256_ADAPTER.validate_python(self.module_sha256)
+        if self.api_version != "1":
+            raise ValueError("api_version must be '1'")
+        if not isinstance(self.entrypoint, str) or not self.entrypoint.strip():
+            raise ValueError("entrypoint must be a non-empty string")
+        object.__setattr__(self, "profile_id", profile_id)
+        object.__setattr__(self, "profile_version", profile_version)
+        object.__setattr__(self, "entrypoint", self.entrypoint.strip())
+        object.__setattr__(self, "module_sha256", module_sha256)
 
 
 class SourceProfile(Protocol):
