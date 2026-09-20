@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import json
 from pathlib import Path
 
 import pytest
@@ -18,6 +19,16 @@ from runtime.transactions import apply_render_transaction, recover_render_transa
 
 REPO = Path(__file__).resolve().parents[4]
 FIXTURE = REPO / "plugins/raptor/tests/fixtures/raptor/requirement.json"
+
+
+def _recover(root: Path, key: DocumentKey) -> dict[str, object]:
+    return recover_render_transaction(
+        root,
+        key,
+        old_path="docs/requirements.md",
+        new_path="docs/rendered.md",
+        database="raptor.sqlite",
+    )
 
 
 def _repository(tmp_path: Path) -> tuple[Path, SourceDocument, RenderedDocument]:
@@ -57,7 +68,15 @@ def test_transaction_commits_output_identity_and_database(tmp_path: Path) -> Non
     assert (root / "docs/rendered.md").read_bytes() == rendered.content
 
 
-@pytest.mark.parametrize("boundary", ["after_prepared", "after_output_committed"])
+@pytest.mark.parametrize(
+    "boundary",
+    [
+        "after_prepared",
+        "before_output_committed",
+        "after_output_committed",
+        "before_identity_committed",
+    ],
+)
 def test_pre_identity_crash_recovers_by_rollback(tmp_path: Path, boundary: str) -> None:
     root, previous, rendered = _repository(tmp_path)
     with pytest.raises(RuntimeError, match="injected failure"):
@@ -73,15 +92,18 @@ def test_pre_identity_crash_recovers_by_rollback(tmp_path: Path, boundary: str) 
         repository_id=previous.provenance.origin.repository_id,
         document_id=previous.provenance.origin.document_id,
     )
-    assert recover_render_transaction(root, key)["state"] == "rolled_back"
+    assert _recover(root, key)["state"] == "rolled_back"
 
 
 @pytest.mark.parametrize(
     "boundary",
     [
+        "before_db_pending",
         "after_identity_committed",
         "after_db_pending",
+        "before_db_commit",
         "after_db_commit",
+        "before_complete",
         "after_complete",
     ],
 )
@@ -102,11 +124,25 @@ def test_post_identity_crash_recovers_by_roll_forward(
         repository_id=previous.provenance.origin.repository_id,
         document_id=previous.provenance.origin.document_id,
     )
-    result = recover_render_transaction(root, key)
+    result = _recover(root, key)
     assert result["state"] == "complete"
     store = SQLiteArtifactStore(root / "raptor.sqlite")
     assert store.get_document(key) == rendered.document
     store.close()
+
+
+def test_failure_before_prepared_has_no_transaction(tmp_path: Path) -> None:
+    root, previous, rendered = _repository(tmp_path)
+    with pytest.raises(RuntimeError):
+        apply_render_transaction(
+            root,
+            previous,
+            rendered.document,
+            rendered.content,
+            "raptor.sqlite",
+            fail_at="before_prepared",
+        )
+    assert not list((root / ".raptor/transactions").glob("*.json"))
 
 
 def test_lock_exclusion_db_pending_conflict_and_cleanup(tmp_path: Path) -> None:
@@ -139,9 +175,9 @@ def test_lock_exclusion_db_pending_conflict_and_cleanup(tmp_path: Path) -> None:
     saved = database.read_bytes()
     database.unlink()
     with pytest.raises(ValueError, match="DB_PENDING"):
-        recover_render_transaction(root, key)
+        _recover(root, key)
     database.write_bytes(saved)
-    assert recover_render_transaction(root, key)["state"] == "complete"
+    assert _recover(root, key)["state"] == "complete"
     sidecars = [
         path
         for path in (root / ".raptor/transactions").iterdir()
@@ -167,4 +203,30 @@ def test_recovery_refuses_changed_committed_output(tmp_path: Path) -> None:
         document_id=previous.provenance.origin.document_id,
     )
     with pytest.raises(ValueError, match="RECOVERY_CONFLICT"):
-        recover_render_transaction(root, key)
+        _recover(root, key)
+
+
+def test_forged_marker_path_is_rejected_without_deleting_target(tmp_path: Path) -> None:
+    root, previous, rendered = _repository(tmp_path)
+    with pytest.raises(RuntimeError):
+        apply_render_transaction(
+            root,
+            previous,
+            rendered.document,
+            rendered.content,
+            "raptor.sqlite",
+            fail_at="after_prepared",
+        )
+    marker_path = next((root / ".raptor/transactions").glob("*.json"))
+    marker = json.loads(marker_path.read_text())
+    victim = root / "do-not-delete.txt"
+    victim.write_text("safe")
+    marker["output_stage_path"] = "do-not-delete.txt"
+    marker_path.write_text(json.dumps(marker))
+    key = DocumentKey(
+        repository_id=previous.provenance.origin.repository_id,
+        document_id=previous.provenance.origin.document_id,
+    )
+    with pytest.raises(ValueError, match="RECOVERY_CONFLICT"):
+        _recover(root, key)
+    assert victim.read_text() == "safe"

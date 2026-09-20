@@ -8,11 +8,5 @@ required_variables:
 ---
 {{ provenance_block }}
 {% for artifact in artifacts %}### {{ artifact.id }} — {{ artifact.title }}
-{{ artifact.statement }}
-Acceptance: {{ artifact.acceptance_criteria | join('; ') }}
-Status: {{ artifact.status }}
-Rationale: {{ artifact.rationale }}
-Priority: {{ artifact.priority }}
-Relationships: {{ artifact.relationships_json }}
-Extensions: {{ artifact.extensions_json }}
+{{ artifact.body }}
 {% endfor %}

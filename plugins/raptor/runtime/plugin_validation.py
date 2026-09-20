@@ -8,7 +8,8 @@ import subprocess
 import tempfile
 from pathlib import Path
 from typing import cast
-from .rendering import SC_COMPOSE_RANGE, resolve_sc_compose
+from .rendering import resolve_sc_compose
+from .requirements import load_sc_compose_requirement
 from .vendor import check
 from .routes import unsupported_envelope
 from .strict_json import loads
@@ -489,15 +490,11 @@ def validate_plugin(
                     f"skill version constraint is incompatible: {skill}/{agent}"
                 )
     manifest = json.loads((root / "plugin-manifest.json").read_text())
-    cli_requirement = {
-        "name": "sc-compose",
-        "version": SC_COMPOSE_RANGE,
-        "version_command": ["sc-compose", "--version"],
-    }
+    cli_requirement = load_sc_compose_requirement(root)
     if manifest.get("requires", {}).get("cli") != [cli_requirement]:
         raise PluginValidationError("manifest sc-compose requirement drifted")
     if check_cli is not None:
-        if check_cli != "sc-compose" or expected_range != SC_COMPOSE_RANGE:
+        if check_cli != "sc-compose" or expected_range != cli_requirement["version"]:
             raise PluginValidationError("CLI check differs from manifest requirement")
         resolve_sc_compose()
     for name, entry in registry["agents"].items():

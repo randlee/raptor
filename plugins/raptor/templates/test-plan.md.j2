@@ -8,12 +8,5 @@ required_variables:
 ---
 {{ provenance_block }}
 {% for artifact in artifacts %}### {{ artifact.id }} — {{ artifact.title }}
-Objective: {{ artifact.objective }}
-Scope: {{ artifact.scope }}
-Test Cases: {{ artifact.test_cases_json }}
-Entry Criteria: {{ artifact.entry_criteria | join('; ') }}
-Exit Criteria: {{ artifact.exit_criteria | join('; ') }}
-Status: {{ artifact.status }}
-Relationships: {{ artifact.relationships_json }}
-Extensions: {{ artifact.extensions_json }}
+{{ artifact.body }}
 {% endfor %}

@@ -54,11 +54,11 @@ def test_every_family_renders_deterministically_and_round_trips(index: int) -> N
     assert first.document.provenance.origin == document.provenance.origin
     assert first.document.provenance.materialization.operation == "rendered"
     expected_labels = (
-        (b"Acceptance:", b"Relationships:", b"Extensions:"),
-        (b"Quality Attribute:", b"Measurement:", b"Acceptance:"),
-        (b"## Context", b"## Decision", b"## Consequences"),
-        (b"Overview:", b"Components:", b"Interfaces:"),
-        (b"Objective:", b"Test Cases:", b"Exit Criteria:"),
+        (b"Statement:", b"Canonical Artifact:"),
+        (b"Statement:", b"Canonical Artifact:"),
+        (b"Decision:", b"Canonical Artifact:"),
+        (b"Overview:", b"Canonical Artifact:"),
+        (b"Objective:", b"Canonical Artifact:"),
     )
     assert all(label in first.content for label in expected_labels[index])
 
@@ -98,6 +98,27 @@ def test_sc_compose_version_boundary(
     else:
         with pytest.raises(ValueError, match="SC_COMPOSE_VERSION"):
             resolve_sc_compose()
+
+
+def test_sc_compose_missing_and_non_executable(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    monkeypatch.setattr(rendering, "_sc_compose_candidates", lambda: ())
+    with pytest.raises(ValueError, match="SC_COMPOSE_MISSING"):
+        resolve_sc_compose()
+    candidate = tmp_path / "sc-compose"
+    candidate.write_text("#!/bin/sh\necho 'sc-compose 1.6.1'\n")
+    monkeypatch.setattr(rendering, "_sc_compose_candidates", lambda: (candidate,))
+    with pytest.raises(ValueError, match="SC_COMPOSE_MISSING"):
+        resolve_sc_compose()
+
+
+def test_sc_compose_candidates_include_user_base(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setattr(rendering.shutil, "which", lambda _name: None)
+    expected = Path(rendering.site.getuserbase()) / "bin/sc-compose"
+    assert expected in rendering._sc_compose_candidates()
 
 
 def test_external_template_set_is_hash_verified(tmp_path: Path) -> None:
@@ -170,6 +191,75 @@ def test_projection_boundary_rejects_missing_nested_family_field() -> None:
     )
     artifacts = projection["artifacts"]
     assert isinstance(artifacts, list) and isinstance(artifacts[0], dict)
-    del artifacts[0]["statement"]
+    del artifacts[0]["body"]
     with pytest.raises(ValueError, match="missing family field"):
         validate_render_projection("requirement", projection)
+
+
+def test_visible_statement_mutation_is_rejected() -> None:
+    document = SourceDocument.model_validate_json(
+        (REPO / "plugins/raptor/tests/fixtures/raptor/requirement.json").read_bytes()
+    )
+    rendered = render_markdown(
+        document,
+        profile=RaptorMarkdownProfile(),
+        template_set="raptor",
+        output_path="docs/rendered.md",
+        repository_root=REPO,
+        executable=resolve_sc_compose(),
+    )
+    changed = rendered.content.replace(
+        b"Statement: Define five consumer-neutral artifact families.",
+        b"Statement: changed",
+    )
+    source = rendering.SourceInput(
+        repo_root=REPO,
+        repository_id=document.provenance.origin.repository_id,
+        document_id=document.provenance.origin.document_id,
+        repository_path=Path("docs/rendered.md"),
+        content=changed,
+    )
+    profile = RaptorMarkdownProfile()
+    with pytest.raises(ValueError, match="VISIBLE_MISMATCH"):
+        profile.canonicalize(profile.parse(source))
+
+    changed_title = rendered.content.replace(
+        b"Canonical artifact families", b"Changed title", 1
+    )
+    titled = rendering.SourceInput(
+        repo_root=REPO,
+        repository_id=document.provenance.origin.repository_id,
+        document_id=document.provenance.origin.document_id,
+        repository_path=Path("docs/rendered.md"),
+        content=changed_title,
+    )
+    with pytest.raises(ValueError, match="VISIBLE_MISMATCH"):
+        profile.canonicalize(profile.parse(titled))
+
+
+def test_comparator_reports_path_and_template_identity() -> None:
+    document = SourceDocument.model_validate_json(
+        (REPO / "plugins/raptor/tests/fixtures/raptor/requirement.json").read_bytes()
+    )
+    rendered = render_markdown(
+        document,
+        profile=RaptorMarkdownProfile(),
+        template_set="raptor",
+        output_path="docs/rendered.md",
+        repository_root=REPO,
+        executable=resolve_sc_compose(),
+    )
+    result = compare_semantics(
+        document,
+        rendered.document,
+        profile=RaptorMarkdownProfile(),
+        content=rendered.content,
+        expected_output_path="docs/other.md",
+        template_set="consumer",
+        template_version="9.9.9",
+    )
+    assert result.differences == (
+        "/provenance/materialization/repository_path",
+        "/provenance/materialization/template_set",
+        "/provenance/materialization/template_version",
+    )

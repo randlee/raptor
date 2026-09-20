@@ -124,7 +124,12 @@ def remove_repository_file(repository_root: Path, relative: str) -> None:
     parent = os.open(repository_root, flags)
     try:
         for part in parts[:-1]:
-            child = os.open(part, flags, dir_fd=parent)
+            try:
+                child = os.open(part, flags, dir_fd=parent)
+            except OSError as error:
+                raise ValueError(
+                    "RAPTOR.PATH.OUTSIDE_ROOT: lock path is unsafe"
+                ) from error
             os.close(parent)
             parent = child
         try:
@@ -192,7 +197,12 @@ def repository_lock(repository_root: Path, relative: str) -> Iterator[None]:
                 os.mkdir(part, mode=0o700, dir_fd=parent)
             except FileExistsError:
                 pass
-            child = os.open(part, flags, dir_fd=parent)
+            try:
+                child = os.open(part, flags, dir_fd=parent)
+            except OSError as error:
+                raise ValueError(
+                    "RAPTOR.PATH.OUTSIDE_ROOT: lock path is unsafe"
+                ) from error
             os.close(parent)
             parent = child
         descriptor = os.open(

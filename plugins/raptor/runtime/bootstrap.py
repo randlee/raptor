@@ -11,6 +11,7 @@ from typing import Any, cast
 
 from .registry import AGENTS, parse_registry
 from .strict_json import loads
+from .requirements import sc_compose_requirement
 from .vendor import (
     PYDANTIC_CONSTRAINT,
     SCHEMA_VERSION,
@@ -45,18 +46,19 @@ def _manifest(text: str) -> dict[str, Any]:
     )
     if value["name"] != "raptor" or value["version"] != "1.0.0":
         raise BootstrapError("RAPTOR.BOOTSTRAP.MANIFEST: invalid identity")
-    if requires != {
-        "python": ">=3.11",
-        "pydantic": PYDANTIC_CONSTRAINT,
-        "cli": [
-            {
-                "name": "sc-compose",
-                "version": ">=1.6.1,<2.0.0",
-                "version_command": ["sc-compose", "--version"],
-            }
-        ],
-    }:
+    if (
+        not isinstance(requires, dict)
+        or set(requires) != {"python", "pydantic", "cli"}
+        or requires.get("python") != ">=3.11"
+        or requires.get("pydantic") != PYDANTIC_CONSTRAINT
+    ):
         raise BootstrapError("RAPTOR.BOOTSTRAP.MANIFEST: invalid requirements")
+    try:
+        sc_compose_requirement(value)
+    except ValueError as error:
+        raise BootstrapError(
+            "RAPTOR.BOOTSTRAP.MANIFEST: invalid requirements"
+        ) from error
     vendor_keys = {
         "algorithm",
         "tree_sha256",

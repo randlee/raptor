@@ -8,10 +8,5 @@ required_variables:
 ---
 {{ provenance_block }}
 {% for artifact in artifacts %}### {{ artifact.id }} — {{ artifact.title }}
-Overview: {{ artifact.overview }}
-Components: {{ artifact.components_json }}
-Interfaces: {{ artifact.interfaces_json }}
-Status: {{ artifact.status }}
-Relationships: {{ artifact.relationships_json }}
-Extensions: {{ artifact.extensions_json }}
+{{ artifact.body }}
 {% endfor %}

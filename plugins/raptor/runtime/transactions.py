@@ -4,6 +4,7 @@ import hashlib
 import json
 from contextlib import contextmanager
 from pathlib import Path
+from pathlib import PurePosixPath
 from typing import Any, Iterator
 
 from raptor_schema import (
@@ -14,6 +15,7 @@ from raptor_schema import (
     SourceDocument,
     dump_canonical_json,
 )
+from raptor_schema.profiles import SourceInput
 
 from .identity import IDENTITY_RELATIVE, load_identity
 from .io import (
@@ -24,6 +26,7 @@ from .io import (
     repository_parts,
 )
 from .strict_json import loads
+from .profiles import RaptorMarkdownProfile
 
 TRANSACTION_VERSION = "1"
 _STATES = {
@@ -48,6 +51,7 @@ def apply_render_transaction(
     *,
     fail_at: str | None = None,
 ) -> dict[str, object]:
+    _fail(fail_at, "before_prepared")
     root = repository_root.resolve()
     key = _document_key(previous)
     if _document_key(rendered) != key:
@@ -57,21 +61,47 @@ def apply_render_transaction(
     transaction_id = _transaction_id(key)
     marker_path = f".raptor/transactions/{transaction_id}.json"
     with _lock(root, transaction_id):
-        if _exists(root, marker_path):
-            return _recover_locked(root, marker_path, fail_at=fail_at)
-        return _start(root, previous, rendered, content, database, marker_path, fail_at)
+        with repository_lock(root, ".raptor/identity.lock"):
+            if _exists(root, marker_path):
+                return _recover_locked(
+                    root,
+                    marker_path,
+                    key=key,
+                    old_path=previous.provenance.materialization.repository_path,
+                    new_path=rendered.provenance.materialization.repository_path,
+                    database=_relative(database),
+                    fail_at=fail_at,
+                )
+            return _start(
+                root, previous, rendered, content, database, marker_path, fail_at
+            )
 
 
 def recover_render_transaction(
-    repository_root: Path, key: DocumentKey, *, fail_at: str | None = None
+    repository_root: Path,
+    key: DocumentKey,
+    *,
+    old_path: str,
+    new_path: str,
+    database: str,
+    fail_at: str | None = None,
 ) -> dict[str, object]:
     root = repository_root.resolve()
     transaction_id = _transaction_id(key)
     marker_path = f".raptor/transactions/{transaction_id}.json"
     with _lock(root, transaction_id):
-        if not _exists(root, marker_path):
-            return {"recovered": False, "state": None}
-        return _recover_locked(root, marker_path, fail_at=fail_at)
+        with repository_lock(root, ".raptor/identity.lock"):
+            if not _exists(root, marker_path):
+                return {"recovered": False, "state": None}
+            return _recover_locked(
+                root,
+                marker_path,
+                key=key,
+                old_path=_relative(old_path),
+                new_path=_relative(new_path),
+                database=_relative(database),
+                fail_at=fail_at,
+            )
 
 
 def validate_render_transaction(
@@ -105,18 +135,15 @@ def _start(
         {**manifest.model_dump(mode="json"), "documents": documents}
     )
     identity_bytes = _identity_bytes(next_manifest)
-    document_bytes = dump_canonical_json(rendered).encode()
     transaction_id = _transaction_id(key)
     output_stage = f"{new_path}.raptor-{transaction_id}.stage"
     output_backup = f"{new_path}.raptor-{transaction_id}.backup"
     identity_stage = f".raptor/identity.json.raptor-{transaction_id}.stage"
     identity_backup = f".raptor/identity.json.raptor-{transaction_id}.backup"
-    document_stage = f".raptor/transactions/{transaction_id}.document.json"
     output_before = _read_optional(root, new_path)
     identity_before = read_repository_bytes(root, IDENTITY_RELATIVE)
     atomic_repository_bytes(root, output_stage, content)
     atomic_repository_bytes(root, identity_stage, identity_bytes)
-    atomic_repository_bytes(root, document_stage, document_bytes)
     if output_before is not None:
         atomic_repository_bytes(root, output_backup, output_before)
     atomic_repository_bytes(root, identity_backup, identity_before)
@@ -130,13 +157,11 @@ def _start(
         "output_backup_path": output_backup if output_before is not None else None,
         "identity_stage_path": identity_stage,
         "identity_backup_path": identity_backup,
-        "document_stage_path": document_stage,
         "database_path": database,
         "output_before_sha256": _digest(output_before),
         "output_after_sha256": _digest(content),
         "identity_before_sha256": _digest(identity_before),
         "identity_after_sha256": _digest(identity_bytes),
-        "document_sha256": _digest(document_bytes),
         "state": "prepared",
     }
     _write_marker(root, marker_path, marker, "prepared")
@@ -174,7 +199,8 @@ def _validate_context(
         raise TransactionError(
             "RAPTOR.IDENTITY.PATH_CONFLICT: output path is registered"
         )
-    store = SQLiteArtifactStore(root / database)
+    read_repository_bytes(root, database)
+    store = SQLiteArtifactStore(root.joinpath(*repository_parts(database)))
     try:
         stored = store.get_document(key)
     except Exception as error:
@@ -195,29 +221,53 @@ def _commit(
 ) -> dict[str, object]:
     state = marker["state"]
     if state == "prepared":
+        _fail(fail_at, "before_output_committed")
         output = read_repository_bytes(root, marker["output_stage_path"])
         _require_hash(output, marker["output_after_sha256"])
-        atomic_repository_bytes(root, marker["new_path"], output)
+        current_output = _read_optional(root, marker["new_path"])
+        if _digest(current_output) == marker["output_before_sha256"]:
+            atomic_repository_bytes(root, marker["new_path"], output)
+        elif _digest(current_output) != marker["output_after_sha256"]:
+            raise TransactionError(
+                "RAPTOR.TRANSACTION.RECOVERY_CONFLICT: output changed"
+            )
         _write_marker(root, marker_path, marker, "output_committed")
         _fail(fail_at, "after_output_committed")
         state = "output_committed"
     if state == "output_committed":
+        _fail(fail_at, "before_identity_committed")
         identity = read_repository_bytes(root, marker["identity_stage_path"])
         _require_hash(identity, marker["identity_after_sha256"])
         current = read_repository_bytes(root, IDENTITY_RELATIVE)
-        if _digest(current) != marker["identity_after_sha256"]:
+        if _digest(current) == marker["identity_before_sha256"]:
             atomic_repository_bytes(root, IDENTITY_RELATIVE, identity)
+        elif _digest(current) != marker["identity_after_sha256"]:
+            raise TransactionError(
+                "RAPTOR.TRANSACTION.RECOVERY_CONFLICT: identity changed"
+            )
         _write_marker(root, marker_path, marker, "identity_committed")
         _fail(fail_at, "after_identity_committed")
         state = "identity_committed"
     if state == "identity_committed":
+        _fail(fail_at, "before_db_pending")
         _write_marker(root, marker_path, marker, "db_pending")
         _fail(fail_at, "after_db_pending")
     document = _verified_document(root, marker)
+    _fail(fail_at, "before_db_commit")
     try:
-        store = SQLiteArtifactStore(root / marker["database_path"])
+        read_repository_bytes(root, marker["database_path"])
+        store = SQLiteArtifactStore(
+            root.joinpath(*repository_parts(marker["database_path"]))
+        )
         try:
             store.put_document(document)
+            if dump_canonical_json(
+                store.get_document(_document_key(document))
+            ) != dump_canonical_json(document):
+                raise TransactionError(
+                    "RAPTOR.TRANSACTION.RECOVERY_CONFLICT: stored document changed"
+                )
+            read_repository_bytes(root, marker["database_path"])
         finally:
             store.close()
     except Exception as error:
@@ -226,6 +276,8 @@ def _commit(
             "RAPTOR.TRANSACTION.DB_PENDING: SQLite update requires recovery"
         ) from error
     _fail(fail_at, "after_db_commit")
+    _require_live_hashes(root, marker)
+    _fail(fail_at, "before_complete")
     _write_marker(root, marker_path, marker, "complete")
     _fail(fail_at, "after_complete")
     _cleanup(root, marker_path, marker)
@@ -237,9 +289,23 @@ def _commit(
 
 
 def _recover_locked(
-    root: Path, marker_path: str, *, fail_at: str | None
+    root: Path,
+    marker_path: str,
+    *,
+    key: DocumentKey,
+    old_path: str,
+    new_path: str,
+    database: str,
+    fail_at: str | None,
 ) -> dict[str, object]:
-    marker = _load_marker(root, marker_path)
+    marker = _load_marker(
+        root,
+        marker_path,
+        key=key,
+        old_path=old_path,
+        new_path=new_path,
+        database=database,
+    )
     state = marker["state"]
     if state == "complete":
         _cleanup(root, marker_path, marker)
@@ -263,10 +329,20 @@ def _rollback(root: Path, marker: dict[str, Any]) -> None:
     else:
         backup = read_repository_bytes(root, marker["output_backup_path"])
         _require_hash(backup, marker["output_before_sha256"])
-        atomic_repository_bytes(root, marker["new_path"], backup)
+        current = read_repository_bytes(root, marker["new_path"])
+        if _digest(current) == marker["output_after_sha256"]:
+            atomic_repository_bytes(root, marker["new_path"], backup)
+        elif _digest(current) != marker["output_before_sha256"]:
+            raise TransactionError(
+                "RAPTOR.TRANSACTION.RECOVERY_CONFLICT: output changed"
+            )
     identity = read_repository_bytes(root, marker["identity_backup_path"])
     _require_hash(identity, marker["identity_before_sha256"])
-    atomic_repository_bytes(root, IDENTITY_RELATIVE, identity)
+    current_identity = read_repository_bytes(root, IDENTITY_RELATIVE)
+    if _digest(current_identity) == marker["identity_after_sha256"]:
+        atomic_repository_bytes(root, IDENTITY_RELATIVE, identity)
+    elif _digest(current_identity) != marker["identity_before_sha256"]:
+        raise TransactionError("RAPTOR.TRANSACTION.RECOVERY_CONFLICT: identity changed")
 
 
 def _require_live_hashes(root: Path, marker: dict[str, Any]) -> None:
@@ -281,12 +357,29 @@ def _require_live_hashes(root: Path, marker: dict[str, Any]) -> None:
 
 
 def _verified_document(root: Path, marker: dict[str, Any]) -> SourceDocument:
-    value = read_repository_bytes(root, marker["document_stage_path"])
-    _require_hash(value, marker["document_sha256"])
-    return SourceDocument.model_validate_json(value)
+    value = read_repository_bytes(root, marker["new_path"])
+    _require_hash(value, marker["output_after_sha256"])
+    key = DocumentKey.model_validate(marker["document_key"])
+    source = SourceInput(
+        repo_root=root,
+        repository_id=key.repository_id,
+        document_id=key.document_id,
+        repository_path=PurePosixPath(marker["new_path"]),
+        content=value,
+    )
+    profile = RaptorMarkdownProfile()
+    return profile.canonicalize(profile.parse(source))
 
 
-def _load_marker(root: Path, marker_path: str) -> dict[str, Any]:
+def _load_marker(
+    root: Path,
+    marker_path: str,
+    *,
+    key: DocumentKey,
+    old_path: str,
+    new_path: str,
+    database: str,
+) -> dict[str, Any]:
     try:
         value = loads(read_repository_bytes(root, marker_path).decode())
     except Exception as error:
@@ -303,13 +396,11 @@ def _load_marker(root: Path, marker_path: str) -> dict[str, Any]:
         "output_backup_path",
         "identity_stage_path",
         "identity_backup_path",
-        "document_stage_path",
         "database_path",
         "output_before_sha256",
         "output_after_sha256",
         "identity_before_sha256",
         "identity_after_sha256",
-        "document_sha256",
         "state",
     }
     if (
@@ -318,10 +409,22 @@ def _load_marker(root: Path, marker_path: str) -> dict[str, Any]:
         or value.get("state") not in _STATES
     ):
         raise TransactionError("RAPTOR.TRANSACTION.RECOVERY_CONFLICT: invalid marker")
-    key = DocumentKey.model_validate(value["document_key"])
-    if value["transaction_version"] != TRANSACTION_VERSION or value[
-        "transaction_id"
-    ] != _transaction_id(key):
+    marker_key = DocumentKey.model_validate(value["document_key"])
+    transaction_id = _transaction_id(key)
+    if (
+        marker_key != key
+        or value["transaction_version"] != TRANSACTION_VERSION
+        or value["transaction_id"] != transaction_id
+        or marker_path != f".raptor/transactions/{transaction_id}.json"
+        or value["old_path"] != old_path
+        or value["new_path"] != new_path
+        or value["database_path"] != database
+        or value["output_stage_path"] != f"{new_path}.raptor-{transaction_id}.stage"
+        or value["identity_stage_path"]
+        != f".raptor/identity.json.raptor-{transaction_id}.stage"
+        or value["identity_backup_path"]
+        != f".raptor/identity.json.raptor-{transaction_id}.backup"
+    ):
         raise TransactionError(
             "RAPTOR.TRANSACTION.RECOVERY_CONFLICT: invalid marker identity"
         )
@@ -331,20 +434,32 @@ def _load_marker(root: Path, marker_path: str) -> dict[str, Any]:
         "output_stage_path",
         "identity_stage_path",
         "identity_backup_path",
-        "document_stage_path",
         "database_path",
     ):
-        _relative(value[name])
+        if not isinstance(value[name], str) or _relative(value[name]) != value[name]:
+            raise TransactionError(
+                "RAPTOR.TRANSACTION.RECOVERY_CONFLICT: invalid marker path"
+            )
     if value["output_backup_path"] is not None:
         _relative(value["output_backup_path"])
+        if value["output_backup_path"] != f"{new_path}.raptor-{transaction_id}.backup":
+            raise TransactionError(
+                "RAPTOR.TRANSACTION.RECOVERY_CONFLICT: invalid marker path"
+            )
+    if (value["output_backup_path"] is None) != (value["output_before_sha256"] is None):
+        raise TransactionError(
+            "RAPTOR.TRANSACTION.RECOVERY_CONFLICT: invalid marker backup"
+        )
     for name in (
         "output_after_sha256",
         "identity_before_sha256",
         "identity_after_sha256",
-        "document_sha256",
     ):
         if not isinstance(value[name], str) or re_full_hash(value[name]) is False:
             raise TransactionError("RAPTOR.TRANSACTION.RECOVERY_CONFLICT: invalid hash")
+    before = value["output_before_sha256"]
+    if before is not None and (not isinstance(before, str) or not re_full_hash(before)):
+        raise TransactionError("RAPTOR.TRANSACTION.RECOVERY_CONFLICT: invalid hash")
     return value
 
 
@@ -363,7 +478,6 @@ def _cleanup(root: Path, marker_path: str, marker: dict[str, Any]) -> None:
         "output_backup_path",
         "identity_stage_path",
         "identity_backup_path",
-        "document_stage_path",
     ):
         path = marker.get(name)
         if isinstance(path, str):

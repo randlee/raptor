@@ -6,17 +6,17 @@ import json
 import os
 import re
 import shutil
+import site
 import subprocess
 import tempfile
+from collections.abc import Mapping
 from dataclasses import dataclass
 from pathlib import Path, PurePosixPath
 from typing import Any
 
 from pydantic import TypeAdapter
 from raptor_schema import (
-    DocumentKey,
     RepositoryPath,
-    SQLiteArtifactStore,
     SourceDocument,
     load_canonical_json,
     validate_provenance_transition,
@@ -24,9 +24,9 @@ from raptor_schema import (
 from raptor_schema.profiles import SourceInput, SourceProfile
 
 from .strict_json import loads
+from .requirements import load_sc_compose_requirement
 
 TEMPLATE_VERSION = "1.0.0"
-SC_COMPOSE_RANGE = ">=1.6.1,<2.0.0"
 _TEMPLATES = {
     "requirement": "requirement.md.j2",
     "non_functional_requirement": "non-functional-requirement.md.j2",
@@ -35,38 +35,6 @@ _TEMPLATES = {
     "test_plan": "test-plan.md.j2",
 }
 _PATH = TypeAdapter(RepositoryPath)
-_COMMON_TEMPLATE_FIELDS = {
-    "id",
-    "title",
-    "status",
-    "relationships_json",
-    "extensions_json",
-}
-_FAMILY_TEMPLATE_FIELDS = {
-    "requirement": {"statement", "acceptance_criteria", "rationale", "priority"},
-    "non_functional_requirement": {
-        "statement",
-        "quality_attribute",
-        "measurement_json",
-        "acceptance_criteria",
-    },
-    "architecture_decision": {"context", "decision", "consequences", "alternatives"},
-    "design_document": {"overview", "components_json", "interfaces_json"},
-    "test_plan": {
-        "objective",
-        "scope",
-        "test_cases_json",
-        "entry_criteria",
-        "exit_criteria",
-    },
-}
-_LIST_TEMPLATE_FIELDS = {
-    "acceptance_criteria",
-    "consequences",
-    "alternatives",
-    "entry_criteria",
-    "exit_criteria",
-}
 
 
 @dataclass(frozen=True)
@@ -91,15 +59,32 @@ class TemplateSet:
     templates: dict[str, str]
 
 
-def resolve_sc_compose() -> Path:
+def _sc_compose_candidates() -> tuple[Path, ...]:
     found = shutil.which("sc-compose")
-    candidates = [
-        Path(found) if found else None,
-        Path.home() / ".local/bin/sc-compose",
-        Path.home() / ".venvs/sc-compose/bin/sc-compose",
-        Path("/opt/homebrew/bin/sc-compose"),
-    ]
-    executable = next((item for item in candidates if item and item.is_file()), None)
+    return tuple(
+        item
+        for item in (
+            Path(found) if found else None,
+            Path.home() / ".local/bin/sc-compose",
+            Path.home() / ".venvs/sc-compose/bin/sc-compose",
+            Path(site.getuserbase()) / "bin/sc-compose",
+            Path("/opt/homebrew/bin/sc-compose"),
+        )
+        if item is not None
+    )
+
+
+def resolve_sc_compose() -> Path:
+    requirement = load_sc_compose_requirement(Path(__file__).resolve().parents[1])
+    constraint = str(requirement["version"])
+    executable = next(
+        (
+            item
+            for item in _sc_compose_candidates()
+            if item.is_file() and os.access(item, os.X_OK)
+        ),
+        None,
+    )
     if executable is None:
         raise ValueError(
             "RAPTOR.DEPENDENCY.SC_COMPOSE_MISSING: sc-compose is not installed"
@@ -116,9 +101,12 @@ def resolve_sc_compose() -> Path:
             "RAPTOR.DEPENDENCY.SC_COMPOSE_VERSION: version output is invalid"
         )
     version = tuple(int(item) for item in match.groups())
-    if version < (1, 6, 1) or version >= (2, 0, 0):
+    lower_text, upper_text = constraint.removeprefix(">=").split(",<", 1)
+    lower = tuple(int(item) for item in lower_text.split("."))
+    upper = tuple(int(item) for item in upper_text.split("."))
+    if version < lower or version >= upper:
         raise ValueError(
-            f"RAPTOR.DEPENDENCY.SC_COMPOSE_VERSION: {SC_COMPOSE_RANGE} is required"
+            f"RAPTOR.DEPENDENCY.SC_COMPOSE_VERSION: {constraint} is required"
         )
     return executable.resolve()
 
@@ -193,20 +181,10 @@ def project_render_input(
         raise ValueError(
             "RAPTOR.RENDER.FAMILY: template does not support artifact family"
         )
-    artifacts: list[dict[str, Any]] = []
-    for artifact in document.artifacts:
-        item = artifact.model_dump(mode="json", exclude_none=True)
-        item.pop("source_location", None)
-        artifacts.append(_template_artifact(item))
     materialization = document.provenance.materialization
     payload = {
         "schema_version": document.schema_version,
         "origin": document.provenance.origin.model_dump(mode="json"),
-        "artifacts": [
-            artifact.model_dump(mode="json", exclude_none=True)
-            | {"source_location": None}
-            for artifact in document.artifacts
-        ],
         "parent_content_sha256": materialization.content_sha256,
         "parser_profile": profile.profile_id,
         "parser_profile_version": profile.profile_version,
@@ -215,10 +193,8 @@ def project_render_input(
     }
     encoded = json.dumps(payload, sort_keys=True, separators=(",", ":")).encode()
     token = base64.urlsafe_b64encode(encoded).decode().rstrip("=")
-    projection = {
-        "provenance_block": f"<!-- raptor-provenance-v1:{token} -->",
-        "artifacts": artifacts,
-    }
+    projection = dict(projected)
+    projection["provenance_block"] = f"<!-- raptor-provenance-v1:{token} -->"
     validate_render_projection(family, projection)
     return template, projection
 
@@ -233,24 +209,14 @@ def validate_render_projection(family: str, projection: object) -> None:
     if not isinstance(projection["provenance_block"], str):
         raise ValueError("RAPTOR.RENDER.PROJECTION: provenance block must be text")
     artifacts = projection["artifacts"]
-    required = _COMMON_TEMPLATE_FIELDS | _FAMILY_TEMPLATE_FIELDS.get(family, set())
-    if (
-        family not in _FAMILY_TEMPLATE_FIELDS
-        or not isinstance(artifacts, list)
-        or not artifacts
-    ):
+    required = {"id", "title", "body"}
+    if family not in _TEMPLATES or not isinstance(artifacts, list) or not artifacts:
         raise ValueError("RAPTOR.RENDER.PROJECTION: unsupported or empty family")
     for artifact in artifacts:
         if not isinstance(artifact, dict) or not required.issubset(artifact):
             raise ValueError("RAPTOR.RENDER.PROJECTION: missing family field")
         for name in required:
-            value = artifact[name]
-            if name in _LIST_TEMPLATE_FIELDS:
-                if not isinstance(value, list) or not all(
-                    isinstance(item, str) for item in value
-                ):
-                    raise ValueError("RAPTOR.RENDER.PROJECTION: invalid family field")
-            elif not isinstance(value, str):
+            if not isinstance(artifact[name], str):
                 raise ValueError("RAPTOR.RENDER.PROJECTION: invalid family field")
 
 
@@ -318,18 +284,19 @@ def compare_semantics(
     *,
     profile: SourceProfile,
     content: bytes | None = None,
+    expected_output_path: RepositoryPath | None = None,
+    template_set: str | None = None,
+    template_version: str | None = None,
 ) -> SemanticComparison:
     differences: list[str] = []
     expected = SourceDocument.model_validate(expected.model_dump(mode="python"))
     actual = SourceDocument.model_validate(actual.model_dump(mode="python"))
-    if expected.schema_version != actual.schema_version:
-        differences.append("/schema_version")
-    if expected.provenance.origin != actual.provenance.origin:
-        differences.append("/provenance/origin")
+    expected_normalized = profile.normalize(expected)
+    actual_normalized = profile.normalize(actual)
     _compare_value(
-        _semantic_artifacts(expected),
-        _semantic_artifacts(actual),
-        "/artifacts",
+        _comparable_value(expected_normalized),
+        _comparable_value(actual_normalized),
+        "",
         differences,
     )
     try:
@@ -347,11 +314,30 @@ def compare_semantics(
         differences.append("/provenance/materialization/parser_profile")
     if materialization.parser_profile_version != profile.profile_version:
         differences.append("/provenance/materialization/parser_profile_version")
+    if (
+        expected_output_path is not None
+        and materialization.repository_path != expected_output_path
+    ):
+        differences.append("/provenance/materialization/repository_path")
+    if template_set is not None and materialization.template_set != template_set:
+        differences.append("/provenance/materialization/template_set")
+    if (
+        template_version is not None
+        and materialization.template_version != template_version
+    ):
+        differences.append("/provenance/materialization/template_version")
     if content is not None:
-        line_count = content.count(b"\n") + 1
+        lines = content.decode("utf-8").splitlines()
+        line_count = len(lines)
         for index, artifact in enumerate(actual.artifacts):
             location = artifact.source_location
-            if location is None or location.start_line > line_count:
+            if (
+                location is None
+                or location.end_line is None
+                or location.start_line > line_count
+                or location.end_line > line_count + 1
+                or artifact.id not in lines[location.start_line - 1]
+            ):
                 differences.append(f"/artifacts/{index}/source_location")
     return SemanticComparison(not differences, tuple(sorted(set(differences))))
 
@@ -390,7 +376,13 @@ def json_to_markdown(
         executable=executable,
     )
     comparison = compare_semantics(
-        document, rendered.document, profile=profile, content=rendered.content
+        document,
+        rendered.document,
+        profile=profile,
+        content=rendered.content,
+        expected_output_path=output_relative,
+        template_set=template_set,
+        template_version=resolve_template_set(root, template_set).version,
     )
     if not comparison.equal:
         raise ValueError(
@@ -430,92 +422,46 @@ def migration_round_trip(
     exported_json_path: str,
     markdown_output: str,
     *,
+    backend: Any,
     profile_id: str = "raptor",
     template_set: str = "raptor",
     apply: bool = False,
 ) -> dict[str, Any]:
-    from .operations import export_sqlite, import_sqlite, markdown_to_json
+    from .routes import route
 
-    executable = resolve_sc_compose()
-    if not apply:
-        from .profiles import resolve_profile
-
-        parsed = markdown_to_json(
-            repository_root,
-            markdown_input,
-            "-",
-            profile_id=profile_id,
-            apply=False,
-        )
-        document = load_canonical_json(str(parsed["canonical_json"]))
-        store = SQLiteArtifactStore()
-        store.initialize()
-        store.put_document(document)
-        recovered = store.get_document(
-            DocumentKey(
-                repository_id=document.provenance.origin.repository_id,
-                document_id=document.provenance.origin.document_id,
-            )
-        )
-        store.close()
-        profile = resolve_profile(repository_root.resolve(), profile_id)
-        rendered = render_markdown(
-            recovered,
-            profile=profile,
-            template_set=template_set,
-            output_path=_PATH.validate_python(markdown_output),
-            repository_root=repository_root,
-            executable=executable,
-        )
-        comparison = compare_semantics(
-            document, rendered.document, profile=profile, content=rendered.content
-        )
-        if not comparison.equal:
-            raise ValueError(
-                "RAPTOR.ROUND_TRIP.SEMANTIC_LOSS: " + ",".join(comparison.differences)
-            )
-        return {
-            "applied": False,
-            "steps": ["markdown-json", "json-sqlite", "sqlite-json", "json-markdown"],
-            "document": document.provenance.origin.document_id,
-            "differences": list(comparison.differences),
-        }
-    first = markdown_to_json(
-        repository_root,
-        markdown_input,
-        json_path,
-        profile_id=profile_id,
-        apply=True,
+    return route(
+        "round-trip",
+        "migration",
+        None,
+        backend=backend,
+        repository_root=repository_root,
+        params={
+            "markdown_input": markdown_input,
+            "json_path": json_path,
+            "database": database,
+            "exported_json_path": exported_json_path,
+            "markdown_output": markdown_output,
+            "profile_id": profile_id,
+            "template_set": template_set,
+            "apply": apply,
+        },
     )
-    origin = first["documents"][0]
-    import_sqlite(repository_root, json_path, database, apply=True)
-    export_sqlite(
-        repository_root,
-        database,
-        str(origin["repository_id"]),
-        str(origin["document_id"]),
-        exported_json_path,
-        apply=True,
-    )
-    final = json_to_markdown(
-        repository_root,
-        exported_json_path,
-        markdown_output,
-        profile_id=profile_id,
-        template_set=template_set,
-        database=database,
-        apply=True,
-    )
-    return {"applied": True, "steps": 4, "result": final}
 
 
-def _semantic_artifacts(document: SourceDocument) -> list[dict[str, Any]]:
-    values: list[dict[str, Any]] = []
-    for artifact in document.artifacts:
-        item = artifact.model_dump(mode="json", exclude_none=True)
-        item.pop("source_location", None)
-        values.append(item)
-    return values
+def _comparable_value(document: Any) -> dict[str, Any]:
+    return {
+        "schema_version": document.schema_version,
+        "origin": document.origin.model_dump(mode="json"),
+        "artifacts": [_thaw(item.data) for item in document.artifacts],
+    }
+
+
+def _thaw(value: Any) -> Any:
+    if isinstance(value, Mapping):
+        return {key: _thaw(item) for key, item in value.items()}
+    if isinstance(value, tuple):
+        return [_thaw(item) for item in value]
+    return value
 
 
 def _compare_value(expected: Any, actual: Any, path: str, output: list[str]) -> None:
@@ -537,51 +483,12 @@ def _compare_value(expected: Any, actual: Any, path: str, output: list[str]) -> 
         output.append(path)
 
 
-def _template_artifact(item: dict[str, Any]) -> dict[str, Any]:
-    """Expose every canonical field explicitly or as deterministic JSON."""
-    value = dict(item)
-    for key in (
-        "relationships",
-        "extensions",
-        "measurement",
-        "components",
-        "interfaces",
-        "test_cases",
-    ):
-        value[f"{key}_json"] = json.dumps(
-            value.get(key, [] if key != "measurement" else None),
-            sort_keys=True,
-            separators=(",", ":"),
-        )
-    for key in (
-        "rationale",
-        "priority",
-        "quality_attribute",
-        "context",
-        "decision",
-        "overview",
-        "objective",
-        "scope",
-    ):
-        value.setdefault(key, "")
-    for key in (
-        "acceptance_criteria",
-        "consequences",
-        "alternatives",
-        "entry_criteria",
-        "exit_criteria",
-    ):
-        value.setdefault(key, [])
-    return value
-
-
 def _environment() -> dict[str, str]:
     return {"PATH": os.defpath, "LANG": "C.UTF-8"}
 
 
 __all__ = [
     "RenderedDocument",
-    "SC_COMPOSE_RANGE",
     "SemanticComparison",
     "TemplateSet",
     "compare_semantics",

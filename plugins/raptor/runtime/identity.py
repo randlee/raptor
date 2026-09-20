@@ -9,7 +9,7 @@ from raptor_schema import (
     validate_identity_registration,
 )
 
-from .io import atomic_repository_bytes, read_repository_bytes
+from .io import atomic_repository_bytes, read_repository_bytes, repository_lock
 
 IDENTITY_RELATIVE = ".raptor/identity.json"
 
@@ -75,6 +75,29 @@ def register_identity(
     repository_path: str,
     registered_repository_id: str | None = None,
     apply: bool = False,
+) -> dict[str, object]:
+    root = repository_root.resolve()
+    if not root.is_dir():
+        raise ValueError("RAPTOR.PATH.OUTSIDE_ROOT: repository root does not exist")
+    with repository_lock(root, ".raptor/identity.lock"):
+        return _register_identity(
+            root,
+            repository_id=repository_id,
+            document_id=document_id,
+            repository_path=repository_path,
+            registered_repository_id=registered_repository_id,
+            apply=apply,
+        )
+
+
+def _register_identity(
+    repository_root: Path,
+    *,
+    repository_id: str,
+    document_id: str,
+    repository_path: str,
+    registered_repository_id: str | None,
+    apply: bool,
 ) -> dict[str, object]:
     root = repository_root.resolve()
     if not root.is_dir():

@@ -8,15 +8,5 @@ required_variables:
 ---
 {{ provenance_block }}
 {% for artifact in artifacts %}### {{ artifact.id }} — {{ artifact.title }}
-## Context
-{{ artifact.context }}
-## Decision
-{{ artifact.decision }}
-## Consequences
-{{ artifact.consequences | join('; ') }}
-## Alternatives
-{{ artifact.alternatives | join('; ') }}
-Status: {{ artifact.status }}
-Relationships: {{ artifact.relationships_json }}
-Extensions: {{ artifact.extensions_json }}
+{{ artifact.body }}
 {% endfor %}

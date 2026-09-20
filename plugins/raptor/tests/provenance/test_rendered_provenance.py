@@ -23,7 +23,6 @@ def test_reserved_block_rejects_origin_mutation(tmp_path: Path) -> None:
             "parser_profile": "raptor",
             "parser_profile_version": "1.0.0",
         },
-        "artifacts": [],
         "parent_content_sha256": "0" * 64,
         "parser_profile": "raptor",
         "parser_profile_version": "1.0.0",

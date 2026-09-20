@@ -13,15 +13,11 @@ from typing import Any
 
 from .io import atomic_json, fsync_directory, fsync_tree
 from .registry import parse_registry
+from .requirements import load_sc_compose_requirement
 
 TREE_ALGORITHM = "sha256:path-nul-bytes-nul:v1"
 PYDANTIC_CONSTRAINT = ">=2.10,<3"
 SCHEMA_VERSION = "1.0.0"
-SC_COMPOSE_REQUIREMENT = {
-    "name": "sc-compose",
-    "version": ">=1.6.1,<2.0.0",
-    "version_command": ["sc-compose", "--version"],
-}
 
 
 class VendorError(RuntimeError):
@@ -489,6 +485,7 @@ def _plugin_inventory(plugin_root: Path) -> list[str]:
 
 
 def refresh(plugin_root: Path, *, fail_at: str | None = None) -> dict[str, Any]:
+    cli_requirement = load_sc_compose_requirement(plugin_root)
     plugin_root = plugin_root.resolve()
     local_artifacts = [
         path
@@ -539,7 +536,7 @@ def refresh(plugin_root: Path, *, fail_at: str | None = None) -> dict[str, Any]:
             "requires": {
                 "python": python_constraint,
                 "pydantic": pydantic_constraint,
-                "cli": [SC_COMPOSE_REQUIREMENT],
+                "cli": [cli_requirement],
             },
             "vendor": {
                 "algorithm": TREE_ALGORITHM,
@@ -636,6 +633,7 @@ def refresh(plugin_root: Path, *, fail_at: str | None = None) -> dict[str, Any]:
 
 
 def check(plugin_root: Path) -> None:
+    cli_requirement = load_sc_compose_requirement(plugin_root)
     plugin_root = plugin_root.resolve()
     repo_root = plugin_root.parents[1]
     with tempfile.TemporaryDirectory(dir=plugin_root / "_vendor") as directory:
@@ -663,7 +661,7 @@ def check(plugin_root: Path) -> None:
         != {
             "python": python_constraint,
             "pydantic": pydantic_constraint,
-            "cli": [SC_COMPOSE_REQUIREMENT],
+            "cli": [cli_requirement],
         }
     ):
         raise VendorError("RAPTOR.VENDOR.DRIFT", "source, vendor, or metadata differs")

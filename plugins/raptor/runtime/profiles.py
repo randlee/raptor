@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import base64
 import hashlib
+import json
 import re
 from collections.abc import Mapping
 from pathlib import Path
@@ -89,6 +90,20 @@ def _artifact_keys(value: str) -> list[dict[str, str]]:
     return keys
 
 
+def _render_summary(artifact: Mapping[str, object]) -> str:
+    family = artifact.get("artifact_type")
+    field = {
+        "requirement": "statement",
+        "non_functional_requirement": "statement",
+        "architecture_decision": "decision",
+        "design_document": "overview",
+        "test_plan": "objective",
+    }.get(str(family))
+    if field is None or not isinstance(artifact.get(field), str):
+        raise ValueError("RAPTOR.RENDER.PROJECTION: unsupported artifact family")
+    return f"{field.replace('_', ' ').title()}: {artifact[field]}"
+
+
 class RaptorMarkdownProfile:
     def __init__(
         self, profile_id: str = "raptor", profile_version: str = "1.0.0"
@@ -127,6 +142,8 @@ class RaptorMarkdownProfile:
                     location=SourceLocation(
                         start_line=text.count("\n", 0, match.start()) + 1,
                         start_column=1,
+                        end_line=text.count("\n", 0, end) + 1,
+                        end_column=1,
                     ),
                     attributes={"artifact_id": match.group(1)},
                 )
@@ -166,7 +183,6 @@ class RaptorMarkdownProfile:
             required = {
                 "schema_version",
                 "origin",
-                "artifacts",
                 "parent_content_sha256",
                 "parser_profile",
                 "parser_profile_version",
@@ -183,23 +199,38 @@ class RaptorMarkdownProfile:
                 raise ValueError(
                     "RAPTOR.PROVENANCE.ORIGIN_MUTATION: rendered origin is immutable"
                 )
-            locations = {
-                str(section.attributes["artifact_id"]): section.location.model_dump(
-                    mode="json"
-                )
-                for section in parsed.sections
-            }
             rendered_artifacts: list[object] = []
-            raw_artifacts = rendered["artifacts"]
-            if not isinstance(raw_artifacts, tuple):
-                raise ValueError("RAPTOR.PROVENANCE.BLOCK: invalid artifact payload")
-            for item in raw_artifacts:
-                if not isinstance(item, Mapping) or not isinstance(item.get("id"), str):
+            for section in parsed.sections:
+                lines = section.body.splitlines()
+                canonical = next(
+                    (
+                        line.removeprefix("Canonical Artifact: ")
+                        for line in lines
+                        if line.startswith("Canonical Artifact: ")
+                    ),
+                    None,
+                )
+                if canonical is None:
                     raise ValueError(
-                        "RAPTOR.PROVENANCE.BLOCK: invalid artifact payload"
+                        "RAPTOR.RENDER.VISIBLE_MISMATCH: canonical artifact is missing"
+                    )
+                item = loads(canonical)
+                if not isinstance(item, dict):
+                    raise ValueError(
+                        "RAPTOR.RENDER.VISIBLE_MISMATCH: canonical artifact is invalid"
                     )
                 artifact = dict(item)
-                artifact["source_location"] = locations.get(str(item["id"]))
+                expected_summary = _render_summary(artifact)
+                if (
+                    artifact.get("id") != section.attributes["artifact_id"]
+                    or artifact.get("title") != section.heading
+                    or not lines
+                    or lines[0] != expected_summary
+                ):
+                    raise ValueError(
+                        "RAPTOR.RENDER.VISIBLE_MISMATCH: visible artifact disagrees"
+                    )
+                artifact["source_location"] = section.location.model_dump(mode="json")
                 rendered_artifacts.append(artifact)
             digest = hashlib.sha256(parsed.source.content).hexdigest()
             return SourceDocument.model_validate(
@@ -397,14 +428,38 @@ class RaptorMarkdownProfile:
         )
 
     def project_render_input(self, document: SourceDocument) -> JsonObject:
-        return validate_json_object(document.model_dump(mode="json"))
+        artifacts: list[dict[str, object]] = []
+        for artifact in document.artifacts:
+            canonical = artifact.model_dump(mode="json", exclude_none=True)
+            canonical.pop("source_location", None)
+            artifacts.append(
+                {
+                    "id": artifact.id,
+                    "title": artifact.title,
+                    "body": _render_summary(canonical)
+                    + "\nCanonical Artifact: "
+                    + json.dumps(canonical, sort_keys=True, separators=(",", ":")),
+                }
+            )
+        return validate_json_object({"artifacts": artifacts})
 
     def normalize(self, document: SourceDocument) -> ComparableDocument:
         return ComparableDocument(
             schema_version=document.schema_version,
             origin=document.provenance.origin,
             artifacts=tuple(
-                ArtifactSnapshot.from_artifact(artifact)
+                ArtifactSnapshot(
+                    data=cast(
+                        FrozenJsonObject,
+                        validate_json_object(
+                            artifact.model_dump(
+                                mode="json",
+                                exclude={"source_location"},
+                                exclude_none=True,
+                            )
+                        ),
+                    ),
+                )
                 for artifact in document.artifacts
             ),
         )

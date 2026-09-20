@@ -57,6 +57,7 @@
     "runtime/profiles.py",
     "runtime/registry.py",
     "runtime/rendering.py",
+    "runtime/requirements.py",
     "runtime/routes.py",
     "runtime/strict_json.py",
     "runtime/transactions.py",

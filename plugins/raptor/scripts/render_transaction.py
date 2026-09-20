@@ -21,6 +21,9 @@ def main() -> int:
     parser.add_argument("--repo-root", type=Path, required=True)
     parser.add_argument("--repository-id", required=True)
     parser.add_argument("--document-id", required=True)
+    parser.add_argument("--old-path", required=True)
+    parser.add_argument("--new-path", required=True)
+    parser.add_argument("--database", required=True)
     arguments = parser.parse_args()
     return invoke(
         lambda: recover_render_transaction(
@@ -29,6 +32,9 @@ def main() -> int:
                 repository_id=arguments.repository_id,
                 document_id=arguments.document_id,
             ),
+            old_path=arguments.old_path,
+            new_path=arguments.new_path,
+            database=arguments.database,
         )
     )
 
