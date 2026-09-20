@@ -49,7 +49,13 @@ def test_every_family_renders_deterministically_and_round_trips(index: int) -> N
     )
     assert first.content == second.content
     assert compare_semantics(
-        document, first.document, profile=profile, content=first.content
+        document,
+        first.document,
+        profile=profile,
+        content=first.content,
+        expected_output_path="docs/rendered.md",
+        template_set="raptor",
+        template_version="1.0.0",
     ).equal
     assert first.document.provenance.origin == document.provenance.origin
     assert first.document.provenance.materialization.operation == "rendered"
@@ -72,7 +78,14 @@ def test_comparator_reports_payload_mutation() -> None:
             "artifacts": [expected.artifacts[0].model_copy(update={"title": "changed"})]
         }
     )
-    result = compare_semantics(expected, changed, profile=RaptorMarkdownProfile())
+    result = compare_semantics(
+        expected,
+        changed,
+        profile=RaptorMarkdownProfile(),
+        expected_output_path="docs/requirements.md",
+        template_set=None,
+        template_version=None,
+    )
     assert "/artifacts/0/title" in result.differences
 
 
@@ -263,3 +276,99 @@ def test_comparator_reports_path_and_template_identity() -> None:
         "/provenance/materialization/template_set",
         "/provenance/materialization/template_version",
     )
+
+
+@pytest.mark.parametrize(
+    ("field", "expected_path"),
+    [
+        ("origin", "/origin/repository_id"),
+        ("output_hash", "/provenance/materialization/content_sha256"),
+        ("parent_hash", "/provenance/materialization:RAPTOR.PROVENANCE.PARENT_HASH"),
+        ("template", "/provenance/materialization/template_set"),
+        ("path", "/provenance/materialization/repository_path"),
+    ],
+)
+def test_comparator_rejects_provenance_mutations(
+    field: str, expected_path: str
+) -> None:
+    document = SourceDocument.model_validate_json(
+        (REPO / "plugins/raptor/tests/fixtures/raptor/requirement.json").read_bytes()
+    )
+    rendered = render_markdown(
+        document,
+        profile=RaptorMarkdownProfile(),
+        template_set="raptor",
+        output_path="docs/rendered.md",
+        repository_root=REPO,
+        executable=resolve_sc_compose(),
+    )
+    value = rendered.document.model_dump(mode="json")
+    if field == "origin":
+        value["provenance"]["origin"]["repository_id"] = "urn:raptor:repo:other"
+    elif field == "output_hash":
+        value["provenance"]["materialization"]["content_sha256"] = "0" * 64
+    elif field == "parent_hash":
+        value["provenance"]["materialization"]["parent_content_sha256"] = "0" * 64
+    elif field == "template":
+        value["provenance"]["materialization"]["template_set"] = "consumer"
+    else:
+        value["provenance"]["materialization"]["repository_path"] = "docs/other.md"
+    actual = SourceDocument.model_validate(value)
+    result = compare_semantics(
+        document,
+        actual,
+        profile=RaptorMarkdownProfile(),
+        content=rendered.content,
+        expected_output_path="docs/rendered.md",
+        template_set="raptor",
+        template_version="1.0.0",
+    )
+    assert expected_path in result.differences
+
+
+def test_comparator_rejects_relationship_namespace_and_invalid_span() -> None:
+    value = json.loads((REPO / "schema/tests/corpus/all-families.json").read_text())
+    value["artifacts"] = [value["artifacts"][1]]
+    document = SourceDocument.model_validate(value)
+    rendered = render_markdown(
+        document,
+        profile=RaptorMarkdownProfile(),
+        template_set="raptor",
+        output_path="docs/rendered.md",
+        repository_root=REPO,
+        executable=resolve_sc_compose(),
+    )
+    changed = rendered.document.model_dump(mode="json")
+    changed["artifacts"][0]["relationships"][0]["target"]["repository_id"] = (
+        "urn:raptor:repo:other"
+    )
+    relationship_result = compare_semantics(
+        document,
+        SourceDocument.model_validate(changed),
+        profile=RaptorMarkdownProfile(),
+        content=rendered.content,
+        expected_output_path="docs/rendered.md",
+        template_set="raptor",
+        template_version="1.0.0",
+    )
+    assert (
+        "/artifacts/0/relationships/0/target/repository_id"
+        in relationship_result.differences
+    )
+    bad_location = rendered.document.artifacts[0].source_location.model_copy(
+        update={"start_column": 0}
+    )
+    bad_artifact = rendered.document.artifacts[0].model_copy(
+        update={"source_location": bad_location}
+    )
+    bad_document = rendered.document.model_copy(update={"artifacts": [bad_artifact]})
+    span_result = compare_semantics(
+        document,
+        bad_document,
+        profile=RaptorMarkdownProfile(),
+        content=rendered.content,
+        expected_output_path="docs/rendered.md",
+        template_set="raptor",
+        template_version="1.0.0",
+    )
+    assert "/artifacts/0/source_location" in span_result.differences

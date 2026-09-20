@@ -25,6 +25,7 @@ from raptor_schema.profiles import SourceInput, SourceProfile
 
 from .strict_json import loads
 from .requirements import load_sc_compose_requirement
+from .agent_runner import JsonValue
 
 TEMPLATE_VERSION = "1.0.0"
 _TEMPLATES = {
@@ -283,14 +284,12 @@ def compare_semantics(
     actual: SourceDocument,
     *,
     profile: SourceProfile,
+    expected_output_path: RepositoryPath,
+    template_set: str | None,
+    template_version: str | None,
     content: bytes | None = None,
-    expected_output_path: RepositoryPath | None = None,
-    template_set: str | None = None,
-    template_version: str | None = None,
 ) -> SemanticComparison:
     differences: list[str] = []
-    expected = SourceDocument.model_validate(expected.model_dump(mode="python"))
-    actual = SourceDocument.model_validate(actual.model_dump(mode="python"))
     expected_normalized = profile.normalize(expected)
     actual_normalized = profile.normalize(actual)
     _compare_value(
@@ -314,17 +313,11 @@ def compare_semantics(
         differences.append("/provenance/materialization/parser_profile")
     if materialization.parser_profile_version != profile.profile_version:
         differences.append("/provenance/materialization/parser_profile_version")
-    if (
-        expected_output_path is not None
-        and materialization.repository_path != expected_output_path
-    ):
+    if materialization.repository_path != expected_output_path:
         differences.append("/provenance/materialization/repository_path")
-    if template_set is not None and materialization.template_set != template_set:
+    if materialization.template_set != template_set:
         differences.append("/provenance/materialization/template_set")
-    if (
-        template_version is not None
-        and materialization.template_version != template_version
-    ):
+    if materialization.template_version != template_version:
         differences.append("/provenance/materialization/template_version")
     if content is not None:
         lines = content.decode("utf-8").splitlines()
@@ -334,6 +327,9 @@ def compare_semantics(
             if (
                 location is None
                 or location.end_line is None
+                or location.start_column != 1
+                or location.end_column != 1
+                or location.end_line < location.start_line
                 or location.start_line > line_count
                 or location.end_line > line_count + 1
                 or artifact.id not in lines[location.start_line - 1]
@@ -427,25 +423,79 @@ def migration_round_trip(
     template_set: str = "raptor",
     apply: bool = False,
 ) -> dict[str, Any]:
-    from .routes import route
+    from .agent_runner import run_agent
 
-    return route(
-        "round-trip",
-        "migration",
-        None,
-        backend=backend,
-        repository_root=repository_root,
-        params={
-            "markdown_input": markdown_input,
-            "json_path": json_path,
-            "database": database,
-            "exported_json_path": exported_json_path,
-            "markdown_output": markdown_output,
-            "profile_id": profile_id,
-            "template_set": template_set,
-            "apply": apply,
-        },
-    )
+    evidence: list[dict[str, Any]] = []
+    stages: list[tuple[str, dict[str, JsonValue]]] = [
+        (
+            "markdown-json-import",
+            {
+                "input": markdown_input,
+                "output": json_path,
+                "profile": profile_id,
+                "apply": apply,
+            },
+        )
+    ]
+    while stages:
+        agent, params = stages.pop(0)
+        result = run_agent(
+            agent=agent,
+            params=params,
+            backend=backend,
+            repository_root=repository_root,
+        )
+        evidence.append(result)
+        if not result.get("success"):
+            return result
+        if agent == "markdown-json-import":
+            data = result.get("data")
+            documents = data.get("documents") if isinstance(data, dict) else None
+            first = documents[0] if isinstance(documents, list) and documents else None
+            if not isinstance(first, dict) or not all(
+                isinstance(first.get(name), str)
+                for name in ("repository_id", "document_id")
+            ):
+                raise ValueError(
+                    "RAPTOR.ROUND_TRIP.EVIDENCE: Markdown stage omitted identity"
+                )
+            stages.extend(
+                [
+                    (
+                        "json-sqlite-import",
+                        {"input": json_path, "database": database, "apply": apply},
+                    ),
+                    (
+                        "sqlite-json-export",
+                        {
+                            "database": database,
+                            "repository_id": str(first["repository_id"]),
+                            "document_id": str(first["document_id"]),
+                            "output": exported_json_path,
+                            "apply": apply,
+                        },
+                    ),
+                    (
+                        "json-markdown-export",
+                        {
+                            "input": exported_json_path,
+                            "output": markdown_output,
+                            "profile": profile_id,
+                            "template_set": template_set,
+                            "database": database,
+                            "apply": apply,
+                        },
+                    ),
+                ]
+            )
+    return {
+        "success": True,
+        "canceled": False,
+        "aborted_by": None,
+        "data": {"applied": apply, "stages": evidence},
+        "error": None,
+        "metadata": {"duration_ms": 0, "tool_calls": 4, "retry_count": 0},
+    }
 
 
 def _comparable_value(document: Any) -> dict[str, Any]:

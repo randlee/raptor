@@ -12,6 +12,7 @@ import pytest
 from runtime.plugin_validation import COMMANDS, validate_plugin
 from runtime.plugin_validation import PluginValidationError
 from runtime import routes
+from runtime import agent_runner
 from runtime.routes import route
 from runtime.client_adapters.claude import ClaudeBackend
 from runtime.client_adapters.codex import CodexBackend
@@ -38,13 +39,22 @@ def test_eight_a5_routes_are_active_and_dolt_remains_unsupported(
 
     def dispatch(**values: object) -> dict[str, object]:
         invoked.append((str(values["agent"]), values["backend"]))
+        data: dict[str, object] = {"dispatched": values["agent"]}
+        if values["agent"] == "markdown-json-import":
+            data["documents"] = [
+                {
+                    "repository_id": "urn:raptor:repo:raptor",
+                    "document_id": "DOC-RAP-001",
+                }
+            ]
         return {
             "success": True,
-            "data": {"dispatched": values["agent"]},
+            "data": data,
             "metadata": {"tool_calls": 0},
         }
 
     monkeypatch.setattr(routes, "run_agent", dispatch)
+    monkeypatch.setattr(agent_runner, "run_agent", dispatch)
     (tmp_path / ".raptor").mkdir()
     claude, codex = ClaudeBackend("claude"), CodexBackend("codex")
     supported = {
@@ -67,10 +77,6 @@ def test_eight_a5_routes_are_active_and_dolt_remains_unsupported(
             "json-markdown-export",
             "scripts/json_to_markdown.py",
         ),
-        ("round-trip", "migration", None): (
-            "migration-round-trip",
-            "scripts/render_transaction.py",
-        ),
     }
     for backend in (claude, codex):
         for (command, source, target), (agent, script) in supported.items():
@@ -83,8 +89,23 @@ def test_eight_a5_routes_are_active_and_dolt_remains_unsupported(
                 params={"apply": False},
             )
             assert result["success"] is True
-            assert result["data"] == {"dispatched": agent}
+            assert result["data"]["dispatched"] == agent
             assert script in (ROOT / f"agents/{agent}.md").read_text()
+        result = route(
+            "round-trip",
+            "migration",
+            backend=backend,
+            repository_root=tmp_path,
+            params={
+                "markdown_input": "docs/input.md",
+                "json_path": "canonical.json",
+                "database": "raptor.sqlite",
+                "exported_json_path": "export.json",
+                "markdown_output": "docs/output.md",
+                "apply": False,
+            },
+        )
+        assert result["success"] is True
     cases = [
         ("import", "json", "dolt"),
         ("export", "dolt", "json"),
@@ -101,7 +122,7 @@ def test_eight_a5_routes_are_active_and_dolt_remains_unsupported(
         )
         assert result["error"]["code"] == expected
         assert result["metadata"]["tool_calls"] == 0
-    assert len(invoked) == 16
+    assert len(invoked) == 22
 
 
 def test_dependency_failure_stops_before_route(

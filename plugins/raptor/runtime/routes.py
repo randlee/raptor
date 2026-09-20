@@ -13,10 +13,6 @@ _SUPPORTED: dict[tuple[str, str | None, str | None], tuple[str, str]] = {
     ("import", "json", "sqlite"): ("json-sqlite-import", "import_sqlite.py"),
     ("export", "sqlite", "json"): ("sqlite-json-export", "export_sqlite.py"),
     ("export", "json", "markdown"): ("json-markdown-export", "json_to_markdown.py"),
-    ("round-trip", "migration", None): (
-        "migration-round-trip",
-        "render_transaction.py",
-    ),
     ("validate", "markdown", None): ("markdown-validate", "validate.py"),
     ("validate", "json", None): ("json-validate", "validate.py"),
     ("validate", "sqlite", None): ("sqlite-validate", "validate.py"),
@@ -42,6 +38,49 @@ def route(
     values = {value.lower() for value in (source, target) if value}
     if "dolt" in values:
         return unsupported_envelope("Dolt")
+    if (command, normalized_source, normalized_target) == (
+        "round-trip",
+        "migration",
+        None,
+    ):
+        cli_failure = sc_compose_error()
+        if cli_failure is not None:
+            return cli_failure
+        if backend is None or repository_root is None or params is None:
+            return _unsupported(
+                "RAPTOR.ROUTE.CONTEXT",
+                "Round trip requires a client backend, repository root, and explicit paths.",
+                "Provide every migration path and validate/apply intent.",
+            )
+        from .rendering import migration_round_trip
+
+        required = {
+            "markdown_input",
+            "json_path",
+            "database",
+            "exported_json_path",
+            "markdown_output",
+        }
+        if not required.issubset(params) or any(
+            not isinstance(params[name], str) for name in required
+        ):
+            return _unsupported(
+                "RAPTOR.ROUTE.INPUT",
+                "Round-trip paths must be explicit strings.",
+                "Provide all five repository-relative paths.",
+            )
+        return migration_round_trip(
+            repository_root,
+            str(params["markdown_input"]),
+            str(params["json_path"]),
+            str(params["database"]),
+            str(params["exported_json_path"]),
+            str(params["markdown_output"]),
+            backend=backend,
+            profile_id=str(params.get("profile_id", "raptor")),
+            template_set=str(params.get("template_set", "raptor")),
+            apply=params.get("apply") is True,
+        )
     supported = _SUPPORTED.get((command, normalized_source, normalized_target))
     if supported is not None:
         if supported[0] in {"json-markdown-export", "migration-round-trip"}:

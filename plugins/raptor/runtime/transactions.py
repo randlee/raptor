@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import hashlib
 import json
+import tempfile
 from contextlib import contextmanager
 from pathlib import Path
 from pathlib import PurePosixPath
@@ -199,16 +200,12 @@ def _validate_context(
         raise TransactionError(
             "RAPTOR.IDENTITY.PATH_CONFLICT: output path is registered"
         )
-    read_repository_bytes(root, database)
-    store = SQLiteArtifactStore(root.joinpath(*repository_parts(database)))
     try:
-        stored = store.get_document(key)
+        stored = _read_stored_document(root, database, key)
     except Exception as error:
         raise TransactionError(
             "RAPTOR.TRANSACTION.RECOVERY_CONFLICT: stored document is unavailable"
         ) from error
-    finally:
-        store.close()
     if dump_canonical_json(stored) != dump_canonical_json(previous):
         raise TransactionError(
             "RAPTOR.TRANSACTION.RECOVERY_CONFLICT: stored document changed"
@@ -231,6 +228,7 @@ def _commit(
             raise TransactionError(
                 "RAPTOR.TRANSACTION.RECOVERY_CONFLICT: output changed"
             )
+        _fail(fail_at, "after_output_replace")
         _write_marker(root, marker_path, marker, "output_committed")
         _fail(fail_at, "after_output_committed")
         state = "output_committed"
@@ -245,6 +243,7 @@ def _commit(
             raise TransactionError(
                 "RAPTOR.TRANSACTION.RECOVERY_CONFLICT: identity changed"
             )
+        _fail(fail_at, "after_identity_replace")
         _write_marker(root, marker_path, marker, "identity_committed")
         _fail(fail_at, "after_identity_committed")
         state = "identity_committed"
@@ -255,21 +254,7 @@ def _commit(
     document = _verified_document(root, marker)
     _fail(fail_at, "before_db_commit")
     try:
-        read_repository_bytes(root, marker["database_path"])
-        store = SQLiteArtifactStore(
-            root.joinpath(*repository_parts(marker["database_path"]))
-        )
-        try:
-            store.put_document(document)
-            if dump_canonical_json(
-                store.get_document(_document_key(document))
-            ) != dump_canonical_json(document):
-                raise TransactionError(
-                    "RAPTOR.TRANSACTION.RECOVERY_CONFLICT: stored document changed"
-                )
-            read_repository_bytes(root, marker["database_path"])
-        finally:
-            store.close()
+        _put_stored_document(root, marker["database_path"], document)
     except Exception as error:
         _write_marker(root, marker_path, marker, "db_pending")
         raise TransactionError(
@@ -280,7 +265,9 @@ def _commit(
     _fail(fail_at, "before_complete")
     _write_marker(root, marker_path, marker, "complete")
     _fail(fail_at, "after_complete")
+    _fail(fail_at, "before_cleanup")
     _cleanup(root, marker_path, marker)
+    _fail(fail_at, "after_cleanup")
     return {
         "recovered": False,
         "state": "complete",
@@ -308,6 +295,7 @@ def _recover_locked(
     )
     state = marker["state"]
     if state == "complete":
+        _verify_complete(root, marker)
         _cleanup(root, marker_path, marker)
         return {"recovered": True, "state": "complete"}
     if state in {"prepared", "output_committed"}:
@@ -354,6 +342,69 @@ def _require_live_hashes(root: Path, marker: dict[str, Any]) -> None:
         read_repository_bytes(root, IDENTITY_RELATIVE),
         marker["identity_after_sha256"],
     )
+
+
+def _verify_complete(root: Path, marker: dict[str, Any]) -> None:
+    try:
+        _require_live_hashes(root, marker)
+        document = _verified_document(root, marker)
+        stored = _read_stored_document(
+            root, marker["database_path"], _document_key(document)
+        )
+    except Exception as error:
+        if isinstance(error, TransactionError):
+            raise
+        raise TransactionError(
+            "RAPTOR.TRANSACTION.RECOVERY_CONFLICT: complete state is invalid"
+        ) from error
+    if dump_canonical_json(stored) != dump_canonical_json(document):
+        raise TransactionError(
+            "RAPTOR.TRANSACTION.RECOVERY_CONFLICT: stored document changed"
+        )
+
+
+def _read_stored_document(
+    root: Path, database: str, key: DocumentKey
+) -> SourceDocument:
+    payload = read_repository_bytes(root, database)
+    with tempfile.TemporaryDirectory() as directory:
+        snapshot = Path(directory) / "store.sqlite"
+        snapshot.write_bytes(payload)
+        store = SQLiteArtifactStore.open_read_only(snapshot)
+        try:
+            return store.get_document(key)
+        finally:
+            store.close()
+
+
+def _put_stored_document(root: Path, database: str, document: SourceDocument) -> None:
+    before = read_repository_bytes(root, database)
+    lock_name = hashlib.sha256(database.encode()).hexdigest()[:24]
+    with repository_lock(root, f".raptor/transactions/database-{lock_name}.lock"):
+        if read_repository_bytes(root, database) != before:
+            raise TransactionError(
+                "RAPTOR.TRANSACTION.RECOVERY_CONFLICT: database changed"
+            )
+        with tempfile.TemporaryDirectory() as directory:
+            snapshot = Path(directory) / "store.sqlite"
+            snapshot.write_bytes(before)
+            store = SQLiteArtifactStore(snapshot)
+            try:
+                store.put_document(document)
+                if dump_canonical_json(
+                    store.get_document(_document_key(document))
+                ) != dump_canonical_json(document):
+                    raise TransactionError(
+                        "RAPTOR.TRANSACTION.RECOVERY_CONFLICT: stored document changed"
+                    )
+            finally:
+                store.close()
+            after = snapshot.read_bytes()
+        if read_repository_bytes(root, database) != before:
+            raise TransactionError(
+                "RAPTOR.TRANSACTION.RECOVERY_CONFLICT: database changed"
+            )
+        atomic_repository_bytes(root, database, after)
 
 
 def _verified_document(root: Path, marker: dict[str, Any]) -> SourceDocument:
