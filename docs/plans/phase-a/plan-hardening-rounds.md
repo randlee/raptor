@@ -7,8 +7,10 @@ This ledger records the reviewer chain for `plan-phase-a.md` and all Phase A spr
 | 1 | 1 | arch-ctm | 7f4dac70a3bcebaf74f6421b4bb2709cf24085cb | PASS | 0 | 0 | 0 | step1-handoff-reconstructed | — | Initial guidelines pass; structured handoff was reconstructed below because the original coordinator record did not preserve the required Step 1 envelope. |
 | 1 | 2 | plan-scope-reviewer | 7f4dac70a3bcebaf74f6421b4bb2709cf24085cb | FAIL | 0 | 3 | 1 | 45c592c0d7d0993ccb282428340a5739d1b3cdabb8b3b35b14cdad43acb66648 | step1-handoff-reconstructed | STEP2-R1: executable field contract, pinned normative reference, targeted Dolt gates; minor A3 routing rename. |
 | 1 | 3 | arch-ctm | WORKTREE | READY_FOR_REREVIEW | 0 | 0 | 0 | step2-r1-correction | 45c592c0d7d0993ccb282428340a5739d1b3cdabb8b3b35b14cdad43acb66648 | Applied every STEP2-R1 finding; validation pending coordinator commit/rerun. |
-| 2 | 2 | plan-scope-reviewer | fca037aa1473730c6200c056bfb0644564713a8d | PASS | 0 | 0 | 0 | 4c8a230187229ef0217661a3c9353ded5196ace8ec53b7f95cbd4f264d8b5895 | 45c592c0d7d0993ccb282428340a5739d1b3cdabb8b3b35b14cdad43acb66648 | STEP2-R2 scope review passed all four sprints with no findings. |
-| 2 | 3 | arch-ctm | WORKTREE | PASS | 0 | 0 | 0 | step3-consistency-handoff | 4c8a230187229ef0217661a3c9353ded5196ace8ec53b7f95cbd4f264d8b5895 | Bounded consistency pass made production-ready closure explicit and completed A3 export apply/validate coverage; ready for critical review after commit. |
+| 2 | 2 | plan-scope-reviewer | fca037aa1473730c6200c056bfb0644564713a8d | PASS | 0 | 0 | 0 | 4c8a230187229ef0217661a3c9353ded5196ace8ec53b7f95cbd4f264d8b5895 | 45c592c0d7d0993ccb282428340a5739d1b3cdabb8b3b35b14cdad43acb66648 | STEP2-R2 scope review passed the then-current four-sprint topology with no findings. |
+| 2 | 3 | arch-ctm | 28499639777293f08c555be5098d50bcc48c073b | PASS | 0 | 0 | 0 | 4c8a230187229ef0217661a3c9353ded5196ace8ec53b7f95cbd4f264d8b5895 | 4c8a230187229ef0217661a3c9353ded5196ace8ec53b7f95cbd4f264d8b5895 | Step 3 content and handoff metadata were committed in 2849963; this row identifies the reviewed content commit, not the later metadata-correction commit. |
+| 2 | 4 | critical-plan-reviewer | 28499639777293f08c555be5098d50bcc48c073b | FAIL | 9 | 0 | 0 | 2a7d444d84df64c5b62b33ecebbead78a27a8a2607969ae4d8cdc0106f3b494e | 4c8a230187229ef0217661a3c9353ded5196ace8ec53b7f95cbd4f264d8b5895 | CRIT-001..009: handoff metadata, identity, measurement, SQLite, sprint split, profiles, vendor, runner, provenance. |
+| 2 | 5 | arch-ctm | WORKTREE | READY_FOR_REREVIEW | 0 | 0 | 0 | critical-r1-correction | 2a7d444d84df64c5b62b33ecebbead78a27a8a2607969ae4d8cdc0106f3b494e | Corrected all critical findings and split plugin foundation/operations/rendering into A3/A4/A5; metadata commit remains pending. |
 
 Cycle caps:
 
@@ -37,12 +39,13 @@ The original Step 1 work was committed, but the coordinator handoff omitted the 
   "docs_created": [
     "docs/plans/phase-a/sprint-a1-models-and-json-schema.md",
     "docs/plans/phase-a/sprint-a2-sqlite-reference.md",
-    "docs/plans/phase-a/sprint-a3-plugin-routing.md",
-    "docs/plans/phase-a/sprint-a4-render-and-roundtrip.md"
+    "docs/plans/phase-a/sprint-a3-plugin-foundation.md",
+    "docs/plans/phase-a/sprint-a4-plugin-operations.md",
+    "docs/plans/phase-a/sprint-a5-render-and-roundtrip.md"
   ],
   "ready_for_next_step": true,
   "errors": [],
-  "tracking_correction": "Envelope reconstructed after commit because the original Step 1 handoff was not preserved in the round ledger; Sprint A3 is renamed by the STEP2-R1 correction."
+  "tracking_correction": "Envelope reconstructed after commit because the original Step 1 handoff was not preserved in the round ledger; document paths reflect the later critical-review sprint split."
 }
 ```
 
@@ -54,9 +57,11 @@ The original Step 1 work was committed, but the coordinator handoff omitted the 
   "mode": "plan-hardening-sprint-scope",
   "round_id": "STEP3-R1",
   "round_index": 1,
-  "reviewed_commit": "WORKTREE",
+  "reviewed_commit": "28499639777293f08c555be5098d50bcc48c073b",
   "previous_reviewed_commit": "fca037aa1473730c6200c056bfb0644564713a8d",
-  "scope_review_findings_hash": "4c8a230187229ef0217661a3c9353ded5196ace8ec53b7f95cbd4f264d8b5895",
+  "findings_hash": "4c8a230187229ef0217661a3c9353ded5196ace8ec53b7f95cbd4f264d8b5895",
+  "metadata_commit": null,
+  "metadata_commit_note": "The commit containing this corrected metadata necessarily follows the reviewed content commit and is intentionally not self-referential.",
   "iterations": 1,
   "findings_resolved": 2,
   "final_finding_count": 0,
@@ -65,11 +70,48 @@ The original Step 1 work was committed, but the coordinator handoff omitted the 
     "docs/plans/phase-a/plan-hardening-rounds.md",
     "docs/plans/phase-a/sprint-a1-models-and-json-schema.md",
     "docs/plans/phase-a/sprint-a2-sqlite-reference.md",
-    "docs/plans/phase-a/sprint-a3-plugin-routing.md",
-    "docs/plans/phase-a/sprint-a4-render-and-roundtrip.md"
+    "docs/plans/phase-a/sprint-a3-plugin-foundation.md",
+    "docs/plans/phase-a/sprint-a4-plugin-operations.md",
+    "docs/plans/phase-a/sprint-a5-render-and-roundtrip.md"
   ],
   "docs_created": [],
   "ready_for_next_step": true,
+  "errors": []
+}
+```
+
+## Critical-review correction handoff
+
+```json
+{
+  "status": "PASS",
+  "mode": "plan-hardening-consistency",
+  "round_id": "STEP4-R1-CORRECTION",
+  "round_index": 1,
+  "reviewed_commit": "WORKTREE",
+  "previous_reviewed_commit": "28499639777293f08c555be5098d50bcc48c073b",
+  "findings_hash": "2a7d444d84df64c5b62b33ecebbead78a27a8a2607969ae4d8cdc0106f3b494e",
+  "metadata_commit": null,
+  "iterations": 1,
+  "findings_resolved": 9,
+  "final_finding_count": 0,
+  "sprint_splits_added": 1,
+  "docs_modified": [
+    "docs/plans/phase-a/plan-hardening-rounds.md",
+    "docs/plans/phase-a/plan-phase-a.md",
+    "docs/plans/phase-a/sprint-a1-models-and-json-schema.md",
+    "docs/plans/phase-a/sprint-a2-sqlite-reference.md"
+  ],
+  "docs_created": [
+    "docs/plans/phase-a/sprint-a3-plugin-foundation.md",
+    "docs/plans/phase-a/sprint-a4-plugin-operations.md",
+    "docs/plans/phase-a/sprint-a5-render-and-roundtrip.md"
+  ],
+  "docs_removed_or_renamed": [
+    "docs/plans/phase-a/sprint-a3-plugin-routing.md",
+    "docs/plans/phase-a/sprint-a4-render-and-roundtrip.md"
+  ],
+  "ready_for_critical_rereview": true,
   "errors": []
 }
 ```

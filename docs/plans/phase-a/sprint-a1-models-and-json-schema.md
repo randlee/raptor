@@ -40,13 +40,36 @@ Artifact = Annotated[
     Field(discriminator="artifact_type"),
 ]
 
-class SourceProvenance(BaseModel):
-    repository_path: str
+class DocumentKey(BaseModel):
+    repository_id: RepositoryId
+    document_id: DocumentId
+
+class ArtifactKey(BaseModel):
+    repository_id: RepositoryId
+    artifact_id: ArtifactId
+
+class OriginProvenance(BaseModel):
+    repository_id: RepositoryId
+    document_id: DocumentId
+    initial_repository_path: RepositoryPath
+    original_content_sha256: Sha256
     source_format: Literal["markdown"]
     parser_profile: str
     parser_profile_version: str
-    content_sha256: str
-    location: SourceLocation | None = None
+
+class MaterializationProvenance(BaseModel):
+    repository_path: RepositoryPath
+    content_sha256: Sha256
+    operation: Literal["imported", "rendered"]
+    parent_content_sha256: Sha256 | None = None
+    parser_profile: str
+    parser_profile_version: str
+    template_set: str | None = None
+    template_version: str | None = None
+
+class SourceProvenance(BaseModel):
+    origin: OriginProvenance
+    materialization: MaterializationProvenance
 
 class SourceDocument(BaseModel):
     schema_version: str
@@ -74,6 +97,50 @@ class SourceProfile(Protocol):
     def normalize(self, document: SourceDocument) -> ComparableDocument: ...
 ```
 
+### Source-profile concrete boundary
+
+```python
+@dataclass(frozen=True)
+class SourceInput:
+    repo_root: Path                 # resolved repository root
+    repository_id: RepositoryId
+    document_id: DocumentId
+    repository_path: PurePosixPath # relative to repo_root
+    content: bytes
+
+@dataclass(frozen=True)
+class ParsedSection:
+    kind: str
+    heading: str | None
+    body: str
+    location: SourceLocation
+    attributes: Mapping[str, JsonValue]
+
+@dataclass(frozen=True)
+class ParsedDocument:
+    source: SourceInput
+    frontmatter: Mapping[str, JsonValue]
+    sections: tuple[ParsedSection, ...]
+
+@dataclass(frozen=True)
+class ComparableDocument:
+    schema_version: SchemaVersion
+    origin: OriginProvenance
+    artifacts: tuple[Artifact, ...]
+
+@dataclass(frozen=True)
+class ProfileDescriptor:
+    profile_id: str
+    profile_version: ProfileVersion
+    api_version: Literal["1"]
+    entrypoint: str
+    module_sha256: Sha256
+```
+
+All paths are resolved against `SourceInput.repo_root`; symlink resolution, absolute paths, and `..` escapes outside that root fail with `RAPTOR.PATH.OUTSIDE_ROOT`. Profile resolution is deterministic: an explicit `--profile-path` descriptor wins, then repository-local `.raptor/profiles/<profile-id>/profile.toml`, then the plugin built-in registry. Within the selected source, an exact requested version wins; otherwise a declared `1.x` constraint selects the highest compatible installed version. Duplicate same-precedence versions, constraint mismatch, API mismatch, entrypoint mismatch, or hash mismatch fail respectively with `RAPTOR.PROFILE.AMBIGUOUS`, `.VERSION`, `.API`, `.ENTRYPOINT`, or `.HASH`.
+
+External profile code is trusted local code, never sandboxed implicitly. Loading repository-local or explicit profile code requires `--allow-profile-code`, validates descriptor/module paths and hash, uses no network discovery, and imports only after user trust is explicit. A consumer keeps its descriptor, module, and tests under its own `.raptor/profiles/`; Raptor receives the path at invocation and copies none of those assets into this repository or plugin bundle. `RAPTOR.PROFILE.UNTRUSTED` stops before import when trust is absent. Parse failures, invalid returned types, validation findings, and canonicalization failures use `RAPTOR.PROFILE.PARSE`, `.RETURN_TYPE`, `.VALIDATION`, and `.CANONICALIZE` without exposing tool traces or source secrets.
+
 ## Authoritative field, type, and constraint contract
 
 The following is the executable minimum contract for A1. Pydantic models and generated schemas may add descriptions but may not rename, weaken, or silently add fields without re-hardening this plan.
@@ -84,6 +151,8 @@ These constants are normative executable patterns (the table below references th
 
 ```python
 SCHEMA_VERSION_RE = r"^[1-9][0-9]*\.[0-9]+\.[0-9]+$"
+REPOSITORY_ID_RE = r"^urn:raptor:repo:[a-z0-9][a-z0-9._-]{2,127}$"
+DOCUMENT_ID_RE = r"^DOC-[A-Z0-9][A-Z0-9-]*-[0-9]{3,}$"
 ARTIFACT_ID_RE = r"^(REQ|NFR|ADR|DES|TST)-[A-Z0-9][A-Z0-9-]*-[0-9]{3,}$"
 SHA256_RE = r"^[0-9a-f]{64}$"
 EXTENSION_KEY_RE = r"^[a-z][a-z0-9]*(\.[a-z][a-z0-9_-]*)+$"
@@ -96,6 +165,8 @@ TEST_CASE_ID_RE = r"^TC-[A-Z0-9][A-Z0-9-]*-[0-9]{3,}$"
 |---|---|
 | `SchemaVersion` | string matching `SCHEMA_VERSION_RE`; Phase A accepts major `1` only |
 | `ProfileVersion` | semantic-version string matching the same grammar |
+| `RepositoryId` | stable identity matching `REPOSITORY_ID_RE`; it is assigned once and does not change with clone URL, checkout, or rename |
+| `DocumentId` | repository-scoped stable identity matching `DOCUMENT_ID_RE`; it does not change when the path moves |
 | `ArtifactId` | string matching `ARTIFACT_ID_RE`; prefix must match `artifact_type` |
 | `Title` | trimmed string, 1–200 Unicode scalar values |
 | `NonEmptyText` | trimmed string, minimum length 1 |
@@ -112,22 +183,29 @@ TEST_CASE_ID_RE = r"^TC-[A-Z0-9][A-Z0-9-]*-[0-9]{3,}$"
 | Model/field | Type and constraints | Required/omission |
 |---|---|---|
 | `SourceDocument.schema_version` | `SchemaVersion` | required |
-| `SourceDocument.provenance` | `SourceProvenance` | required |
-| `SourceDocument.artifacts` | ordered `list[Artifact]`, minimum 1; IDs unique within document | required, never omitted |
-| `SourceProvenance.repository_path` | normalized repository-relative POSIX path; no absolute path, `.` or `..` segment | required |
-| `SourceProvenance.source_format` | literal `markdown` | required |
-| `SourceProvenance.parser_profile` | lowercase identifier matching `^[a-z][a-z0-9_-]*$` | required |
-| `SourceProvenance.parser_profile_version` | `ProfileVersion` | required |
-| `SourceProvenance.content_sha256` | `Sha256` of source bytes | required |
-| `SourceProvenance.location` | `SourceLocation` for whole document | optional; omit when `None` |
+| `SourceDocument.provenance` | `SourceProvenance(origin, materialization)` | required |
+| `SourceDocument.artifacts` | ordered `list[Artifact]`, minimum 1; `(repository_id, artifact.id)` unique | required, never omitted |
+| `OriginProvenance.repository_id` | `RepositoryId` | required; immutable |
+| `OriginProvenance.document_id` | `DocumentId`, unique within repository | required; immutable |
+| `OriginProvenance.initial_repository_path` | normalized repository-relative POSIX path; no absolute path, `.` or `..` segment | required; immutable |
+| `OriginProvenance.original_content_sha256` | `Sha256` of first imported source bytes | required; immutable |
+| `OriginProvenance.source_format` | literal `markdown` | required; immutable |
+| `OriginProvenance.parser_profile`, `parser_profile_version` | `PROFILE_ID_RE`, `ProfileVersion` used for first import | required; immutable |
+| `MaterializationProvenance.repository_path` | current normalized repository-relative output/input path | required; may change on render/move |
+| `MaterializationProvenance.content_sha256` | hash recomputed from current bytes | required |
+| `MaterializationProvenance.operation` | `imported` or `rendered` | required |
+| `MaterializationProvenance.parent_content_sha256` | prior materialization hash | required for `rendered`; omitted for first import |
+| `MaterializationProvenance.parser_profile`, `parser_profile_version` | profile used to parse current bytes | required |
+| `MaterializationProvenance.template_set`, `template_version` | render template identity | required for `rendered`; omitted for `imported` |
 | `SourceLocation.start_line`, `start_column` | integer `>= 1` | required |
 | `SourceLocation.end_line`, `end_column` | integer `>= 1`; end position must not precede start | optional as a pair; both omitted or both present |
 | `Diagnostic.code` | uppercase dotted code matching `^[A-Z][A-Z0-9]*(\.[A-Z][A-Z0-9_]*)+$` | required |
 | `Diagnostic.severity` | `DiagnosticSeverity` | required |
 | `Diagnostic.message` | `NonEmptyText` | required |
-| `Diagnostic.repository_path` | same path grammar as provenance | required |
+| `Diagnostic.repository_id`, `document_id` | composite `DocumentKey` identifying the affected source | required |
+| `Diagnostic.repository_path` | current materialization path grammar | required |
 | `Diagnostic.location` | `SourceLocation` | optional; omit when `None` |
-| `Diagnostic.artifact_id` | `ArtifactId` | optional; omit when `None` |
+| `Diagnostic.artifact_key` | `ArtifactKey` | optional; omit when `None` |
 
 ### Shared artifact envelope and typed relationships
 
@@ -138,11 +216,16 @@ TEST_CASE_ID_RE = r"^TC-[A-Z0-9][A-Z0-9-]*-[0-9]{3,}$"
 | `title` | `Title` | required |
 | `status` | `LifecycleStatus` | required |
 | `summary` | `NonEmptyText` | optional; omit when `None` |
-| `relationships` | `list[ArtifactRelationship]`; duplicate `(relation, target_id, target_uri)` tuples forbidden | required, emit `[]` when empty |
+| `relationships` | `list[ArtifactRelationship]`; duplicate `(relation, target_kind, target)` tuples forbidden | required, emit `[]` when empty |
 | `extensions` | `dict[ExtensionKey, JsonValue]`; recursive values limited to JSON null/bool/number/string/array/object | required, emit `{}` when empty |
 | `source_location` | `SourceLocation` locating the artifact within its source document | optional; omit when `None` |
 
-`ArtifactRelationship` has required `relation: RelationshipType` and exactly one of `target_id: ArtifactId` or absolute `target_uri` using `https`, `http`, or `urn`. A local `target_id` must resolve within the submitted document unless the relationship also declares `external: true`; `external` defaults to `false` and is emitted. `description: NonEmptyText | None` is optional and omitted when `None`.
+Canonical identity is always composite: `DocumentKey = (repository_id, document_id)` and `ArtifactKey = (repository_id, artifact_id)`. The artifact envelope carries the repository-scoped `id`; its owning repository is `SourceDocument.provenance.origin.repository_id`. An `ArtifactRelationship` is a discriminated union with `relation`, optional `description`, and exactly one target:
+
+- `ArtifactTarget(target_kind="artifact", repository_id, artifact_id)`, which must resolve to an `ArtifactKey` in the submitted database/import batch; or
+- `UriTarget(target_kind="uri", target_uri)`, an absolute `https`, `http`, or `urn` URI.
+
+There is no ambient/current-repository shortcut in canonical JSON: even same-repository artifact targets serialize `repository_id`. This prevents collisions when one database holds many repositories.
 
 ### Family payloads
 
@@ -154,21 +237,43 @@ TEST_CASE_ID_RE = r"^TC-[A-Z0-9][A-Z0-9-]*-[0-9]{3,}$"
 | `DesignDocument` | `overview: NonEmptyText`; `components: list[DesignComponent]` with minimum 1 | `interfaces: list[DesignInterface]`, emitted even when empty |
 | `TestPlan` | `objective: NonEmptyText`; `scope: NonEmptyText`; `test_cases: list[TestCase]` with minimum 1 | `entry_criteria`, `exit_criteria`: `list[NonEmptyText]`, emitted even when empty |
 
-Supporting payload types are fixed as follows:
+Supporting payload types are fixed as follows.
 
-- `Measurement`: `name: NonEmptyText`, `comparator: Literal["eq", "ne", "lt", "lte", "gt", "gte", "range"]`, `target: str | int | float | bool | list[str | int | float | bool]`, and optional `unit: NonEmptyText`; `range` requires exactly two ordered target values and other comparators require a scalar.
-- `DesignComponent`: `name: Title`, `responsibility: NonEmptyText`, `dependencies: list[ArtifactId]`; dependencies are emitted even when empty and contain no duplicates.
+`Measurement` uses strict Pydantic scalar types (`StrictStr`, `StrictInt`, `StrictFloat`, `StrictBool`); Python `bool` is never accepted as an integer. Comparator/target rules are authoritative:
+
+| Comparator | Target shape | Allowed target types | Additional rule |
+|---|---|---|---|
+| `eq`, `ne` | scalar | strict string, integer, finite float, or boolean | `unit` allowed only for integer/float |
+| `lt`, `lte`, `gt`, `gte` | scalar | strict integer or finite float | boolean/string rejected; `unit` optional |
+| `range` | array of exactly two values | both strict integers or both finite floats | homogeneous type, boolean rejected, lower `<=` upper |
+
+Every float must be finite; NaN and positive/negative infinity fail before canonicalization. Mixed integer/float ranges fail rather than coercing. Generated JSON Schema expresses comparator-dependent scalar/array shape, allowed JSON types, exact range length, and homogeneous range branches with `oneOf`/`if`/`then`. Pydantic-only validators enforce strict Python bool-versus-int distinction, finiteness, homogeneous runtime types, and lower/upper ordering; the schema/Python distinction is listed beside generated schemas and tested against shared cases.
+
+- `Measurement` also requires `name: NonEmptyText` and optional `unit: NonEmptyText` under the matrix above.
+- `DesignComponent`: `name: Title`, `responsibility: NonEmptyText`, `dependencies: list[ArtifactKey]`; dependencies are emitted even when empty and contain no duplicates.
 - `DesignInterface`: `name: Title`, `description: NonEmptyText`, `participants: list[Title]` with minimum 2.
-- `TestCase`: `id` matching `^TC-[A-Z0-9][A-Z0-9-]*-[0-9]{3,}$`, `title: Title`, `steps: list[NonEmptyText]` with minimum 1, `expected_result: NonEmptyText`, and `verifies: list[ArtifactId]` with minimum 1.
+- `TestCase`: `id` matching `^TC-[A-Z0-9][A-Z0-9-]*-[0-9]{3,}$`, `title: Title`, `steps: list[NonEmptyText]` with minimum 1, `expected_result: NonEmptyText`, and `verifies: list[ArtifactKey]` with minimum 1.
 
 ### Canonical ordering, unknown fields, and omission
 
 - All models use `extra="forbid"`; unknown canonical fields fail validation.
 - `SourceDocument.artifacts` and authorial lists (`acceptance_criteria`, consequences, alternatives, components, interfaces, test cases, steps, entry/exit criteria) preserve input/source order because order carries presentation or execution meaning.
-- `relationships` serialize sorted by `(relation, target_id or "", target_uri or "")`; extension/object keys serialize lexicographically; set-like ID arrays serialize lexicographically after duplicate rejection.
-- Canonical JSON uses UTF-8, sorted object keys, compact separators, and a single trailing newline. Numbers use JSON numeric form; NaN and infinities are rejected.
+- `relationships` serialize sorted by `(relation, target_kind, repository_id or "", artifact_id or "", target_uri or "")`; extension/object keys serialize lexicographically; set-like ID arrays serialize lexicographically after duplicate rejection.
+- Canonical JSON uses UTF-8, sorted object keys, compact separators, and a single trailing newline. Strict integers and floats retain their JSON type; `-0.0` canonicalizes to `0.0`; finite floats use the shortest round-trippable decimal representation; NaN and infinities are rejected.
 - Fields typed `T | None` are omitted when `None`. Required list/map fields are always emitted, including `[]`/`{}`. Defaults are emitted; no `exclude_defaults` serialization is allowed.
 - The discriminator and family-ID prefix are validated together. Unsupported schema major versions, duplicate IDs, unresolved local references, invalid locations, and namespace violations fail before serialization.
+
+### Origin and materialization transition/equality matrix
+
+| Operation | Immutable origin | Materialization/output path | Hash behavior | Equality behavior |
+|---|---|---|---|---|
+| first import | create from repository identity, stable document ID, initial path/hash/profile | same path/hash, `operation=imported` | compute both hashes from input bytes | canonical artifacts and origin establish baseline |
+| SQLite store/load | byte-identical model values | unchanged | no recomputation | full model equality required |
+| render to same path | preserve origin byte-for-byte | requested path, `operation=rendered`, parent hash, template identity | compute new hash from atomically written bytes | artifact semantics and origin equal; materialization transition validated, not expected equal |
+| render to new path/move | preserve origin including initial path | new repository-relative path | compute new hash; parent is prior hash | document/artifact composite keys unchanged; current path changes |
+| reparse rendered bytes | preserve serialized origin; reject attempted origin rewrite | current render path/profile and recomputed byte hash | recomputed hash must equal stored materialization hash | locations may be recomputed; artifact semantic fields, relationships, extensions, and origin must equal |
+
+`source_location` and diagnostic locations are transport positions: after rendering they must be valid for the new bytes but need not equal the prior positions. Semantic comparison excludes only current materialization path/hash, operation/template fields, and transport locations from direct equality; it separately proves the transition rules above. Repository/document/artifact keys and immutable origin are never excluded.
 
 ## Authoritative deliverables
 
@@ -182,6 +287,7 @@ Supporting payload types are fixed as follows:
 | A1-D6 | Strict validation for schema version, IDs/types, duplicate IDs, references, family fields, extension namespace, and unknown fields. | validators and `schema/tests/models/` |
 | A1-D7 | Deterministic canonical JSON dump/load API and versioned JSON Schemas generated from Pydantic by one documented command. | `schema/src/raptor_schema/canonical.py`, `schema/json/v1/`, drift test |
 | A1-D8 | Positive/negative tests derived only from the Raptor corpus, with origin artifact IDs recorded, plus compatibility documentation for external adapters. | `schema/tests/{models,json_schema}/` and package docs |
+| A1-D9 | Concrete source-profile types, deterministic trusted discovery/loading/version contract, multi-repository composite identity, and origin/materialization transition rules. | public model/protocol docs and contract tests |
 
 ## Authoritative acceptance criteria
 
@@ -197,13 +303,17 @@ Supporting payload types are fixed as follows:
 | A1-AC8 | Every fixture resolves through the corpus manifest to Raptor `REQ-RAP-*`, `NFR-RAP-*`, or `ADR-RAP-*`; no generic or external-consumer fixture is present. |
 | A1-AC9 | `schema/pyproject.toml` declares supported Python/Pydantic versions, installs in a clean environment, exposes consumer-neutral calls, and requires neither SQLite nor Rust. |
 | A1-AC10 | Product paths contain no `NFT`, P3-specific artifact identifier, `p3-documentation` asset, or Rust SQLx dependency. |
+| A1-AC11 | Two repositories may use the same local artifact/document IDs without collision; all references, diagnostics, comparisons, and serialization retain the stable repository namespace. |
+| A1-AC12 | Measurement cases cover every comparator/type cell, mixed/homogeneous ranges, bool-versus-int, finite/non-finite floats, canonical numeric output, and the documented JSON Schema/Python validation split. |
+| A1-AC13 | Profile resolution tests cover precedence, exact/major version selection, ambiguity, API/entrypoint/hash mismatch, root/symlink escapes, explicit trust, and a temporary consumer-owned profile outside Raptor assets. |
+| A1-AC14 | Provenance tests prove immutable origin preservation and every materialization transition, including same/new output paths, recomputed hashes, parent hash, template identity, and transport-location inequality. |
 
 ## Authoritative validation
 
 ```sh
 python -m pip install -e 'schema[test]'
 python -m pytest schema/tests/models schema/tests/json_schema
-python -m pytest schema/tests/models -k 'field_contract or ordering or omission or relationship or diagnostic or location'
+python -m pytest schema/tests/models -k 'field_contract or identity or measurement or provenance or profile or ordering or omission or relationship or diagnostic or location'
 python -m raptor_schema.generate --check --output schema/json/v1
 git diff --exit-code -- schema/json/v1
 rg -n 'REQ-RAP-|NFR-RAP-|ADR-RAP-' docs/requirements.md docs/architecture.md docs/adr
@@ -222,6 +332,7 @@ Manual review verifies field classification, decision alternatives, traceability
 | A1-D4, A1-D8 | PA-REQ-009, PA-NFR-001, PA-NFR-002 |
 | A1-D5, A1-D6 | PA-REQ-001, PA-REQ-002, PA-NFR-005 |
 | A1-D7 | PA-REQ-003, PA-NFR-004 |
+| A1-D9 | PA-REQ-002, PA-REQ-004, PA-NFR-001, PA-NFR-004, PA-NFR-005 |
 
 ## Risks and mitigations
 

@@ -32,8 +32,14 @@ schema/
 class ArtifactStore(Protocol):
     def initialize(self) -> None: ...
     def put_document(self, document: SourceDocument) -> None: ...
-    def get_document(self, repository_path: str) -> SourceDocument: ...
-    def list_artifact_ids(self, *, artifact_type: str | None = None) -> list[str]: ...
+    def put_documents(self, documents: Iterable[SourceDocument]) -> None: ...
+    def get_document(self, key: DocumentKey) -> SourceDocument: ...
+    def move_document(self, key: DocumentKey, new_path: RepositoryPath) -> None: ...
+    def delete_document(self, key: DocumentKey) -> None: ...
+    def list_artifact_keys(
+        self, *, repository_id: RepositoryId | None = None,
+        artifact_type: str | None = None,
+    ) -> list[ArtifactKey]: ...
 
 def assert_store_conformance(
     store: ArtifactStore,
@@ -42,6 +48,91 @@ def assert_store_conformance(
 ```
 
 The reusable conformance helper is dialect-neutral so later Dolt work can run the same behavioral contract. The SQLite DDL uses normalized identity and relationship columns where integrity/querying requires them and canonical JSON payloads where further normalization would duplicate Pydantic validation.
+
+## Authoritative SQLite logical/DDL contract
+
+`0001_initial.sql` must be equivalent to the following table/key contract; names, primary keys, foreign keys, checks, and uniqueness are normative even if formatting differs:
+
+```sql
+CREATE TABLE schema_metadata (
+  metadata_key TEXT PRIMARY KEY,
+  metadata_value TEXT NOT NULL
+);
+
+CREATE TABLE repositories (
+  repository_id TEXT PRIMARY KEY
+);
+
+CREATE TABLE source_documents (
+  repository_id TEXT NOT NULL,
+  document_id TEXT NOT NULL,
+  current_path TEXT NOT NULL,
+  schema_version TEXT NOT NULL,
+  origin_json TEXT NOT NULL CHECK (json_valid(origin_json)),
+  materialization_json TEXT NOT NULL CHECK (json_valid(materialization_json)),
+  PRIMARY KEY (repository_id, document_id),
+  UNIQUE (repository_id, current_path),
+  FOREIGN KEY (repository_id) REFERENCES repositories(repository_id) ON DELETE RESTRICT
+);
+
+CREATE TABLE artifacts (
+  repository_id TEXT NOT NULL,
+  artifact_id TEXT NOT NULL,
+  artifact_type TEXT NOT NULL,
+  status TEXT NOT NULL,
+  artifact_json TEXT NOT NULL CHECK (json_valid(artifact_json)),
+  PRIMARY KEY (repository_id, artifact_id),
+  FOREIGN KEY (repository_id) REFERENCES repositories(repository_id) ON DELETE RESTRICT
+);
+
+CREATE TABLE document_artifacts (
+  repository_id TEXT NOT NULL,
+  document_id TEXT NOT NULL,
+  artifact_id TEXT NOT NULL,
+  ordinal INTEGER NOT NULL CHECK (ordinal >= 0),
+  PRIMARY KEY (repository_id, document_id, artifact_id),
+  UNIQUE (repository_id, artifact_id),
+  UNIQUE (repository_id, document_id, ordinal),
+  FOREIGN KEY (repository_id, document_id)
+    REFERENCES source_documents(repository_id, document_id) ON DELETE CASCADE,
+  FOREIGN KEY (repository_id, artifact_id)
+    REFERENCES artifacts(repository_id, artifact_id) ON DELETE RESTRICT
+);
+
+CREATE TABLE artifact_relationships (
+  source_repository_id TEXT NOT NULL,
+  source_artifact_id TEXT NOT NULL,
+  relation TEXT NOT NULL,
+  target_repository_id TEXT NOT NULL,
+  target_artifact_id TEXT NOT NULL,
+  description TEXT,
+  PRIMARY KEY (
+    source_repository_id, source_artifact_id, relation,
+    target_repository_id, target_artifact_id
+  ),
+  FOREIGN KEY (source_repository_id, source_artifact_id)
+    REFERENCES artifacts(repository_id, artifact_id) ON DELETE CASCADE,
+  FOREIGN KEY (target_repository_id, target_artifact_id)
+    REFERENCES artifacts(repository_id, artifact_id) ON DELETE RESTRICT
+);
+
+CREATE TABLE artifact_uri_relationships (
+  source_repository_id TEXT NOT NULL,
+  source_artifact_id TEXT NOT NULL,
+  relation TEXT NOT NULL,
+  target_uri TEXT NOT NULL,
+  description TEXT,
+  PRIMARY KEY (source_repository_id, source_artifact_id, relation, target_uri),
+  FOREIGN KEY (source_repository_id, source_artifact_id)
+    REFERENCES artifacts(repository_id, artifact_id) ON DELETE CASCADE
+);
+```
+
+`schema_metadata` contains exactly one supported database schema-version entry and one canonical model schema-version entry; initialization rejects conflicting values. `origin_json`, `materialization_json`, and `artifact_json` own the complete canonical model values. Scalar columns, membership, ordinals, and relationship tables are indexed integrity/query projections that must equal the JSON on every write and are verified before returning a model; they are never an alternate model authority.
+
+One database may contain many repositories. All document/artifact/membership/reference keys are composite with `repository_id`; no query or adapter method identifies a document or artifact by path or local ID alone.
+
+Replacement is a single transaction keyed by `DocumentKey`: validate the whole incoming document and all target keys; upsert its repository; remove the old source relationship projections/membership/artifacts that are no longer present; insert/update canonical JSON and projections; then commit. `put_documents` performs the same work atomically for a batch so cyclic/cross-repository references can resolve after all target artifacts are staged. Removing an artifact targeted by another document fails with `RAPTOR.STORAGE.REFERENCE_CONFLICT` rather than cascading. Deleting a document uses the same restriction. Moving a document updates only `source_documents.current_path` and materialization JSON for the same key; immutable origin, membership, artifact keys, and relationships remain unchanged. A path collision within one repository fails; identical paths/IDs across different repository IDs are valid.
 
 ## Authoritative deliverables
 
@@ -53,6 +144,7 @@ The reusable conformance helper is dialect-neutral so later Dolt work can run th
 | A2-D4 | Reusable dialect-neutral persistence conformance tests callable later against Dolt and callable now by external consumers with their own validated `SourceDocument`. | helper under `schema/tests/storage/` and Raptor-only executions |
 | A2-D5 | SQLite tests covering clean/idempotent initialization, rollback, replacement behavior, foreign keys, relationship recovery, and unsupported schema version. | `schema/tests/storage/` |
 | A2-D6 | Exact semantic recovery test for all five families and provenance using A1 Raptor fixtures. | canonical comparison evidence |
+| A2-D7 | Multi-repository composite-key, replace/delete/move, inbound-reference restriction, JSON/projection ownership, and metadata-version contract. | DDL, adapter behavior, and conformance tests |
 
 ## Authoritative acceptance criteria
 
@@ -65,13 +157,16 @@ The reusable conformance helper is dialect-neutral so later Dolt work can run th
 | A2-AC5 | Checked-in SQLite DDL is the dialect authority; tests reject adapter assumptions absent from DDL and unsupported database schema versions. |
 | A2-AC6 | The conformance helper depends on `ArtifactStore`, not SQLite internals, and external callers can run it with their own models while Raptor tests remain Raptor-owned. |
 | A2-AC7 | No SQLAlchemy, server process, MySQL/Dolt code or placeholder, Rust SQLx dependency, or consumer-specific table/column is introduced. |
+| A2-AC8 | Same local document/artifact IDs and paths coexist under different repository IDs without collision; no path-only/local-ID-only storage API exists. |
+| A2-AC9 | DDL contains every normative table/key/FK/check and JSON ownership rule; corrupt projection/JSON disagreement is detected before model return. |
+| A2-AC10 | Replace/delete/move tests cover retained IDs, removed artifacts, inbound reference conflicts, path collision, rollback, immutable origin, and materialization updates. |
 
 ## Authoritative validation
 
 ```sh
 python -m pip install -e 'schema[test]'
 python -m pytest schema/tests/storage
-python -m pytest schema/tests/storage -k 'round_trip or rollback or foreign_key or schema_version or conformance'
+python -m pytest schema/tests/storage -k 'round_trip or multi_repository or replacement or delete or move or rollback or foreign_key or projection or schema_version or conformance'
 rg -n 'CREATE TABLE|FOREIGN KEY|UNIQUE' schema/sql/sqlite/0001_initial.sql
 test ! -e schema/sql/dolt
 rg -n '\b(sqlalchemy|sqlx|mysqlclient|pymysql|mysql-connector|doltpy)\b|p3-documentation|REQ-P3-|NFR-P3-|ADR-P3-|\bNFT\b' schema/src schema/tests schema/sql/sqlite schema/pyproject.toml && exit 1 || true
@@ -88,6 +183,7 @@ Tests create temporary databases and never commit generated database files.
 | A2-D3, A2-D6 | PA-REQ-002, PA-NFR-004 |
 | A2-D4, A2-D5 | PA-REQ-005, PA-NFR-001, PA-NFR-006 |
 | A2-D6 | PA-REQ-001, PA-REQ-009 |
+| A2-D7 | PA-REQ-002, PA-REQ-005, PA-NFR-004, PA-NFR-005 |
 
 ## Risks and mitigations
 
@@ -107,4 +203,4 @@ Tests create temporary databases and never commit generated database files.
 
 ## Handoff to A3
 
-A3 receives the stable A1 model API and A2 `ArtifactStore` contract. Plugin scripts may invoke them but may not embed alternate validation or SQL. Missing canonical or persistence behavior is fixed in A1/A2 and merged forward before A3 continues.
+A3 receives the stable A1 model API and A2 `ArtifactStore` contract for deterministic vendoring/bootstrap and clean-environment verification; it adds no transformation routes. A4 operation scripts may invoke these APIs but may not embed alternate validation or SQL. Missing canonical or persistence behavior is fixed in A1/A2 and merged forward before children continue.

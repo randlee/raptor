@@ -30,7 +30,7 @@ This establishes the contract needed to migrate 30–50 repositories without put
 | ID | Requirement |
 |---|---|
 | PA-REQ-001 | Define canonical representations for Requirement, NonFunctionalRequirement, ArchitectureDecision, DesignDocument, and TestPlan. |
-| PA-REQ-002 | Preserve source identity and parser-profile provenance so a canonical artifact can be traced back to its Markdown document. |
+| PA-REQ-002 | Preserve stable repository/document/artifact composite identity, immutable origin, and current materialization provenance so artifacts remain traceable across repositories, storage, moves, and rendering. |
 | PA-REQ-003 | Publish Pydantic models and generated JSON Schemas from one implementation contract under top-level `schema/`. |
 | PA-REQ-004 | Provide deterministic, structured source-profile validation findings before canonical conversion. |
 | PA-REQ-005 | Persist and recover canonical artifacts with a minimal SQLite reference schema compatible with the models. |
@@ -57,8 +57,8 @@ This establishes the contract needed to migrate 30–50 repositories without put
 | ADR-RAP-001 | Canonical artifacts are consumer-neutral; source profiles and adapters stay at integration boundaries. |
 | ADR-RAP-002 | Pydantic models are authoritative and JSON Schemas are generated artifacts checked for drift. |
 | ADR-RAP-003 | SQLite is the Phase A reference persistence target; Dolt/MySQL follows only after the logical schema is proven. |
-| ADR-RAP-004 | Round-trip success means canonical semantic equivalence, while source provenance preserves the route back to Markdown. |
-| ADR-RAP-005 | Claude and Codex integrations share skills, scripts, templates, and tests; only discovery manifests differ. |
+| ADR-RAP-004 | Composite repository/document/artifact identity and immutable origin survive storage/rendering; materialization provenance records path/hash transitions; round-trip success means semantic plus transition equivalence. |
+| ADR-RAP-005 | Claude and Codex integrations share skills, agents, registry-enforcing runner, vendored runtime, scripts, templates, and tests; only thin discovery/invocation adapters differ. |
 
 ## Sprint stack
 
@@ -66,8 +66,9 @@ This establishes the contract needed to migrate 30–50 repositories without put
 |---|---|---|---|---|
 | A1 | [Canonical models and JSON Schema](sprint-a1-models-and-json-schema.md) | `phase-a/01-models-and-json-schema` | root; follows `develop` | Freeze the contract in Raptor dogfood artifacts and publish the five Pydantic families, provenance types, canonical JSON, and generated schemas. |
 | A2 | [SQLite reference persistence](sprint-a2-sqlite-reference.md) | `phase-a/02-sqlite-reference` | `must_follow` A1 | Prove model-compatible storage and recovery with minimal reusable tests. |
-| A3 | [Claude + Codex operation routing](sprint-a3-plugin-routing.md) | `phase-a/03-plugin-routing` | `must_follow` A2 | Package validation, import, and export operation routers for both clients. |
-| A4 | [sc-compose rendering and round-trip](sprint-a4-render-and-roundtrip.md) | `phase-a/04-render-and-roundtrip` | `must_follow` A3 | Render all five families and prove semantic reparse equivalence. |
+| A3 | [Plugin foundation](sprint-a3-plugin-foundation.md) | `phase-a/03-plugin-foundation` | `must_follow` A2 | Deliver discovery, router/agent contracts, deterministic vendor/bootstrap, shared runner, and thin client adapters. |
+| A4 | [Validate/import/export operations](sprint-a4-plugin-operations.md) | `phase-a/04-plugin-operations` | `must_follow` A3 | Activate Markdown/JSON/SQLite validation, import, and export through six focused agents. |
+| A5 | [sc-compose rendering and round-trip](sprint-a5-render-and-roundtrip.md) | `phase-a/05-render-and-roundtrip` | `must_follow` A4 | Render all five families and prove identity/provenance-aware semantic reparse equivalence. |
 
 All relations are `must_follow`. The public contract or generated artifact produced by each parent is consumed by its child. Parent development must be merged forward before every child development or fix round, and parent PRs merge before child PRs.
 
@@ -140,6 +141,10 @@ plugins/raptor/
     json-markdown-export.md
     migration-round-trip.md
   scripts/
+    _bootstrap.py
+    agent_runner.py
+    validate_plugin.py
+    client_adapters/{claude,codex}.py
   templates/
   _vendor/raptor_schema/
 ```
@@ -159,7 +164,7 @@ Both Claude and Codex discovery tests must resolve these names to the matching r
 
 Every skill/agent declares versioned YAML frontmatter. Agents return fenced standard JSON envelopes with namespaced errors and no secrets/tool traces. CLI-dependent routes verify the tool and minimum version before delegation and link `references/installation-and-troubleshooting.md`; this is mandatory for `sc-compose` on JSON→Markdown and round-trip routes. All file operations use repository-root allowlists. Mutations default to validate/dry-run, require explicit apply intent, and use atomic writes or transactions.
 
-`schema/src/raptor_schema/` remains authoritative. The plugin vendor is a CI-generated copy for self-contained distribution, never hand-edited. `plugin-manifest.json` records at least the canonical schema version and deterministic source-content hash. One documented refresh operation copies the authoritative package, updates the manifest, and supports a check mode that fails on drift. A3 establishes all routers and implements Markdown→JSON, JSON validation, Markdown validation, SQLite validation, JSON→SQLite, and SQLite→JSON. A4 implements JSON→Markdown, shared templates, and composed round-trip proof.
+`schema/src/raptor_schema/` remains authoritative. A3 owns the exact-copy/hash/bootstrap contract, shared registry-enforcing agent runner, and logic-free Claude/Codex adapters. A4 activates Markdown→JSON, JSON/Markdown/SQLite validation, JSON→SQLite, and SQLite→JSON. A5 implements JSON→Markdown, shared templates, and composed round-trip proof.
 
 The `json-dolt`, `dolt-json`, and Dolt validation references reserve future interface semantics only. During Phase A they must clearly describe the unavailable capability and return a structured unsupported result. They may not add Dolt DDL, drivers, connections, fixtures, or tests.
 
@@ -167,7 +172,7 @@ The `json-dolt`, `dolt-json`, and Dolt validation references reserve future inte
 
 Canonical model fields describe Raptor concepts. A source profile may map repository-specific Markdown into those fields and report diagnostics, but it may not extend canonical semantics implicitly. Consumer extensions, when eventually supported, must live in an explicit namespaced extension field governed by the schema version.
 
-Every imported document carries provenance sufficient to identify the source repository-relative path, source format, parser profile and profile version, content hash, and artifact locations within the source. Preservation of original bytes is optional; preservation of source identity is required.
+Every imported document carries a stable `RepositoryId`, repository-scoped `DocumentId`, and repository-scoped artifact IDs. Canonical document/artifact keys are composite with repository identity, so one SQLite database safely holds many repositories with overlapping local IDs and paths. Immutable origin records first path/hash/profile; materialization provenance records current path/hash/profile and render transition. Preservation of original bytes is optional; preservation of immutable origin is required.
 
 ### Semantic round trip
 
@@ -178,7 +183,7 @@ normalize(parse(render(load(store(validate(canonicalize(parse(markdown)))))))) \
     == normalize(canonicalize(parse(markdown)))
 ```
 
-Normalization may remove presentation-only variation documented by the source profile. It may not discard canonical fields, relationships, ordering that carries meaning, or provenance required by `PA-REQ-002`.
+Normalization may remove presentation-only variation documented by the source profile. It may not discard composite keys, canonical fields, relationships, meaningful order, or immutable origin. Current path/hash/template and transport locations are transition-validated rather than directly equal after render.
 
 ### External consumer contract
 
@@ -189,16 +194,16 @@ An external repository may supply Markdown adapters, profile rules, and its own 
 | Requirement | Owning sprint | Evidence at phase close |
 |---|---|---|
 | PA-REQ-001, PA-REQ-003 | A1 | Pydantic API, schema files, family tests |
-| PA-REQ-002 | A1, A2 | provenance contract, models, persisted recovery test |
-| PA-REQ-004 | A3 | structured diagnostic tests and CLI/script contract |
+| PA-REQ-002 | A1, A2, A5 | composite identity/provenance model, persisted recovery/move tests, render-transition proof |
+| PA-REQ-004 | A1, A4 | concrete source-profile contract and structured diagnostic route tests |
 | PA-REQ-005 | A2 | SQL migration plus store/load tests |
-| PA-REQ-006 | A3 | dual discovery manifests resolving the same four operation routers and shared implementation |
-| PA-REQ-007 | A4 | five sc-compose templates and render tests |
-| PA-REQ-008 | A4 | semantic round-trip tests for all five families |
-| PA-REQ-009 | A1–A4 | fixture-origin audit tied to Raptor artifact IDs |
+| PA-REQ-006 | A3, A4, A5 | shared discovery/vendor/runner foundation and activated focused operation agents |
+| PA-REQ-007 | A5 | five sc-compose templates and render tests |
+| PA-REQ-008 | A5 | semantic round-trip tests for all five families |
+| PA-REQ-009 | A1–A5 | fixture-origin audit tied to Raptor artifact IDs |
 | PA-NFR-001, PA-NFR-002 | every sprint | repository-wide forbidden-content gates |
 | PA-NFR-003 | A1, A2 | bounded Python implementation; no SQLx dependency |
-| PA-NFR-004, PA-NFR-005 | A1–A4 | deterministic-output and unsupported-version tests |
+| PA-NFR-004, PA-NFR-005 | A1–A5 | deterministic-output and unsupported-version tests |
 | PA-NFR-006 | every sprint | one reviewed stacked PR per sprint |
 
 ## Phase acceptance
@@ -229,8 +234,8 @@ The following are intentionally deferred:
 |---|---|---|
 | Consumer conventions leak into canonical models | A1 ownership matrix and repo-wide forbidden-content checks | Any required canonical field exists only to satisfy one consumer. |
 | Model and SQL contracts diverge | A2 uses public model dumps/loads and a reusable dialect-neutral conformance suite | A persisted valid model cannot be loaded without loss. |
-| Rendering hides data loss | A4 compares normalized canonical objects after reparse | Any canonical field is unaccounted for by render/reparse. |
-| Plugin duplicates implementations | A3 resolves both clients to shared assets and tests paths | Client manifests select different executable logic. |
+| Rendering hides data loss | A5 compares semantics and validates origin/materialization transitions after reparse | Any canonical field, composite key, origin value, or transition is unaccounted for. |
+| Plugin duplicates implementations | A3 owns one runner/vendor and thin client adapters; A4/A5 use shared scripts | Client manifests or agents select different policy/transformation logic. |
 | Sprint scope grows into fleet migration | enforce Phase-wide non-closure and re-harden before expansion | Work requires consumer repository changes or Dolt operations. |
 
 ## Handoff after Phase A
