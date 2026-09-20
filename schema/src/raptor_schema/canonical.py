@@ -62,10 +62,6 @@ def _artifact_key(document: SourceDocument, artifact_id: str) -> ArtifactKey:
     )
 
 
-def _key_tuple(key: ArtifactKey) -> tuple[str, str]:
-    return key.repository_id, key.artifact_id
-
-
 def _references(document: SourceDocument) -> Iterable[tuple[ArtifactKey, str, ArtifactKey, str]]:
     for artifact_index, artifact in enumerate(document.artifacts):
         source = _artifact_key(document, artifact.id)
@@ -87,8 +83,6 @@ def _reference_diagnostic(
     source: ArtifactKey,
     relation: str,
     target: ArtifactKey,
-    mode: ReferenceValidationMode,
-    pointer: str,
 ) -> Diagnostic:
     origin = document.provenance.origin
     return Diagnostic(
@@ -120,14 +114,14 @@ def validate_document(
         raise ValueError("RAPTOR.REFERENCE.RESOLVER_REQUIRED: store mode requires a resolver")
     if reference_mode is ReferenceValidationMode.STRUCTURAL:
         return document
-    local = {_key_tuple(_artifact_key(document, artifact.id)) for artifact in document.artifacts}
+    local = {_artifact_key(document, artifact.id).sort_key() for artifact in document.artifacts}
     for source, relation, target, pointer in _references(document):
-        found = _key_tuple(target) in local
+        found = target.sort_key() in local
         if reference_mode is ReferenceValidationMode.STORE and not found:
             found = bool(resolver and resolver.contains(target))
         if not found:
             raise ReferenceValidationError(
-                _reference_diagnostic(document, source, relation, target, reference_mode, pointer),
+                _reference_diagnostic(document, source, relation, target),
                 source=source,
                 relation=relation,
                 target=target,
@@ -160,18 +154,18 @@ def validate_documents(
     for document in documents:
         for artifact in document.artifacts:
             key = _artifact_key(document, artifact.id)
-            if _key_tuple(key) in keys:
+            if key.sort_key() in keys:
                 raise ValueError(f"RAPTOR.REFERENCE.DUPLICATE: {key.repository_id}/{key.artifact_id}")
-            keys.add(_key_tuple(key))
+            keys.add(key.sort_key())
     for document in documents:
         for source, relation, target, pointer in _references(document):
-            found = _key_tuple(target) in keys or (
+            found = target.sort_key() in keys or (
                 reference_mode is ReferenceValidationMode.STORE
                 and bool(resolver and resolver.contains(target))
             )
             if not found:
                 raise ReferenceValidationError(
-                    _reference_diagnostic(document, source, relation, target, reference_mode, pointer),
+                    _reference_diagnostic(document, source, relation, target),
                     source=source,
                     relation=relation,
                     target=target,

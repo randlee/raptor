@@ -109,9 +109,23 @@ def test_origin_rewrite_and_wrong_parent_are_rejected(document: SourceDocument) 
         validate_provenance_transition(document.provenance, wrong_parent)
 
 
-def test_origin_provenance_rejects_assignment(document: SourceDocument) -> None:
+@pytest.mark.parametrize(
+    ("field", "value"),
+    [
+        ("repository_id", "urn:raptor:repo:other"),
+        ("document_id", "DOC-RAP-099"),
+        ("initial_repository_path", "docs/other.md"),
+        ("original_content_sha256", "b" * 64),
+        ("source_format", "markdown"),
+        ("parser_profile", "other_profile"),
+        ("parser_profile_version", "1.1.0"),
+    ],
+)
+def test_origin_provenance_rejects_assignment(
+    document: SourceDocument, field: str, value: object
+) -> None:
     with pytest.raises(ValidationError, match="frozen"):
-        setattr(document.provenance.origin, "document_id", "DOC-RAP-099")
+        setattr(document.provenance.origin, field, value)
 
 
 def imported_materialization() -> dict[str, object]:

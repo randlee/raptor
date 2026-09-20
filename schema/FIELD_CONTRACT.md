@@ -30,11 +30,17 @@ artifact-prefix agreement, duplicate composite keys, reference existence,
 identity registration conflicts, exact Python scalar type/finiteness/order for
 measurements, provenance transitions, and source-root/symlink containment.
 
+`ProfileDescriptor` is data only in A1. Source-profile discovery, precedence,
+descriptor/module I/O, trust and hash verification, loading, invocation wrappers,
+and operational profile error handling belong exclusively to A4.
+
 ## Stable operational codes
 
 - `RAPTOR.PATH.OUTSIDE_ROOT`
-- `RAPTOR.PROFILE.AMBIGUOUS`, `.VERSION`, `.API`, `.ENTRYPOINT`, `.HASH`,
-  `.UNTRUSTED`, `.PARSE`, `.RETURN_TYPE`, `.VALIDATION`, `.CANONICALIZE`
 - `RAPTOR.REFERENCE.UNRESOLVED`, `.DUPLICATE`, `.RESOLVER_REQUIRED`
 - `RAPTOR.IDENTITY.MISSING`, `.REPOSITORY_CONFLICT`, `.DOCUMENT_CONFLICT`,
   `.PATH_CONFLICT`, `.REUSE`
+
+A4 owns acceptance and executable use of the reserved profile codes:
+`RAPTOR.PROFILE.AMBIGUOUS`, `.VERSION`, `.API`, `.ENTRYPOINT`, `.HASH`,
+`.UNTRUSTED`, `.PARSE`, `.RETURN_TYPE`, `.VALIDATION`, and `.CANONICALIZE`.

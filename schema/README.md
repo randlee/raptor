@@ -34,4 +34,5 @@ include cross-document reference existence, duplicate composite keys, source-roo
 containment, identity registration conflicts, Python float finiteness, exact
 Python scalar distinctions in measurement ranges, and range ordering. Profile
 discovery, trust, descriptor I/O, and dynamic loading belong to the later plugin
-runtime and are intentionally absent here.
+runtime and are intentionally absent here. `ProfileDescriptor` is an immutable
+data contract only; A4 owns all operational interpretation and error handling.
