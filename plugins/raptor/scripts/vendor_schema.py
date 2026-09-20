@@ -6,6 +6,7 @@ import sys
 from pathlib import Path
 from typing import Any
 
+sys.dont_write_bytecode = True
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 from runtime.vendor import check, refresh  # noqa: E402
 from runtime.cli import invoke  # noqa: E402

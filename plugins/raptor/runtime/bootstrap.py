@@ -133,17 +133,23 @@ def bootstrap(plugin_root: Path | None = None) -> ModuleType:
         raise BootstrapError(
             "RAPTOR.BOOTSTRAP.DEPENDENCY: incompatible Pydantic version"
         )
-    loaded = sys.modules.get("raptor_schema")
-    if loaded is not None:
-        loaded_path = Path(getattr(loaded, "__file__", "")).resolve()
-        if live not in loaded_path.parents:
-            raise BootstrapError(
-                "RAPTOR.BOOTSTRAP.PRECEDENCE: raptor_schema is already loaded from another path"
-            )
-        return loaded
+    prior = {
+        name: module
+        for name, module in tuple(sys.modules.items())
+        if name == "raptor_schema" or name.startswith("raptor_schema.")
+    }
+    for name in prior:
+        sys.modules.pop(name, None)
     vendor_root = str(live.parent)
     sys.path.insert(0, vendor_root)
-    module = importlib.import_module("raptor_schema")
+    try:
+        module = importlib.import_module("raptor_schema")
+    except Exception:
+        for name in tuple(sys.modules):
+            if name == "raptor_schema" or name.startswith("raptor_schema."):
+                sys.modules.pop(name, None)
+        sys.modules.update(prior)
+        raise
     module_path = Path(module.__file__ or "").resolve()
     if live not in module_path.parents:
         raise BootstrapError(

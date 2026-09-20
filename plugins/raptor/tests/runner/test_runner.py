@@ -347,6 +347,50 @@ def test_audit_rejects_symlinked_destination(
     assert outside.read_text() == "safe"
 
 
+def test_audit_uuid_collision_never_overwrites_existing_record(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    logs = tmp_path / ".raptor/state/logs"
+    logs.mkdir(parents=True)
+    existing = logs / "fixed-invocation.json"
+    existing.write_text("original")
+
+    class Invocation:
+        hex = "fixed-invocation"
+
+    monkeypatch.setattr(agent_runner.uuid, "uuid4", lambda: Invocation())
+    with pytest.raises(FileExistsError):
+        run(monkeypatch, tmp_path, Backend([envelope()]))
+    assert existing.read_text() == "original"
+
+
+def test_windows_audit_verifies_open_handle_before_writing(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    from runtime import io as runtime_io
+
+    discarded: list[int] = []
+    monkeypatch.setattr(
+        runtime_io,
+        "_windows_open_exclusive",
+        lambda path: runtime_io.os.open(
+            path, runtime_io.os.O_WRONLY | runtime_io.os.O_CREAT | runtime_io.os.O_EXCL
+        ),
+    )
+    monkeypatch.setattr(
+        runtime_io, "_windows_final_path", lambda descriptor: "C:\\attacker\\audit.json"
+    )
+    monkeypatch.setattr(
+        runtime_io, "_discard_windows_file", lambda descriptor: discarded.append(descriptor)
+    )
+    with pytest.raises(ValueError, match="reparse"):
+        runtime_io._secure_windows_json(
+            tmp_path, (".raptor", "state", "logs"), "audit.json", {"secret": "x"}
+        )
+    assert discarded
+    assert (tmp_path / ".raptor/state/logs/audit.json").read_bytes() == b""
+
+
 def test_each_invocation_has_unique_filename_with_stable_hashed_correlation(
     monkeypatch: pytest.MonkeyPatch, tmp_path: Path
 ) -> None:
@@ -432,8 +476,10 @@ def test_redactor_normalizes_trace_and_common_secret_forms() -> None:
                 "AWS_ACCESS_KEY": "AKIA1234567890ABCDEF",
                 "github_token": "ghp_12345678901234567890",
                 "url": "https://user:password@example.test/x?token=secret",
+                "dsn": "postgresql://admin:database-secret@example.test/db",
                 "pem": "-----BEGIN PRIVATE KEY-----\nabc\n-----END PRIVATE KEY-----",
-                "message": "TOKEN=supersecret xoxb-1234567890 glpat-1234567890 github_pat_12345678901234567890 eyJabc.def.ghi ASIA1234567890ABCDEF",
+                "message": "TOKEN=supersecret AccountKey=storage-secret Basic YWRtaW46c2VjcmV0 AIza12345678901234567890123456789012345 sk_live_1234567890 xoxb-1234567890 xoxc-1234567890 glpat-1234567890 github_pat_12345678901234567890 eyJabc.def.ghi ASIA1234567890ABCDEF",
+                "nested_url": "https://host/x?client_secret=deep-secret&ok=1",
             },
         }
     )
@@ -441,5 +487,19 @@ def test_redactor_normalizes_trace_and_common_secret_forms() -> None:
     text = json.dumps(value)
     assert "AKIA" not in text and "ghp_" not in text and "password@" not in text
     assert "BEGIN PRIVATE" not in text and "token=secret" not in text
-    for secret in ("supersecret", "xoxb-", "glpat-", "github_pat_", "eyJabc", "ASIA"):
+    for secret in (
+        "supersecret",
+        "storage-secret",
+        "database-secret",
+        "YWRtaW",
+        "AIza",
+        "sk_live_",
+        "xoxb-",
+        "xoxc-",
+        "glpat-",
+        "github_pat_",
+        "eyJabc",
+        "ASIA",
+        "deep-secret",
+    ):
         assert secret not in text

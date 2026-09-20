@@ -3,6 +3,8 @@ from __future__ import annotations
 import ast
 import json
 import shutil
+import subprocess
+import textwrap
 from pathlib import Path
 
 import pytest
@@ -97,11 +99,11 @@ def test_scripts_are_thin_runtime_wrappers() -> None:
 def test_ci_wires_complete_case_insensitive_exclusion_gates() -> None:
     workflow = (REPO / ".github/workflows/ci.yml").read_text().lower()
     for value in (
-        "test ! -e schema/sql/dolt",
-        "test ! -e plugins/raptor/templates",
+        "if test -e schema/sql/dolt",
+        "test -e plugins/raptor/templates; then exit 1",
         "-iname 'marketplace.json'",
         "-iname 'templates'",
-        "grep -ei '/(import|export|render|round[-_]?trip|transform|convert).*\\.py$'",
+        "grep -eqi '/(import|export|render|round[-_]?trip|transform|convert).*\\.py$'",
         "rg -ni",
         "p3" + "-documentation",
         "req" + "-p3-",
@@ -112,8 +114,33 @@ def test_ci_wires_complete_case_insensitive_exclusion_gates() -> None:
         "sc" + "-compose",
         "__pycache__",
         "*.pyc",
+        "then exit 1",
     ):
         assert value in workflow
+
+
+@pytest.mark.parametrize(
+    "relative",
+    [
+        "plugins/raptor/Marketplace.JSON",
+        "plugins/raptor/scripts/transform.py",
+        "plugins/raptor/runtime/attacker.pyc",
+        "plugins/raptor/runtime/__pycache__/marker",
+    ],
+)
+def test_ci_exclusion_step_returns_nonzero_for_injected_artifact(
+    tmp_path: Path, relative: str
+) -> None:
+    workflow = (REPO / ".github/workflows/ci.yml").read_text()
+    block = workflow.split("- name: Enforce Phase A3 exclusions", 1)[1]
+    block = block.split("\n      - name:", 1)[0].split("run: |", 1)[1]
+    script = textwrap.dedent(block)
+    (tmp_path / "plugins/raptor/scripts").mkdir(parents=True)
+    path = tmp_path / relative
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_bytes(b"injected")
+    result = subprocess.run(["bash", "-c", script], cwd=tmp_path)
+    assert result.returncode != 0
 
 
 @pytest.mark.parametrize(
@@ -131,8 +158,45 @@ def test_validator_rejects_marketplace_template_and_transformation_paths(
     path.parent.mkdir(parents=True, exist_ok=True)
     path.write_text("forbidden")
     with pytest.raises(
-        PluginValidationError, match="marketplace, template, or transformation"
+        PluginValidationError,
+        match="marketplace, template, or transformation|thin-wrapper inventory",
     ):
+        validate_plugin(
+            plugin,
+            REPO
+            / "docs/plans/phase-a/references/claude-code-skills-agents-guidelines-v0.7.md",
+        )
+
+
+def test_validator_rejects_short_transformation_inside_known_script(
+    tmp_path: Path,
+) -> None:
+    plugin = tmp_path / "raptor"
+    shutil.copytree(
+        ROOT, plugin, ignore=shutil.ignore_patterns("tests", "__pycache__", "*.pyc")
+    )
+    path = plugin / "scripts/run_agent.py"
+    path.write_text(path.read_text() + "\ndef transform(value):\n    return value\n")
+    with pytest.raises(PluginValidationError, match="thin runtime wrappers"):
+        validate_plugin(
+            plugin,
+            REPO
+            / "docs/plans/phase-a/references/claude-code-skills-agents-guidelines-v0.7.md",
+        )
+
+
+@pytest.mark.parametrize("relative", ["runtime/attacker.pyc", "runtime/__pycache__/x"])
+def test_validator_rejects_unexpected_bytecode_inventory(
+    tmp_path: Path, relative: str
+) -> None:
+    plugin = tmp_path / "raptor"
+    shutil.copytree(
+        ROOT, plugin, ignore=shutil.ignore_patterns("tests", "__pycache__", "*.pyc")
+    )
+    path = plugin / relative
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_bytes(b"unexpected")
+    with pytest.raises((PluginValidationError, ValueError), match="inventory"):
         validate_plugin(
             plugin,
             REPO

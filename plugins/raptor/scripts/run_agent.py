@@ -6,6 +6,7 @@ import json
 import sys
 from pathlib import Path
 
+sys.dont_write_bytecode = True
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 from runtime.agent_runner import run_agent  # noqa: E402
 from runtime.cli import emit, failure  # noqa: E402

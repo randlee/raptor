@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import ast
 import hashlib
 import json
 import re
@@ -22,6 +23,11 @@ REQUIRED_AGENT_SECTIONS = {
     "## Output Format",
     "## Error Handling",
     "## Constraints",
+}
+SCRIPT_FUNCTIONS = {
+    "run_agent.py": {"main"},
+    "validate_plugin.py": {"main"},
+    "vendor_schema.py": {"main", "_run"},
 }
 
 
@@ -51,11 +57,47 @@ def _sha(path: Path) -> str:
     return hashlib.sha256(path.read_bytes()).hexdigest()
 
 
+def _validate_scripts(root: Path) -> None:
+    scripts = {path.name: path for path in (root / "scripts").glob("*.py")}
+    if set(scripts) != set(SCRIPT_FUNCTIONS):
+        raise PluginValidationError("scripts are not the exact thin-wrapper inventory")
+    forbidden_imports = {"hashlib", "shutil", "sqlite3", "subprocess"}
+    forbidden_names = re.compile(r"(?:convert|render|transform)", re.I)
+    for name, path in scripts.items():
+        tree = ast.parse(path.read_text(encoding="utf-8"))
+        functions = {
+            node.name for node in ast.walk(tree) if isinstance(node, ast.FunctionDef)
+        }
+        imports = {
+            item.name.split(".", 1)[0]
+            for node in ast.walk(tree)
+            if isinstance(node, (ast.Import, ast.ImportFrom))
+            for item in node.names
+        }
+        identifiers = {
+            node.id for node in ast.walk(tree) if isinstance(node, ast.Name)
+        } | {
+            node.attr for node in ast.walk(tree) if isinstance(node, ast.Attribute)
+        }
+        if (
+            functions != SCRIPT_FUNCTIONS[name]
+            or imports & forbidden_imports
+            or any(forbidden_names.search(item) for item in identifiers)
+            or any(
+                isinstance(node, (ast.AsyncFunctionDef, ast.ClassDef, ast.For, ast.While))
+                for node in ast.walk(tree)
+            )
+            or len(list(ast.walk(tree))) >= 260
+        ):
+            raise PluginValidationError("scripts must remain thin runtime wrappers")
+
+
 def validate_plugin(plugin_root: Path, guideline: Path) -> None:
     root = plugin_root.resolve()
     guideline_text = guideline.resolve().read_text(encoding="utf-8")
     if "Document version: 0.7" not in guideline_text:
         raise PluginValidationError("pinned guideline is not v0.7")
+    _validate_scripts(root)
     manifests = [
         json.loads((root / ".claude-plugin/plugin.json").read_text()),
         json.loads((root / ".codex-plugin/plugin.json").read_text()),
@@ -185,6 +227,11 @@ def validate_plugin(plugin_root: Path, guideline: Path) -> None:
     for relative in inventory:
         if not isinstance(relative, str) or not (root / relative).is_file():
             raise PluginValidationError(f"missing packaged file: {relative}")
+    if any(
+        path.name == "__pycache__" or path.suffix.casefold() in {".pyc", ".pyo"}
+        for path in root.rglob("*")
+    ):
+        raise PluginValidationError("plugin inventory contains bytecode artifacts")
     forbidden_paths = [
         path
         for path in root.rglob("*")

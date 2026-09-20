@@ -5,6 +5,7 @@ import json
 import sys
 import time
 from pathlib import Path
+from types import ModuleType
 
 import pytest
 
@@ -34,15 +35,29 @@ def test_bootstrap_loads_verified_vendor(monkeypatch: pytest.MonkeyPatch) -> Non
             sys.modules["raptor_schema"] = prior
 
 
-def test_bootstrap_rejects_already_loaded_foreign_module(
+def test_bootstrap_replaces_already_loaded_foreign_module(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    class Foreign:
-        __file__ = "/tmp/foreign/raptor_schema/__init__.py"
+    foreign = ModuleType("raptor_schema")
+    foreign.__file__ = "/tmp/foreign/raptor_schema/__init__.py"
+    monkeypatch.setitem(sys.modules, "raptor_schema", foreign)
+    assert bootstrap(ROOT) is not foreign
 
-    monkeypatch.setitem(sys.modules, "raptor_schema", Foreign())
-    with pytest.raises(BootstrapError, match="PRECEDENCE"):
-        bootstrap(ROOT)
+
+def test_bootstrap_replaces_forged_preloaded_vendor_modules(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    fake = ModuleType("raptor_schema")
+    fake.__file__ = str(ROOT / "_vendor/raptor_schema/__init__.py")
+    fake.__version__ = "evil"
+    storage = ModuleType("raptor_schema.storage.sqlite")
+    storage.__file__ = str(ROOT / "_vendor/raptor_schema/storage/sqlite.py")
+    storage.MODEL_SCHEMA_VERSION = "1.0.0"
+    monkeypatch.setitem(sys.modules, "raptor_schema", fake)
+    monkeypatch.setitem(sys.modules, "raptor_schema.storage.sqlite", storage)
+    loaded = bootstrap(ROOT)
+    assert loaded is not fake and getattr(loaded, "__version__", None) != "evil"
+    assert sys.modules["raptor_schema.storage.sqlite"] is not storage
 
 
 def test_bootstrap_rejects_vendor_tampering(
@@ -116,6 +131,23 @@ def test_bootstrap_rejects_extra_packaged_file_and_agent_registry_drift(
         bootstrap(plugin)
 
 
+@pytest.mark.parametrize(
+    "relative", ["runtime/attacker.pyc", "runtime/__pycache__/attacker.pyc"]
+)
+def test_bootstrap_rejects_unexpected_bytecode(
+    tmp_path: Path, relative: str
+) -> None:
+    plugin = tmp_path / "raptor"
+    shutil.copytree(
+        ROOT, plugin, ignore=shutil.ignore_patterns("tests", "__pycache__", "*.pyc")
+    )
+    path = plugin / relative
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_bytes(b"attacker")
+    with pytest.raises(BootstrapError, match="packaged inventory"):
+        bootstrap(plugin)
+
+
 def test_client_adapters_only_own_host_invocation() -> None:
     for path in (ROOT / "runtime/client_adapters").glob("*.py"):
         text = path.read_text()
@@ -149,7 +181,11 @@ def test_client_adapters_satisfy_same_invocation_contract(
         agent_path=tmp_path / "agent.md", prompt="prompt", timeout_s=9
     )  # type: ignore[attr-defined]
     assert result == "response"
-    assert calls[0][1]["env"] == allowed_environment()
+    environment = calls[0][1]["env"]
+    assert isinstance(environment, dict)
+    token = environment.pop("RAPTOR_PROCESS_TOKEN")
+    assert isinstance(token, str) and len(token) == 32
+    assert environment == allowed_environment()
     assert calls[0][1].get("start_new_session") is True
 
 
@@ -175,6 +211,27 @@ def test_timeout_terminates_and_reaps_descendant_tree(tmp_path: Path) -> None:
     parent = f"import subprocess,time,sys; subprocess.Popen([sys.executable,'-c',{child!r}]); time.sleep(5)"
     with pytest.raises(TimeoutError):
         invoke_process([sys.executable, "-c", parent], 0.05)
+    time.sleep(1.3)
+    assert not marker.exists()
+
+
+@pytest.mark.skipif(sys.platform == "win32", reason="POSIX double-fork assertion")
+def test_timeout_terminates_detached_double_fork(tmp_path: Path) -> None:
+    marker = tmp_path / "detached-descendant-survived"
+    program = f"""
+import os, signal, time
+if os.fork() == 0:
+    if os.fork() == 0:
+        os.setsid()
+        signal.signal(signal.SIGTERM, signal.SIG_IGN)
+        time.sleep(1.2)
+        open({str(marker)!r}, "w").write("alive")
+        os._exit(0)
+    os._exit(0)
+time.sleep(5)
+"""
+    with pytest.raises(TimeoutError):
+        invoke_process([sys.executable, "-c", program], 0.05)
     time.sleep(1.3)
     assert not marker.exists()
 

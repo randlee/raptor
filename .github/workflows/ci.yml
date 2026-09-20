@@ -60,14 +60,13 @@ jobs:
 
       - name: Enforce Phase A3 exclusions
         run: |
-          test ! -e schema/sql/dolt
-          test ! -e plugins/raptor/templates
-          ! find plugins/raptor -type f -iname 'marketplace.json' -print | grep .
-          ! find plugins/raptor -type d -iname 'templates' -print | grep .
-          ! find plugins/raptor/scripts -type f | grep -Ei '/(import|export|render|round[-_]?trip|transform|convert).*\.py$'
-          ! find plugins/raptor -type f \( -name '*.pyc' -o -name '*.pyo' \) -print | grep .
-          ! find plugins/raptor -type d -name '__pycache__' -print | grep .
-          ! rg -ni 'p3-documentation|req-p3-|nfr-p3-|adr-p3-|\bnft\b|sqlx|sqlalchemy|sc-compose' plugins/raptor
+          if test -e schema/sql/dolt || test -e plugins/raptor/templates; then exit 1; fi
+          if find plugins/raptor -type f -iname 'marketplace.json' -print | grep -q .; then exit 1; fi
+          if find plugins/raptor -type d -iname 'templates' -print | grep -q .; then exit 1; fi
+          if find plugins/raptor/scripts -type f | grep -Eqi '/(import|export|render|round[-_]?trip|transform|convert).*\.py$'; then exit 1; fi
+          if find plugins/raptor -type f \( -name '*.pyc' -o -name '*.pyo' \) -print | grep -q .; then exit 1; fi
+          if find plugins/raptor -type d -name '__pycache__' -print | grep -q .; then exit 1; fi
+          if rg -ni 'p3-documentation|req-p3-|nfr-p3-|adr-p3-|\bnft\b|sqlx|sqlalchemy|sc-compose' plugins/raptor; then exit 1; fi
 
       - name: Verify deterministic schema vendor
         run: |
