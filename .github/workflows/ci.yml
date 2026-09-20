@@ -45,6 +45,20 @@ jobs:
           cd "$RUNNER_TEMP"
           "$RUNNER_TEMP/raptor-wheel-venv/bin/python" "$GITHUB_WORKSPACE/schema/tests/storage/wheel_smoke.py"
 
+      - name: Validate plugin foundation
+        run: |
+          python -m pytest plugins/raptor/tests/foundation plugins/raptor/tests/runtime plugins/raptor/tests/runner plugins/raptor/tests/vendor
+          python -m mypy --strict plugins/raptor/runtime plugins/raptor/scripts
+          python plugins/raptor/scripts/validate_plugin.py \
+            --guideline docs/plans/phase-a/references/claude-code-skills-agents-guidelines-v0.7.md \
+            --check-frontmatter --check-registry --check-manifests --check-inventory --check-vendor
+
+      - name: Verify deterministic schema vendor
+        run: |
+          python plugins/raptor/scripts/vendor_schema.py
+          git diff --exit-code -- plugins/raptor/_vendor/raptor_schema plugins/raptor/plugin-manifest.json plugins/raptor/agents/registry.yaml
+          python plugins/raptor/scripts/vendor_schema.py --check
+
   fmt:
     name: Format check
     runs-on: ubuntu-latest
