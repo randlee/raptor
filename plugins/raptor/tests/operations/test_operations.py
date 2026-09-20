@@ -288,16 +288,21 @@ def test_cli_redacts_untrusted_and_pydantic_error_values(
             {
                 "nested": [
                     {
-                        "message": "Authorization=opaque-credential",
+                        "message": "Authorization: ApiKey abc123\nSafe: visible",
+                        "digest": 'Authorization: Digest username="admin", realm="private", nonce="123"',
                         "dsn": "mysql://admin:database-secret@example.test/db",
+                        "git": "git+ssh://token-only@example.test/repository",
                     }
                 ]
             }
         )
     )
     emitted = capsys.readouterr().out
-    assert "opaque-credential" not in emitted
+    assert "abc123" not in emitted
+    assert "username" not in emitted and "nonce" not in emitted
     assert "database-secret" not in emitted
+    assert "token-only" not in emitted
+    assert "Safe: visible" in emitted
 
 
 def test_repository_io_windows_branch_uses_handle_safe_contracts(
@@ -359,6 +364,33 @@ def test_windows_repository_read_is_bound_to_verified_handle(
     assert (source / "source.json").read_bytes() == b"attacker"
 
 
+def test_windows_repository_read_is_bound_to_verified_final_file(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    from runtime import io as runtime_io
+
+    source = tmp_path / "source.json"
+    source.write_bytes(b"verified")
+
+    def open_root(path: Path, *, write: bool, directory: bool, create: bool) -> int:
+        return runtime_io.os.open(path, runtime_io.os.O_RDONLY)
+
+    def open_relative(
+        parent: int, name: str, *, write: bool, directory: bool, create: bool
+    ) -> int:
+        descriptor = runtime_io.os.open(name, runtime_io.os.O_RDONLY, dir_fd=parent)
+        source.rename(tmp_path / "retained-source.json")
+        source.write_bytes(b"attacker")
+        return descriptor
+
+    monkeypatch.setattr(runtime_io, "_windows_open_checked", open_root)
+    monkeypatch.setattr(runtime_io, "_windows_open_relative", open_relative)
+    assert (
+        runtime_io._windows_repository_read(tmp_path, ("source.json",)) == b"verified"
+    )
+    assert source.read_bytes() == b"attacker"
+
+
 def test_windows_repository_publish_renames_relative_to_verified_parent_handle(
     monkeypatch: pytest.MonkeyPatch, tmp_path: Path
 ) -> None:
@@ -415,16 +447,68 @@ def test_windows_repository_publish_renames_relative_to_verified_parent_handle(
     assert not (attacker / "result.json").exists()
 
 
+def test_windows_repository_publish_replaces_swapped_final_reparse_point(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    from runtime import io as runtime_io
+
+    output = tmp_path / "output"
+    output.mkdir()
+    destination = output / "result.json"
+    destination.write_bytes(b"old")
+    outside = tmp_path / "outside.json"
+    outside.write_bytes(b"outside")
+    temporary: list[str] = []
+
+    def open_checked(path: Path, **options: object) -> int:
+        return runtime_io.os.open(path, runtime_io.os.O_RDONLY)
+
+    def open_relative(
+        parent: int, name: str, *, write: bool, directory: bool, create: bool
+    ) -> int:
+        if directory:
+            return runtime_io.os.open(name, runtime_io.os.O_RDONLY, dir_fd=parent)
+        temporary.append(name)
+        return runtime_io.os.open(
+            name,
+            runtime_io.os.O_RDWR | runtime_io.os.O_CREAT | runtime_io.os.O_EXCL,
+            dir_fd=parent,
+        )
+
+    def swap_then_rename(descriptor: int, parent: int, name: str) -> None:
+        destination.unlink()
+        destination.symlink_to(outside)
+        runtime_io.os.rename(temporary[0], name, src_dir_fd=parent, dst_dir_fd=parent)
+
+    monkeypatch.setattr(runtime_io, "_windows_open_checked", open_checked)
+    monkeypatch.setattr(runtime_io, "_windows_open_relative", open_relative)
+    monkeypatch.setattr(runtime_io, "_windows_rename_relative", swap_then_rename)
+    runtime_io._windows_repository_publish(
+        tmp_path, ("output", "result.json"), b"published"
+    )
+    assert destination.read_bytes() == b"published" and not destination.is_symlink()
+    assert outside.read_bytes() == b"outside"
+
+
 @pytest.mark.skipif(os.name != "nt", reason="native Windows repository I/O")
 def test_windows_repository_io_native_round_trip(tmp_path: Path) -> None:
     from runtime import io as runtime_io
 
     runtime_io.atomic_repository_bytes(tmp_path, "nested/result.json", b"native")
+    outside = tmp_path / "outside.json"
+    outside.write_bytes(b"outside")
+    destination = tmp_path / "nested/result.json"
+    destination.unlink()
+    try:
+        destination.symlink_to(outside)
+    except OSError:
+        pytest.skip("Windows host cannot create a file reparse point")
     runtime_io.atomic_repository_bytes(tmp_path, "nested/result.json", b"replacement")
     assert (
         runtime_io.read_repository_bytes(tmp_path, "nested/result.json")
         == b"replacement"
     )
+    assert not destination.is_symlink() and outside.read_bytes() == b"outside"
 
 
 def test_markdown_json_sqlite_round_trip_and_validation_is_read_only(
