@@ -89,7 +89,9 @@ from .storage import (
     ArtifactStore,
     SQLiteArtifactStore,
     StorageError,
+    StoreConformanceCorpus,
     assert_store_conformance,
+    assert_store_factory_conformance,
 )
 
 
@@ -176,7 +178,9 @@ __all__ = [
     "Title",
     "UriTarget",
     "StorageError",
+    "StoreConformanceCorpus",
     "assert_store_conformance",
+    "assert_store_factory_conformance",
     "dump_canonical_json",
     "generate_json_schemas",
     "load_canonical_json",

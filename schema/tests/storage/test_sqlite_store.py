@@ -1,7 +1,6 @@
 from __future__ import annotations
 
 import hashlib
-import json
 import sqlite3
 from copy import deepcopy
 from pathlib import Path
@@ -18,7 +17,9 @@ from raptor_schema import (
     SQLiteArtifactStore,
     SourceDocument,
     StorageError,
+    StoreConformanceCorpus,
     assert_store_conformance,
+    assert_store_factory_conformance,
     dump_canonical_json,
 )
 
@@ -183,9 +184,7 @@ def test_constructor_rejects_borrowed_connection_and_ddl_override() -> None:
     ],
     ids=["conflict", "missing", "unexpected"],
 )
-def test_schema_version_conflict_is_rejected(
-    tmp_path: Path, mutation: str
-) -> None:
+def test_schema_version_conflict_is_rejected(tmp_path: Path, mutation: str) -> None:
     path = tmp_path / "version.db"
     store = SQLiteArtifactStore(path)
     store.initialize()
@@ -207,15 +206,19 @@ def test_multi_repository_composite_keys_and_filtered_listing(
     store = store_factory()
     store.initialize()
     store.put_documents((document, other))
-    assert store.get_document(key(document)).provenance.origin.repository_id != store.get_document(
-        key(other)
-    ).provenance.origin.repository_id
+    assert (
+        store.get_document(key(document)).provenance.origin.repository_id
+        != store.get_document(key(other)).provenance.origin.repository_id
+    )
     assert len(store.list_artifact_keys()) == 10
-    assert len(
-        store.list_artifact_keys(
-            repository_id="urn:raptor:repo:other", artifact_type="requirement"
+    assert (
+        len(
+            store.list_artifact_keys(
+                repository_id="urn:raptor:repo:other", artifact_type="requirement"
+            )
         )
-    ) == 1
+        == 1
+    )
 
 
 def test_idempotent_retry_and_replacement(
@@ -240,9 +243,7 @@ def test_idempotent_retry_and_replacement(
     )
 
 
-@pytest.mark.parametrize(
-    "mutation", ["field", "relationship", "order", "removal"]
-)
+@pytest.mark.parametrize("mutation", ["field", "relationship", "order", "removal"])
 def test_unchanged_provenance_allows_only_exact_canonical_replay(
     document: SourceDocument,
     store_factory: Callable[[], ArtifactStore],
@@ -275,11 +276,40 @@ def test_atomic_rollback_on_path_collision(
     )
     store = store_factory()
     store.initialize()
-    with pytest.raises(sqlite3.IntegrityError):
+    with pytest.raises(StorageError, match="RAPTOR.STORAGE.PATH_CONFLICT") as raised:
         store.put_documents((first, second))
+    assert isinstance(raised.value.__cause__, sqlite3.IntegrityError)
     assert store.list_artifact_keys() == []
     with pytest.raises(KeyError):
         store.get_document(key(first))
+
+
+def test_artifact_ownership_conflict_has_stable_storage_error(
+    store_factory: Callable[[], ArtifactStore],
+) -> None:
+    first = make_document(
+        repository_id="urn:raptor:repo:ownership",
+        document_id="DOC-OWN-001",
+        path="docs/one.md",
+        artifact_ids=("REQ-OWN-001",),
+    )
+    second = make_document(
+        repository_id="urn:raptor:repo:ownership",
+        document_id="DOC-OWN-002",
+        path="docs/two.md",
+        artifact_ids=("REQ-OWN-001",),
+    )
+    store = store_factory()
+    store.initialize()
+    store.put_document(first)
+    with pytest.raises(
+        StorageError, match="RAPTOR.STORAGE.ARTIFACT_CONFLICT"
+    ) as raised:
+        store.put_document(second)
+    assert isinstance(raised.value.__cause__, sqlite3.IntegrityError)
+    assert dump_canonical_json(store.get_document(key(first))) == dump_canonical_json(
+        first
+    )
 
 
 def test_foreign_keys_are_enabled_and_ddl_is_authoritative(tmp_path: Path) -> None:
@@ -394,6 +424,92 @@ def test_projection_corruption_is_detected(
         store.get_document(key(document))
 
 
+@pytest.mark.parametrize(
+    "mutation",
+    ["repository", "document", "artifact", "membership", "typed-target"],
+)
+def test_read_fails_closed_on_latent_foreign_key_violation(
+    tmp_path: Path, mutation: str
+) -> None:
+    path = tmp_path / f"foreign-key-{mutation}.db"
+    target = make_document()
+    source = make_document(
+        repository_id="urn:raptor:repo:beta",
+        document_id="DOC-BETA-001",
+        path="docs/beta.md",
+        artifact_ids=("REQ-BETA-001",),
+        targets=(("urn:raptor:repo:alpha", "REQ-ALPHA-001"),),
+    )
+    store = SQLiteArtifactStore(path)
+    store.initialize()
+    store.put_documents((target, source))
+    connection = sqlite3.connect(path)
+    connection.execute("PRAGMA foreign_keys = OFF")
+    if mutation == "repository":
+        connection.execute(
+            "DELETE FROM repositories WHERE repository_id = ?",
+            ("urn:raptor:repo:beta",),
+        )
+    elif mutation == "document":
+        connection.execute(
+            "DELETE FROM source_documents WHERE repository_id = ?",
+            ("urn:raptor:repo:beta",),
+        )
+    elif mutation == "artifact":
+        connection.execute(
+            "DELETE FROM artifacts WHERE repository_id = ?", ("urn:raptor:repo:beta",)
+        )
+    elif mutation == "membership":
+        connection.execute(
+            "DELETE FROM document_artifacts WHERE repository_id = ?",
+            ("urn:raptor:repo:beta",),
+        )
+    else:
+        connection.execute(
+            "DELETE FROM artifacts WHERE repository_id = ? AND artifact_id = ?",
+            ("urn:raptor:repo:alpha", "REQ-ALPHA-001"),
+        )
+    connection.commit()
+    connection.close()
+    with pytest.raises(StorageError):
+        store.get_document(key(source))
+
+
+def test_explicit_relationship_description_wins_derived_edge_collisions(
+    document: SourceDocument, store_factory: Callable[[], ArtifactStore]
+) -> None:
+    payload = document.model_dump(mode="python")
+    payload["artifacts"][3]["relationships"].append(  # type: ignore[index,union-attr]
+        {
+            "relation": "depends_on",
+            "target": {
+                "target_kind": "artifact",
+                "repository_id": "urn:raptor:repo:raptor",
+                "artifact_id": "ADR-RAP-001",
+            },
+            "description": "Explicit design rationale",
+        }
+    )
+    payload["artifacts"][4]["relationships"].append(  # type: ignore[index,union-attr]
+        {
+            "relation": "verifies",
+            "target": {
+                "target_kind": "artifact",
+                "repository_id": "urn:raptor:repo:raptor",
+                "artifact_id": "REQ-RAP-001",
+            },
+            "description": "Explicit verification rationale",
+        }
+    )
+    changed = SourceDocument.model_validate(payload)
+    store = store_factory()
+    store.initialize()
+    store.put_document(changed)
+    assert dump_canonical_json(store.get_document(key(changed))) == dump_canonical_json(
+        changed
+    )
+
+
 def test_canonical_fragment_numeric_policy_matches_document_dump(
     tmp_path: Path, document: SourceDocument
 ) -> None:
@@ -408,9 +524,9 @@ def test_canonical_fragment_numeric_policy_matches_document_dump(
     ).fetchone()[0]
     connection.close()
     assert '"target":0.0' in artifact_json
-    assert dump_canonical_json(store.get_document(key(document))) == dump_canonical_json(
-        document
-    )
+    assert dump_canonical_json(
+        store.get_document(key(document))
+    ) == dump_canonical_json(document)
 
 
 def test_delete_and_inbound_reference_restriction(
@@ -437,9 +553,7 @@ def test_delete_and_inbound_reference_restriction(
 def test_replacement_cannot_remove_externally_referenced_artifact(
     store_factory: Callable[[], ArtifactStore],
 ) -> None:
-    target = make_document(
-        artifact_ids=("REQ-ALPHA-001", "REQ-ALPHA-002")
-    )
+    target = make_document(artifact_ids=("REQ-ALPHA-001", "REQ-ALPHA-002"))
     source = make_document(
         repository_id="urn:raptor:repo:beta",
         document_id="DOC-BETA-001",
@@ -499,7 +613,10 @@ def test_rendered_path_update_and_invalid_transition(
 
     invalid = rendered.model_copy(deep=True)
     invalid.provenance.materialization = rendered.provenance.materialization.model_copy(
-        update={"repository_path": "generated/other.md", "parent_content_sha256": "c" * 64}
+        update={
+            "repository_path": "generated/other.md",
+            "parent_content_sha256": "c" * 64,
+        }
     )
     with pytest.raises(StorageError, match="PROVENANCE_TRANSITION"):
         store.put_document(invalid)
@@ -591,9 +708,7 @@ def test_write_transaction_precedes_store_dependent_resolution(
     store.initialize()
     statements: list[str] = []
     store._connection.set_trace_callback(statements.append)
-    missing = make_document(
-        targets=(("urn:raptor:repo:absent", "REQ-ABSENT-001"),)
-    )
+    missing = make_document(targets=(("urn:raptor:repo:absent", "REQ-ABSENT-001"),))
     with pytest.raises(ReferenceValidationError):
         store.put_document(missing)
     begin_index = next(
@@ -614,3 +729,105 @@ def test_invalid_model_never_reaches_storage(document_dict: dict[str, object]) -
     document_dict["artifacts"][0]["id"] = "NFR-RAP-001"  # type: ignore[index]
     with pytest.raises(ValidationError):
         SourceDocument.model_validate(document_dict)
+
+
+def test_factory_driven_dialect_neutral_conformance(
+    document: SourceDocument, store_factory: Callable[[], ArtifactStore]
+) -> None:
+    acyclic_target = make_document(
+        repository_id="urn:raptor:repo:ac-target",
+        document_id="DOC-ACT-001",
+        path="docs/ac-target.md",
+        artifact_ids=("REQ-ACT-001",),
+    )
+    acyclic_source = make_document(
+        repository_id="urn:raptor:repo:ac-source",
+        document_id="DOC-ACS-001",
+        path="docs/ac-source.md",
+        artifact_ids=("REQ-ACS-001",),
+        targets=(("urn:raptor:repo:ac-target", "REQ-ACT-001"),),
+    )
+    cycle_a = make_document(
+        repository_id="urn:raptor:repo:cycle-a",
+        document_id="DOC-CYA-001",
+        path="docs/cycle-a.md",
+        artifact_ids=("REQ-CYA-001",),
+        targets=(("urn:raptor:repo:cycle-b", "REQ-CYB-001"),),
+    )
+    cycle_b = make_document(
+        repository_id="urn:raptor:repo:cycle-b",
+        document_id="DOC-CYB-001",
+        path="docs/cycle-b.md",
+        artifact_ids=("REQ-CYB-001",),
+        targets=(("urn:raptor:repo:cycle-a", "REQ-CYA-001"),),
+    )
+    missing = make_document(
+        repository_id="urn:raptor:repo:missing",
+        document_id="DOC-MIS-001",
+        path="docs/missing.md",
+        artifact_ids=("REQ-MIS-001",),
+        targets=(("urn:raptor:repo:none", "REQ-NONE-001"),),
+    )
+    valid = make_document(
+        repository_id="urn:raptor:repo:valid",
+        document_id="DOC-VAL-001",
+        path="docs/valid.md",
+        artifact_ids=("REQ-VAL-001",),
+    )
+    replacement = rendered_replacement(document)
+    inbound_target = make_document(artifact_ids=("REQ-ALPHA-001", "REQ-ALPHA-002"))
+    inbound_source = make_document(
+        repository_id="urn:raptor:repo:inbound",
+        document_id="DOC-INB-001",
+        path="docs/inbound.md",
+        artifact_ids=("REQ-INB-001",),
+        targets=(("urn:raptor:repo:alpha", "REQ-ALPHA-002"),),
+    )
+    inbound_replacement = inbound_target.model_copy(deep=True)
+    inbound_replacement.artifacts.pop()
+    inbound_replacement = rendered_replacement(inbound_replacement)
+    invalid_replacement = document.model_copy(deep=True)
+    invalid_replacement.artifacts[0].title = "Untracked semantic change"
+    path_a = make_document(
+        repository_id="urn:raptor:repo:path",
+        document_id="DOC-PATH-001",
+        path="docs/collision.md",
+        artifact_ids=("REQ-PATH-001",),
+    )
+    path_b = make_document(
+        repository_id="urn:raptor:repo:path",
+        document_id="DOC-PATH-002",
+        path="docs/collision.md",
+        artifact_ids=("REQ-PATH-002",),
+    )
+    artifact_a = make_document(
+        repository_id="urn:raptor:repo:artifact",
+        document_id="DOC-ART-001",
+        path="docs/art-a.md",
+        artifact_ids=("REQ-ART-001",),
+    )
+    artifact_b = make_document(
+        repository_id="urn:raptor:repo:artifact",
+        document_id="DOC-ART-002",
+        path="docs/art-b.md",
+        artifact_ids=("REQ-ART-001",),
+    )
+    corpus = StoreConformanceCorpus(
+        round_trip=(document,),
+        acyclic_batch=(acyclic_source, acyclic_target),
+        cyclic_batch=(cycle_a, cycle_b),
+        overlay_target=acyclic_target,
+        overlay_source=acyclic_source,
+        rollback_valid=valid,
+        rollback_invalid=missing,
+        replacement_initial=document,
+        replacement=replacement,
+        inbound_target=inbound_target,
+        inbound_source=inbound_source,
+        inbound_replacement=inbound_replacement,
+        invalid_initial=document,
+        invalid_replacement=invalid_replacement,
+        path_conflict=(path_a, path_b),
+        artifact_conflict=(artifact_a, artifact_b),
+    )
+    assert_store_factory_conformance(store_factory, corpus)

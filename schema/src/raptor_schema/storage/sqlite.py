@@ -26,6 +26,7 @@ from ..models import (
     SourceDocument,
     validate_provenance_transition,
 )
+from .base import StorageError
 
 DATABASE_SCHEMA_VERSION = "1"
 MODEL_SCHEMA_VERSION = "1.0.0"
@@ -33,10 +34,6 @@ _METADATA = {
     "database_schema_version": DATABASE_SCHEMA_VERSION,
     "canonical_model_schema_version": MODEL_SCHEMA_VERSION,
 }
-
-
-class StorageError(ValueError):
-    pass
 
 
 def _membership(document: SourceDocument) -> tuple[int, str]:
@@ -68,15 +65,19 @@ def _relationship_rows(
     for reference in iter_canonical_references(document):
         target = reference.target
         if isinstance(target, ArtifactKey):
-            typed_by_key[
+            # Explicit relationships are yielded before family-derived edges.
+            # One SQL row represents one semantic edge, so retain the explicit
+            # description when both forms describe the same edge.
+            typed_by_key.setdefault(
                 (
                     reference.source.repository_id,
                     reference.source.artifact_id,
                     reference.relation,
                     target.repository_id,
                     target.artifact_id,
-                )
-            ] = reference.description
+                ),
+                reference.description,
+            )
         else:
             uris.add(
                 (
@@ -127,10 +128,24 @@ class SQLiteArtifactStore:
             )
 
     @staticmethod
+    def _integrity_error(error: sqlite3.IntegrityError) -> StorageError:
+        message = str(error)
+        if "source_documents.repository_id, source_documents.current_path" in message:
+            code = "RAPTOR.STORAGE.PATH_CONFLICT"
+        elif (
+            "document_artifacts.repository_id, document_artifacts.artifact_id"
+            in message
+        ):
+            code = "RAPTOR.STORAGE.ARTIFACT_CONFLICT"
+        elif "FOREIGN KEY constraint failed" in message:
+            code = "RAPTOR.STORAGE.REFERENCE_CONFLICT"
+        else:
+            code = "RAPTOR.STORAGE.INTEGRITY_CONFLICT"
+        return StorageError(f"{code}: SQLite rejected the storage projection")
+
+    @staticmethod
     def _ddl() -> str:
-        resource = files("raptor_schema").joinpath(
-            "sql/sqlite/0001_initial.sql"
-        )
+        resource = files("raptor_schema").joinpath("sql/sqlite/0001_initial.sql")
         try:
             return resource.read_text(encoding="utf-8")
         except FileNotFoundError:
@@ -170,9 +185,7 @@ class SQLiteArtifactStore:
         ).fetchone()
         return row is not None
 
-    def _artifact_owner(
-        self, key: tuple[str, str]
-    ) -> tuple[str, str] | None:
+    def _artifact_owner(self, key: tuple[str, str]) -> tuple[str, str] | None:
         row = self._connection.execute(
             """
             SELECT repository_id, document_id
@@ -202,7 +215,9 @@ class SQLiteArtifactStore:
             for document in staged
         }
         if len(document_keys) != len(staged):
-            raise StorageError("RAPTOR.STORAGE.DUPLICATE_DOCUMENT: duplicate staged key")
+            raise StorageError(
+                "RAPTOR.STORAGE.DUPLICATE_DOCUMENT: duplicate staged key"
+            )
         artifact_keys = set().union(*(_artifact_keys(document) for document in staged))
         try:
             self._connection.execute("BEGIN IMMEDIATE")
@@ -239,13 +254,17 @@ class SQLiteArtifactStore:
                 )
             for key in removed:
                 self._connection.execute(
-                    "DELETE FROM artifacts WHERE repository_id = ? AND artifact_id = ?", key
+                    "DELETE FROM artifacts WHERE repository_id = ? AND artifact_id = ?",
+                    key,
                 )
             for document in staged:
                 self._write_artifact_rows(document)
             for document in staged:
                 self._write_relationships(document)
             self._connection.commit()
+        except sqlite3.IntegrityError as error:
+            self._connection.rollback()
+            raise self._integrity_error(error) from error
         except Exception:
             self._connection.rollback()
             raise
@@ -272,9 +291,7 @@ class SQLiteArtifactStore:
                 "RAPTOR.STORAGE.PROVENANCE_TRANSITION: invalid materialization transition"
             ) from error
 
-    def _document_artifact_keys(
-        self, key: tuple[str, str]
-    ) -> set[tuple[str, str]]:
+    def _document_artifact_keys(self, key: tuple[str, str]) -> set[tuple[str, str]]:
         rows = self._connection.execute(
             """
             SELECT repository_id, artifact_id FROM document_artifacts
@@ -399,7 +416,27 @@ class SQLiteArtifactStore:
             (key.repository_id, key.document_id),
         ).fetchone()
         if row is None:
+            if (
+                self._connection.execute(
+                    "SELECT 1 FROM document_artifacts WHERE repository_id = ? AND document_id = ? LIMIT 1",
+                    (key.repository_id, key.document_id),
+                ).fetchone()
+                is not None
+            ):
+                raise StorageError(
+                    "RAPTOR.STORAGE.FOREIGN_KEY_VIOLATION: document parent is missing"
+                )
             raise KeyError((key.repository_id, key.document_id))
+        if (
+            self._connection.execute(
+                "SELECT 1 FROM repositories WHERE repository_id = ?",
+                (key.repository_id,),
+            ).fetchone()
+            is None
+        ):
+            raise StorageError(
+                "RAPTOR.STORAGE.FOREIGN_KEY_VIOLATION: repository parent is missing"
+            )
         (
             current_path,
             schema_version,
@@ -407,9 +444,24 @@ class SQLiteArtifactStore:
             expected_membership,
             origin_json,
             materialization_json,
-        ) = cast(
-            tuple[str, str, int, str, str, str], row
-        )
+        ) = cast(tuple[str, str, int, str, str, str], row)
+        if (
+            self._connection.execute(
+                """
+            SELECT 1 FROM document_artifacts AS membership
+            LEFT JOIN artifacts AS artifact
+              ON artifact.repository_id = membership.repository_id
+             AND artifact.artifact_id = membership.artifact_id
+            WHERE membership.repository_id = ? AND membership.document_id = ?
+              AND artifact.artifact_id IS NULL LIMIT 1
+            """,
+                (key.repository_id, key.document_id),
+            ).fetchone()
+            is not None
+        ):
+            raise StorageError(
+                "RAPTOR.STORAGE.FOREIGN_KEY_VIOLATION: artifact parent is missing"
+            )
         artifact_rows = cast(
             list[tuple[str, str, str, str, int]],
             self._connection.execute(
@@ -429,18 +481,25 @@ class SQLiteArtifactStore:
         actual_membership = hashlib.sha256(
             _encode_canonical_value([row[0] for row in artifact_rows]).encode()
         ).hexdigest()
-        if len(artifact_rows) != expected_count or actual_membership != expected_membership:
+        if (
+            len(artifact_rows) != expected_count
+            or actual_membership != expected_membership
+        ):
             raise StorageError(
                 "RAPTOR.STORAGE.PROJECTION_MISMATCH: membership projection"
             )
-        if self._connection.execute(
-            """
+        if (
+            self._connection.execute(
+                """
             SELECT 1 FROM artifacts AS a
             LEFT JOIN document_artifacts AS da
               ON da.repository_id = a.repository_id AND da.artifact_id = a.artifact_id
-            WHERE da.artifact_id IS NULL LIMIT 1
-            """
-        ).fetchone() is not None:
+            WHERE a.repository_id = ? AND da.artifact_id IS NULL LIMIT 1
+            """,
+                (key.repository_id,),
+            ).fetchone()
+            is not None
+        ):
             raise StorageError("RAPTOR.STORAGE.PROJECTION_MISMATCH: orphan artifact")
         try:
             payload = {
@@ -468,7 +527,9 @@ class SQLiteArtifactStore:
             or dump_canonical_fragment(origin) != origin_json
             or dump_canonical_fragment(materialization) != materialization_json
         ):
-            raise StorageError("RAPTOR.STORAGE.PROJECTION_MISMATCH: document projection")
+            raise StorageError(
+                "RAPTOR.STORAGE.PROJECTION_MISMATCH: document projection"
+            )
         for artifact, stored in zip(document.artifacts, artifact_rows, strict=True):
             if (
                 artifact.id != stored[0]
@@ -476,14 +537,47 @@ class SQLiteArtifactStore:
                 or artifact.status.value != stored[2]
                 or dump_canonical_fragment(artifact) != stored[3]
             ):
-                raise StorageError("RAPTOR.STORAGE.PROJECTION_MISMATCH: artifact projection")
+                raise StorageError(
+                    "RAPTOR.STORAGE.PROJECTION_MISMATCH: artifact projection"
+                )
         expected_typed, expected_uris = _relationship_rows(document)
         source_ids = [artifact.id for artifact in document.artifacts]
+        self._check_relationship_foreign_keys(key.repository_id, source_ids)
         actual_typed = self._typed_rows(key.repository_id, source_ids)
         actual_uris = self._uri_rows(key.repository_id, source_ids)
         if expected_typed != actual_typed or expected_uris != actual_uris:
-            raise StorageError("RAPTOR.STORAGE.PROJECTION_MISMATCH: relationship projection")
+            raise StorageError(
+                "RAPTOR.STORAGE.PROJECTION_MISMATCH: relationship projection"
+            )
         return document
+
+    def _check_relationship_foreign_keys(
+        self, repository_id: str, source_ids: list[str]
+    ) -> None:
+        if not source_ids:
+            return
+        placeholders = ",".join("?" for _ in source_ids)
+        row = self._connection.execute(
+            f"""
+            SELECT 1
+            FROM artifact_relationships AS relationship
+            LEFT JOIN artifacts AS source
+              ON source.repository_id = relationship.source_repository_id
+             AND source.artifact_id = relationship.source_artifact_id
+            LEFT JOIN artifacts AS target
+              ON target.repository_id = relationship.target_repository_id
+             AND target.artifact_id = relationship.target_artifact_id
+            WHERE relationship.source_repository_id = ?
+              AND relationship.source_artifact_id IN ({placeholders})
+              AND (source.artifact_id IS NULL OR target.artifact_id IS NULL)
+            LIMIT 1
+            """,
+            (repository_id, *source_ids),
+        ).fetchone()
+        if row is not None:
+            raise StorageError(
+                "RAPTOR.STORAGE.FOREIGN_KEY_VIOLATION: relationship endpoint is missing"
+            )
 
     def _typed_rows(
         self, repository_id: str, source_ids: list[str]
@@ -526,10 +620,14 @@ class SQLiteArtifactStore:
             source_keys = self._document_artifact_keys(
                 (key.repository_id, key.document_id)
             )
-            if not source_keys and self._connection.execute(
-                "SELECT 1 FROM source_documents WHERE repository_id = ? AND document_id = ?",
-                (key.repository_id, key.document_id),
-            ).fetchone() is None:
+            if (
+                not source_keys
+                and self._connection.execute(
+                    "SELECT 1 FROM source_documents WHERE repository_id = ? AND document_id = ?",
+                    (key.repository_id, key.document_id),
+                ).fetchone()
+                is None
+            ):
                 raise KeyError((key.repository_id, key.document_id))
             self._reject_external_inbound(source_keys, source_keys)
             for artifact_key in source_keys:
@@ -547,6 +645,9 @@ class SQLiteArtifactStore:
                     artifact_key,
                 )
             self._connection.commit()
+        except sqlite3.IntegrityError as error:
+            self._connection.rollback()
+            raise self._integrity_error(error) from error
         except Exception:
             self._connection.rollback()
             raise
@@ -571,9 +672,7 @@ class SQLiteArtifactStore:
             f"SELECT repository_id, artifact_id FROM artifacts{where} ORDER BY repository_id, artifact_id",
             parameters,
         ).fetchall()
-        return [
-            ArtifactKey(repository_id=row[0], artifact_id=row[1]) for row in rows
-        ]
+        return [ArtifactKey(repository_id=row[0], artifact_id=row[1]) for row in rows]
 
 
 __all__ = [
