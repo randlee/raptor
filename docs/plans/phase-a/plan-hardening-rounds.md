@@ -18,6 +18,7 @@ This ledger records the reviewer chain for `plan-phase-a.md` and all Phase A spr
 | 5 | 5 | arch-ctm | WORKTREE | PASS | 0 | 0 | 0 | step5-consistency-handoff | critical-r3-final-correction | Audited committed base abc2fb8; resolved four cross-document consistency findings and prepared the corrected worktree for Step 6 QA without another critical-review cycle. |
 | 6 | 6 | quality-mgr | b3c93cbd09c25ffd76db2bd0513728f28ec082af | FAIL | 3 | 1 | 0 | 9c5791c42859b26e3081ab2e7528723a0a4482df8de8a3b5d4ab5e1735252109 | step5-consistency-handoff | Step 6 QA: raptor-QA-001, ARCH-001, ARCH-002, and raptor-QA-002. |
 | 6 | 6 | arch-ctm | WORKTREE | READY_FOR_QA_RERUN | 0 | 0 | 0 | step6-qa-fix-handoff | 9c5791c42859b26e3081ab2e7528723a0a4482df8de8a3b5d4ab5e1735252109 | Applied exactly four bounded QA corrections; validation pending QA rerun after coordinator commit. |
+| 7 | 6 | quality-mgr | c7e2b02 | PASS | 0 | 0 | 0 | step6-qa-pass | 9c5791c42859b26e3081ab2e7528723a0a4482df8de8a3b5d4ab5e1735252109 | Final requirements and architecture QA passed with all four prior findings closed; PR #6 is implementation-ready. |
 
 Cycle caps:
 
@@ -251,6 +252,32 @@ The original Step 1 work was committed, but the coordinator handoff omitted the 
   "docs_created": [],
   "scope_expanded": false,
   "ready_for_qa_rerun": true,
+  "errors": []
+}
+```
+
+## Step 6 final QA result
+
+```json
+{
+  "sprint": "Phase A",
+  "task": "final-plan-qa-rerun",
+  "branch": "plans/phase-a",
+  "commit": "c7e2b02",
+  "pr": 6,
+  "verdict": "PASS",
+  "findings": {"blocking": 0, "important": 0, "minor": 0},
+  "reviewers": {
+    "req-qa": {"verdict": "PASS", "blocking": 0, "important": 0, "minor": 0},
+    "arch-qa": {"verdict": "PASS", "blocking": 0, "important": 0, "minor": 0}
+  },
+  "closed_findings": [
+    "raptor-QA-001",
+    "ARCH-001",
+    "ARCH-002",
+    "raptor-QA-002"
+  ],
+  "merge_readiness": "ready",
   "errors": []
 }
 ```
