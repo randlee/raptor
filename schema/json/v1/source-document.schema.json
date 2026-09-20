@@ -1,0 +1,1197 @@
+{
+  "$defs": {
+    "ArchitectureDecision": {
+      "additionalProperties": false,
+      "properties": {
+        "alternatives": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Alternatives",
+          "type": "array"
+        },
+        "artifact_type": {
+          "const": "architecture_decision",
+          "title": "Artifact Type",
+          "type": "string"
+        },
+        "consequences": {
+          "items": {
+            "type": "string"
+          },
+          "minItems": 1,
+          "title": "Consequences",
+          "type": "array"
+        },
+        "context": {
+          "title": "Context",
+          "type": "string"
+        },
+        "decision": {
+          "title": "Decision",
+          "type": "string"
+        },
+        "extensions": {
+          "patternProperties": {
+            "^[a-z][a-z0-9]*(\\.[a-z][a-z0-9_-]*)+$": {
+              "$ref": "#/$defs/JsonValue"
+            }
+          },
+          "title": "Extensions",
+          "type": "object"
+        },
+        "id": {
+          "pattern": "^(REQ|NFR|ADR|DES|TST)-[A-Z0-9][A-Z0-9-]*-[0-9]{3,}$",
+          "title": "Id",
+          "type": "string"
+        },
+        "relationships": {
+          "items": {
+            "$ref": "#/$defs/ArtifactRelationship"
+          },
+          "title": "Relationships",
+          "type": "array"
+        },
+        "source_location": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/SourceLocation"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "status": {
+          "$ref": "#/$defs/LifecycleStatus"
+        },
+        "summary": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Summary"
+        },
+        "title": {
+          "maxLength": 200,
+          "title": "Title",
+          "type": "string"
+        }
+      },
+      "required": [
+        "artifact_type",
+        "id",
+        "title",
+        "status",
+        "context",
+        "decision",
+        "consequences"
+      ],
+      "title": "ArchitectureDecision",
+      "type": "object"
+    },
+    "ArtifactKey": {
+      "additionalProperties": false,
+      "properties": {
+        "artifact_id": {
+          "pattern": "^(REQ|NFR|ADR|DES|TST)-[A-Z0-9][A-Z0-9-]*-[0-9]{3,}$",
+          "title": "Artifact Id",
+          "type": "string"
+        },
+        "repository_id": {
+          "pattern": "^urn:raptor:repo:[a-z0-9][a-z0-9._-]{2,127}$",
+          "title": "Repository Id",
+          "type": "string"
+        }
+      },
+      "required": [
+        "repository_id",
+        "artifact_id"
+      ],
+      "title": "ArtifactKey",
+      "type": "object"
+    },
+    "ArtifactRelationship": {
+      "additionalProperties": false,
+      "properties": {
+        "description": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Description"
+        },
+        "relation": {
+          "$ref": "#/$defs/RelationshipType"
+        },
+        "target": {
+          "discriminator": {
+            "mapping": {
+              "artifact": "#/$defs/ArtifactTarget",
+              "uri": "#/$defs/UriTarget"
+            },
+            "propertyName": "target_kind"
+          },
+          "oneOf": [
+            {
+              "$ref": "#/$defs/ArtifactTarget"
+            },
+            {
+              "$ref": "#/$defs/UriTarget"
+            }
+          ],
+          "title": "Target"
+        }
+      },
+      "required": [
+        "relation",
+        "target"
+      ],
+      "title": "ArtifactRelationship",
+      "type": "object"
+    },
+    "ArtifactTarget": {
+      "additionalProperties": false,
+      "properties": {
+        "artifact_id": {
+          "pattern": "^(REQ|NFR|ADR|DES|TST)-[A-Z0-9][A-Z0-9-]*-[0-9]{3,}$",
+          "title": "Artifact Id",
+          "type": "string"
+        },
+        "repository_id": {
+          "pattern": "^urn:raptor:repo:[a-z0-9][a-z0-9._-]{2,127}$",
+          "title": "Repository Id",
+          "type": "string"
+        },
+        "target_kind": {
+          "const": "artifact",
+          "title": "Target Kind",
+          "type": "string"
+        }
+      },
+      "required": [
+        "target_kind",
+        "repository_id",
+        "artifact_id"
+      ],
+      "title": "ArtifactTarget",
+      "type": "object"
+    },
+    "DesignComponent": {
+      "additionalProperties": false,
+      "properties": {
+        "dependencies": {
+          "items": {
+            "$ref": "#/$defs/ArtifactKey"
+          },
+          "title": "Dependencies",
+          "type": "array"
+        },
+        "name": {
+          "maxLength": 200,
+          "title": "Name",
+          "type": "string"
+        },
+        "responsibility": {
+          "title": "Responsibility",
+          "type": "string"
+        }
+      },
+      "required": [
+        "name",
+        "responsibility"
+      ],
+      "title": "DesignComponent",
+      "type": "object"
+    },
+    "DesignDocument": {
+      "additionalProperties": false,
+      "properties": {
+        "artifact_type": {
+          "const": "design_document",
+          "title": "Artifact Type",
+          "type": "string"
+        },
+        "components": {
+          "items": {
+            "$ref": "#/$defs/DesignComponent"
+          },
+          "minItems": 1,
+          "title": "Components",
+          "type": "array"
+        },
+        "extensions": {
+          "patternProperties": {
+            "^[a-z][a-z0-9]*(\\.[a-z][a-z0-9_-]*)+$": {
+              "$ref": "#/$defs/JsonValue"
+            }
+          },
+          "title": "Extensions",
+          "type": "object"
+        },
+        "id": {
+          "pattern": "^(REQ|NFR|ADR|DES|TST)-[A-Z0-9][A-Z0-9-]*-[0-9]{3,}$",
+          "title": "Id",
+          "type": "string"
+        },
+        "interfaces": {
+          "items": {
+            "$ref": "#/$defs/DesignInterface"
+          },
+          "title": "Interfaces",
+          "type": "array"
+        },
+        "overview": {
+          "title": "Overview",
+          "type": "string"
+        },
+        "relationships": {
+          "items": {
+            "$ref": "#/$defs/ArtifactRelationship"
+          },
+          "title": "Relationships",
+          "type": "array"
+        },
+        "source_location": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/SourceLocation"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "status": {
+          "$ref": "#/$defs/LifecycleStatus"
+        },
+        "summary": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Summary"
+        },
+        "title": {
+          "maxLength": 200,
+          "title": "Title",
+          "type": "string"
+        }
+      },
+      "required": [
+        "artifact_type",
+        "id",
+        "title",
+        "status",
+        "overview",
+        "components"
+      ],
+      "title": "DesignDocument",
+      "type": "object"
+    },
+    "DesignInterface": {
+      "additionalProperties": false,
+      "properties": {
+        "description": {
+          "title": "Description",
+          "type": "string"
+        },
+        "name": {
+          "maxLength": 200,
+          "title": "Name",
+          "type": "string"
+        },
+        "participants": {
+          "items": {
+            "maxLength": 200,
+            "type": "string"
+          },
+          "minItems": 2,
+          "title": "Participants",
+          "type": "array"
+        }
+      },
+      "required": [
+        "name",
+        "description",
+        "participants"
+      ],
+      "title": "DesignInterface",
+      "type": "object"
+    },
+    "JsonValue": {},
+    "LifecycleStatus": {
+      "enum": [
+        "draft",
+        "proposed",
+        "accepted",
+        "implemented",
+        "verified",
+        "deprecated",
+        "rejected",
+        "superseded"
+      ],
+      "title": "LifecycleStatus",
+      "type": "string"
+    },
+    "MaterializationProvenance": {
+      "additionalProperties": false,
+      "properties": {
+        "content_sha256": {
+          "pattern": "^[0-9a-f]{64}$",
+          "title": "Content Sha256",
+          "type": "string"
+        },
+        "operation": {
+          "enum": [
+            "imported",
+            "rendered"
+          ],
+          "title": "Operation",
+          "type": "string"
+        },
+        "parent_content_sha256": {
+          "anyOf": [
+            {
+              "pattern": "^[0-9a-f]{64}$",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Parent Content Sha256"
+        },
+        "parser_profile": {
+          "pattern": "^[a-z][a-z0-9_-]*$",
+          "title": "Parser Profile",
+          "type": "string"
+        },
+        "parser_profile_version": {
+          "pattern": "^[1-9][0-9]*\\.[0-9]+\\.[0-9]+$",
+          "title": "Parser Profile Version",
+          "type": "string"
+        },
+        "repository_path": {
+          "title": "Repository Path",
+          "type": "string"
+        },
+        "template_set": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Template Set"
+        },
+        "template_version": {
+          "anyOf": [
+            {
+              "pattern": "^[1-9][0-9]*\\.[0-9]+\\.[0-9]+$",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Template Version"
+        }
+      },
+      "required": [
+        "repository_path",
+        "content_sha256",
+        "operation",
+        "parser_profile",
+        "parser_profile_version"
+      ],
+      "title": "MaterializationProvenance",
+      "type": "object"
+    },
+    "Measurement": {
+      "additionalProperties": false,
+      "allOf": [
+        {
+          "if": {
+            "properties": {
+              "comparator": {
+                "enum": [
+                  "eq",
+                  "ne"
+                ]
+              }
+            }
+          },
+          "then": {
+            "properties": {
+              "target": {
+                "type": [
+                  "string",
+                  "integer",
+                  "number",
+                  "boolean"
+                ]
+              }
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "comparator": {
+                "enum": [
+                  "lt",
+                  "lte",
+                  "gt",
+                  "gte"
+                ]
+              }
+            }
+          },
+          "then": {
+            "properties": {
+              "target": {
+                "type": [
+                  "integer",
+                  "number"
+                ]
+              }
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "comparator": {
+                "const": "range"
+              }
+            }
+          },
+          "then": {
+            "properties": {
+              "target": {
+                "oneOf": [
+                  {
+                    "maxItems": 2,
+                    "minItems": 2,
+                    "prefixItems": [
+                      {
+                        "type": "integer"
+                      },
+                      {
+                        "type": "integer"
+                      }
+                    ],
+                    "type": "array"
+                  },
+                  {
+                    "maxItems": 2,
+                    "minItems": 2,
+                    "prefixItems": [
+                      {
+                        "not": {
+                          "type": "integer"
+                        },
+                        "type": "number"
+                      },
+                      {
+                        "not": {
+                          "type": "integer"
+                        },
+                        "type": "number"
+                      }
+                    ],
+                    "type": "array"
+                  }
+                ]
+              }
+            }
+          }
+        }
+      ],
+      "properties": {
+        "comparator": {
+          "enum": [
+            "eq",
+            "ne",
+            "lt",
+            "lte",
+            "gt",
+            "gte",
+            "range"
+          ],
+          "title": "Comparator",
+          "type": "string"
+        },
+        "name": {
+          "title": "Name",
+          "type": "string"
+        },
+        "target": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "boolean"
+            },
+            {
+              "type": "integer"
+            },
+            {
+              "type": "number"
+            },
+            {
+              "maxItems": 2,
+              "minItems": 2,
+              "prefixItems": [
+                {
+                  "anyOf": [
+                    {
+                      "type": "integer"
+                    },
+                    {
+                      "type": "number"
+                    }
+                  ]
+                },
+                {
+                  "anyOf": [
+                    {
+                      "type": "integer"
+                    },
+                    {
+                      "type": "number"
+                    }
+                  ]
+                }
+              ],
+              "type": "array"
+            }
+          ],
+          "title": "Target"
+        },
+        "unit": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Unit"
+        }
+      },
+      "required": [
+        "name",
+        "comparator",
+        "target"
+      ],
+      "title": "Measurement",
+      "type": "object"
+    },
+    "NonFunctionalRequirement": {
+      "additionalProperties": false,
+      "properties": {
+        "acceptance_criteria": {
+          "items": {
+            "type": "string"
+          },
+          "minItems": 1,
+          "title": "Acceptance Criteria",
+          "type": "array"
+        },
+        "artifact_type": {
+          "const": "non_functional_requirement",
+          "title": "Artifact Type",
+          "type": "string"
+        },
+        "extensions": {
+          "patternProperties": {
+            "^[a-z][a-z0-9]*(\\.[a-z][a-z0-9_-]*)+$": {
+              "$ref": "#/$defs/JsonValue"
+            }
+          },
+          "title": "Extensions",
+          "type": "object"
+        },
+        "id": {
+          "pattern": "^(REQ|NFR|ADR|DES|TST)-[A-Z0-9][A-Z0-9-]*-[0-9]{3,}$",
+          "title": "Id",
+          "type": "string"
+        },
+        "measurement": {
+          "$ref": "#/$defs/Measurement"
+        },
+        "priority": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/Priority"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "quality_attribute": {
+          "pattern": "^[a-z][a-z0-9_-]*$",
+          "title": "Quality Attribute",
+          "type": "string"
+        },
+        "rationale": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Rationale"
+        },
+        "relationships": {
+          "items": {
+            "$ref": "#/$defs/ArtifactRelationship"
+          },
+          "title": "Relationships",
+          "type": "array"
+        },
+        "source_location": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/SourceLocation"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "statement": {
+          "title": "Statement",
+          "type": "string"
+        },
+        "status": {
+          "$ref": "#/$defs/LifecycleStatus"
+        },
+        "summary": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Summary"
+        },
+        "title": {
+          "maxLength": 200,
+          "title": "Title",
+          "type": "string"
+        }
+      },
+      "required": [
+        "artifact_type",
+        "id",
+        "title",
+        "status",
+        "statement",
+        "quality_attribute",
+        "measurement",
+        "acceptance_criteria"
+      ],
+      "title": "NonFunctionalRequirement",
+      "type": "object"
+    },
+    "OriginProvenance": {
+      "additionalProperties": false,
+      "properties": {
+        "document_id": {
+          "pattern": "^DOC-[A-Z0-9][A-Z0-9-]*-[0-9]{3,}$",
+          "title": "Document Id",
+          "type": "string"
+        },
+        "initial_repository_path": {
+          "title": "Initial Repository Path",
+          "type": "string"
+        },
+        "original_content_sha256": {
+          "pattern": "^[0-9a-f]{64}$",
+          "title": "Original Content Sha256",
+          "type": "string"
+        },
+        "parser_profile": {
+          "pattern": "^[a-z][a-z0-9_-]*$",
+          "title": "Parser Profile",
+          "type": "string"
+        },
+        "parser_profile_version": {
+          "pattern": "^[1-9][0-9]*\\.[0-9]+\\.[0-9]+$",
+          "title": "Parser Profile Version",
+          "type": "string"
+        },
+        "repository_id": {
+          "pattern": "^urn:raptor:repo:[a-z0-9][a-z0-9._-]{2,127}$",
+          "title": "Repository Id",
+          "type": "string"
+        },
+        "source_format": {
+          "const": "markdown",
+          "title": "Source Format",
+          "type": "string"
+        }
+      },
+      "required": [
+        "repository_id",
+        "document_id",
+        "initial_repository_path",
+        "original_content_sha256",
+        "source_format",
+        "parser_profile",
+        "parser_profile_version"
+      ],
+      "title": "OriginProvenance",
+      "type": "object"
+    },
+    "Priority": {
+      "enum": [
+        "critical",
+        "high",
+        "medium",
+        "low"
+      ],
+      "title": "Priority",
+      "type": "string"
+    },
+    "RelationshipType": {
+      "enum": [
+        "depends_on",
+        "satisfies",
+        "implements",
+        "verifies",
+        "supersedes",
+        "relates_to"
+      ],
+      "title": "RelationshipType",
+      "type": "string"
+    },
+    "Requirement": {
+      "additionalProperties": false,
+      "properties": {
+        "acceptance_criteria": {
+          "items": {
+            "type": "string"
+          },
+          "minItems": 1,
+          "title": "Acceptance Criteria",
+          "type": "array"
+        },
+        "artifact_type": {
+          "const": "requirement",
+          "title": "Artifact Type",
+          "type": "string"
+        },
+        "extensions": {
+          "patternProperties": {
+            "^[a-z][a-z0-9]*(\\.[a-z][a-z0-9_-]*)+$": {
+              "$ref": "#/$defs/JsonValue"
+            }
+          },
+          "title": "Extensions",
+          "type": "object"
+        },
+        "id": {
+          "pattern": "^(REQ|NFR|ADR|DES|TST)-[A-Z0-9][A-Z0-9-]*-[0-9]{3,}$",
+          "title": "Id",
+          "type": "string"
+        },
+        "priority": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/Priority"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "rationale": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Rationale"
+        },
+        "relationships": {
+          "items": {
+            "$ref": "#/$defs/ArtifactRelationship"
+          },
+          "title": "Relationships",
+          "type": "array"
+        },
+        "source_location": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/SourceLocation"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "statement": {
+          "title": "Statement",
+          "type": "string"
+        },
+        "status": {
+          "$ref": "#/$defs/LifecycleStatus"
+        },
+        "summary": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Summary"
+        },
+        "title": {
+          "maxLength": 200,
+          "title": "Title",
+          "type": "string"
+        }
+      },
+      "required": [
+        "artifact_type",
+        "id",
+        "title",
+        "status",
+        "statement",
+        "acceptance_criteria"
+      ],
+      "title": "Requirement",
+      "type": "object"
+    },
+    "SourceLocation": {
+      "additionalProperties": false,
+      "properties": {
+        "end_column": {
+          "anyOf": [
+            {
+              "minimum": 1,
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "End Column"
+        },
+        "end_line": {
+          "anyOf": [
+            {
+              "minimum": 1,
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "End Line"
+        },
+        "start_column": {
+          "minimum": 1,
+          "title": "Start Column",
+          "type": "integer"
+        },
+        "start_line": {
+          "minimum": 1,
+          "title": "Start Line",
+          "type": "integer"
+        }
+      },
+      "required": [
+        "start_line",
+        "start_column"
+      ],
+      "title": "SourceLocation",
+      "type": "object"
+    },
+    "SourceProvenance": {
+      "additionalProperties": false,
+      "properties": {
+        "materialization": {
+          "$ref": "#/$defs/MaterializationProvenance"
+        },
+        "origin": {
+          "$ref": "#/$defs/OriginProvenance"
+        }
+      },
+      "required": [
+        "origin",
+        "materialization"
+      ],
+      "title": "SourceProvenance",
+      "type": "object"
+    },
+    "TestCase": {
+      "additionalProperties": false,
+      "properties": {
+        "expected_result": {
+          "title": "Expected Result",
+          "type": "string"
+        },
+        "id": {
+          "pattern": "^TC-[A-Z0-9][A-Z0-9-]*-[0-9]{3,}$",
+          "title": "Id",
+          "type": "string"
+        },
+        "steps": {
+          "items": {
+            "type": "string"
+          },
+          "minItems": 1,
+          "title": "Steps",
+          "type": "array"
+        },
+        "title": {
+          "maxLength": 200,
+          "title": "Title",
+          "type": "string"
+        },
+        "verifies": {
+          "items": {
+            "$ref": "#/$defs/ArtifactKey"
+          },
+          "minItems": 1,
+          "title": "Verifies",
+          "type": "array"
+        }
+      },
+      "required": [
+        "id",
+        "title",
+        "steps",
+        "expected_result",
+        "verifies"
+      ],
+      "title": "TestCase",
+      "type": "object"
+    },
+    "TestPlan": {
+      "additionalProperties": false,
+      "properties": {
+        "artifact_type": {
+          "const": "test_plan",
+          "title": "Artifact Type",
+          "type": "string"
+        },
+        "entry_criteria": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Entry Criteria",
+          "type": "array"
+        },
+        "exit_criteria": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Exit Criteria",
+          "type": "array"
+        },
+        "extensions": {
+          "patternProperties": {
+            "^[a-z][a-z0-9]*(\\.[a-z][a-z0-9_-]*)+$": {
+              "$ref": "#/$defs/JsonValue"
+            }
+          },
+          "title": "Extensions",
+          "type": "object"
+        },
+        "id": {
+          "pattern": "^(REQ|NFR|ADR|DES|TST)-[A-Z0-9][A-Z0-9-]*-[0-9]{3,}$",
+          "title": "Id",
+          "type": "string"
+        },
+        "objective": {
+          "title": "Objective",
+          "type": "string"
+        },
+        "relationships": {
+          "items": {
+            "$ref": "#/$defs/ArtifactRelationship"
+          },
+          "title": "Relationships",
+          "type": "array"
+        },
+        "scope": {
+          "title": "Scope",
+          "type": "string"
+        },
+        "source_location": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/SourceLocation"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "status": {
+          "$ref": "#/$defs/LifecycleStatus"
+        },
+        "summary": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Summary"
+        },
+        "test_cases": {
+          "items": {
+            "$ref": "#/$defs/TestCase"
+          },
+          "minItems": 1,
+          "title": "Test Cases",
+          "type": "array"
+        },
+        "title": {
+          "maxLength": 200,
+          "title": "Title",
+          "type": "string"
+        }
+      },
+      "required": [
+        "artifact_type",
+        "id",
+        "title",
+        "status",
+        "objective",
+        "scope",
+        "test_cases"
+      ],
+      "title": "TestPlan",
+      "type": "object"
+    },
+    "UriTarget": {
+      "additionalProperties": false,
+      "properties": {
+        "target_kind": {
+          "const": "uri",
+          "title": "Target Kind",
+          "type": "string"
+        },
+        "target_uri": {
+          "title": "Target Uri",
+          "type": "string"
+        }
+      },
+      "required": [
+        "target_kind",
+        "target_uri"
+      ],
+      "title": "UriTarget",
+      "type": "object"
+    }
+  },
+  "additionalProperties": false,
+  "properties": {
+    "artifacts": {
+      "items": {
+        "discriminator": {
+          "mapping": {
+            "architecture_decision": "#/$defs/ArchitectureDecision",
+            "design_document": "#/$defs/DesignDocument",
+            "non_functional_requirement": "#/$defs/NonFunctionalRequirement",
+            "requirement": "#/$defs/Requirement",
+            "test_plan": "#/$defs/TestPlan"
+          },
+          "propertyName": "artifact_type"
+        },
+        "oneOf": [
+          {
+            "$ref": "#/$defs/Requirement"
+          },
+          {
+            "$ref": "#/$defs/NonFunctionalRequirement"
+          },
+          {
+            "$ref": "#/$defs/ArchitectureDecision"
+          },
+          {
+            "$ref": "#/$defs/DesignDocument"
+          },
+          {
+            "$ref": "#/$defs/TestPlan"
+          }
+        ]
+      },
+      "minItems": 1,
+      "title": "Artifacts",
+      "type": "array"
+    },
+    "provenance": {
+      "$ref": "#/$defs/SourceProvenance"
+    },
+    "schema_version": {
+      "pattern": "^[1-9][0-9]*\\.[0-9]+\\.[0-9]+$",
+      "title": "Schema Version",
+      "type": "string"
+    }
+  },
+  "required": [
+    "schema_version",
+    "provenance",
+    "artifacts"
+  ],
+  "title": "SourceDocument",
+  "type": "object"
+}

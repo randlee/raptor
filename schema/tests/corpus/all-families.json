@@ -1,0 +1,118 @@
+{
+  "schema_version": "1.0.0",
+  "provenance": {
+    "origin": {
+      "repository_id": "urn:raptor:repo:raptor",
+      "document_id": "DOC-RAP-001",
+      "initial_repository_path": "docs/requirements.md",
+      "original_content_sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "source_format": "markdown",
+      "parser_profile": "raptor_dogfood",
+      "parser_profile_version": "1.0.0"
+    },
+    "materialization": {
+      "repository_path": "docs/requirements.md",
+      "content_sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "operation": "imported",
+      "parser_profile": "raptor_dogfood",
+      "parser_profile_version": "1.0.0"
+    }
+  },
+  "artifacts": [
+    {
+      "artifact_type": "requirement",
+      "id": "REQ-RAP-001",
+      "title": "Canonical artifact families",
+      "status": "accepted",
+      "statement": "Define five consumer-neutral artifact families.",
+      "acceptance_criteria": ["All five families validate and round-trip."],
+      "priority": "high",
+      "relationships": [
+        {
+          "relation": "relates_to",
+          "target": {"target_kind": "uri", "target_uri": "urn:raptor:contract:v1"}
+        }
+      ],
+      "extensions": {"raptor.owner": "schema"},
+      "source_location": {"start_line": 7, "start_column": 1, "end_line": 13, "end_column": 1}
+    },
+    {
+      "artifact_type": "non_functional_requirement",
+      "id": "NFR-RAP-004",
+      "title": "Deterministic output",
+      "status": "accepted",
+      "statement": "Canonical serialization is deterministic.",
+      "quality_attribute": "determinism",
+      "measurement": {"name": "repeat differences", "comparator": "eq", "target": 0, "unit": "files"},
+      "acceptance_criteria": ["Repeated generation produces no differences."],
+      "relationships": [
+        {
+          "relation": "satisfies",
+          "target": {"target_kind": "artifact", "repository_id": "urn:raptor:repo:raptor", "artifact_id": "REQ-RAP-001"}
+        }
+      ],
+      "extensions": {}
+    },
+    {
+      "artifact_type": "architecture_decision",
+      "id": "ADR-RAP-001",
+      "title": "Consumer-neutral canonical contract",
+      "status": "accepted",
+      "context": "Source repositories use different document conventions.",
+      "decision": "Keep canonical concepts independent of source profiles.",
+      "consequences": ["Consumers implement profiles at the integration boundary."],
+      "alternatives": ["Adopt one consumer format."],
+      "relationships": [],
+      "extensions": {}
+    },
+    {
+      "artifact_type": "design_document",
+      "id": "DES-RAP-001",
+      "title": "Canonical model package",
+      "status": "proposed",
+      "overview": "The schema package implements the accepted decisions.",
+      "components": [
+        {
+          "name": "Canonical API",
+          "responsibility": "Validate and serialize source documents.",
+          "dependencies": [
+            {"repository_id": "urn:raptor:repo:raptor", "artifact_id": "ADR-RAP-001"}
+          ]
+        }
+      ],
+      "interfaces": [
+        {
+          "name": "Source profile",
+          "description": "Maps source representations to canonical documents.",
+          "participants": ["Consumer", "Raptor"]
+        }
+      ],
+      "relationships": [],
+      "extensions": {}
+    },
+    {
+      "artifact_type": "test_plan",
+      "id": "TST-RAP-001",
+      "title": "Canonical contract verification",
+      "status": "proposed",
+      "objective": "Prove all canonical families validate and round-trip.",
+      "scope": "The consumer-neutral schema package.",
+      "test_cases": [
+        {
+          "id": "TC-RAP-001",
+          "title": "Round-trip all families",
+          "steps": ["Load the corpus.", "Dump and reload canonical JSON."],
+          "expected_result": "The documents compare equal.",
+          "verifies": [
+            {"repository_id": "urn:raptor:repo:raptor", "artifact_id": "REQ-RAP-001"},
+            {"repository_id": "urn:raptor:repo:raptor", "artifact_id": "NFR-RAP-004"}
+          ]
+        }
+      ],
+      "entry_criteria": [],
+      "exit_criteria": ["All contract tests pass."],
+      "relationships": [],
+      "extensions": {}
+    }
+  ]
+}
