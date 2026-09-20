@@ -12,6 +12,8 @@ CREATE TABLE IF NOT EXISTS source_documents (
   document_id TEXT NOT NULL,
   current_path TEXT NOT NULL,
   schema_version TEXT NOT NULL,
+  artifact_count INTEGER NOT NULL CHECK (artifact_count > 0),
+  membership_sha256 TEXT NOT NULL CHECK (length(membership_sha256) = 64),
   origin_json TEXT NOT NULL CHECK (json_valid(origin_json)),
   materialization_json TEXT NOT NULL CHECK (json_valid(materialization_json)),
   PRIMARY KEY (repository_id, document_id),

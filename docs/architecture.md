@@ -12,9 +12,15 @@ ports. Persistence and rendering consume this contract but do not redefine it.
 
 ### RULE-001: Canonical models remain consumer-neutral
 
-Code under `schema/src/raptor_schema` may not import a consumer adapter, Markdown
-parser, database driver, plugin runtime, or template engine. Consumer conventions
-enter only through the `SourceProfile` protocol and namespaced extensions.
+Canonical model modules under `schema/src/raptor_schema/models`, `canonical.py`,
+and `profiles.py` may not import a consumer adapter, Markdown parser, database
+driver, plugin runtime, or template engine. Consumer conventions enter only
+through the `SourceProfile` protocol and namespaced extensions.
+
+`schema/src/raptor_schema/storage/` is the explicit persistence dialect boundary.
+It may import a standard database driver and project canonical models into the
+versioned DDL owned by its sprint, but it may not redefine model fields, parse
+consumer formats, or leak driver objects into the `ArtifactStore` protocol.
 
 ### RULE-002: Pydantic models are the schema authority
 
@@ -37,9 +43,10 @@ explicit resolver.
 
 The later integration runtime must make source-profile loading deterministic,
 offline, hash-verified, and opt-in for external code. A1 defines only the profile
-protocol and boundary data. Discovery, loading, persistence, plugins, parsing,
-and rendering live outside the canonical model package and are delivered only by
-their owning sprints.
+protocol and boundary data. Discovery, loading, plugins, parsing, and rendering
+live outside the canonical model modules and are delivered only by their owning
+sprints. Persistence lives only in the explicit `raptor_schema.storage` boundary
+defined by A2.
 
 ## Accepted decisions
 

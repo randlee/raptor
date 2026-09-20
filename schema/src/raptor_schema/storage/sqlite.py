@@ -1,28 +1,29 @@
 from __future__ import annotations
 
 import json
+import hashlib
 import sqlite3
 from collections.abc import Iterable
+from importlib.resources import files
 from pathlib import Path
 from typing import cast
 
-from pydantic import BaseModel
+from pydantic import JsonValue
 
+from .._references import iter_canonical_references
 from ..canonical import (
     ReferenceValidationMode,
+    _encode_canonical_value,
+    dump_canonical_fragment,
     dump_canonical_json,
     validate_document,
     validate_documents,
 )
 from ..models import (
     ArtifactKey,
-    ArtifactTarget,
-    DesignDocument,
     DocumentKey,
     RepositoryId,
     SourceDocument,
-    TestPlan,
-    UriTarget,
     validate_provenance_transition,
 )
 
@@ -38,14 +39,10 @@ class StorageError(ValueError):
     pass
 
 
-def _json(model: BaseModel) -> str:
-    return json.dumps(
-        model.model_dump(mode="json", exclude_none=True),
-        ensure_ascii=False,
-        sort_keys=True,
-        separators=(",", ":"),
-        allow_nan=False,
-    )
+def _membership(document: SourceDocument) -> tuple[int, str]:
+    artifact_ids = [artifact.id for artifact in document.artifacts]
+    encoded = _encode_canonical_value(cast(JsonValue, artifact_ids))
+    return len(artifact_ids), hashlib.sha256(encoded.encode()).hexdigest()
 
 
 def _document_key(document: SourceDocument) -> DocumentKey:
@@ -66,58 +63,30 @@ def _relationship_rows(
     set[tuple[str, str, str, str, str, str | None]],
     set[tuple[str, str, str, str, str | None]],
 ]:
-    repository_id = document.provenance.origin.repository_id
     typed_by_key: dict[tuple[str, str, str, str, str], str | None] = {}
     uris: set[tuple[str, str, str, str, str | None]] = set()
-    for artifact in document.artifacts:
-        for relationship in artifact.relationships:
-            target = relationship.target
-            if isinstance(target, ArtifactTarget):
-                typed_by_key[
-                    (
-                        repository_id,
-                        artifact.id,
-                        relationship.relation.value,
-                        target.repository_id,
-                        target.artifact_id,
-                    )
-                ] = relationship.description
-            elif isinstance(target, UriTarget):
-                uris.add(
-                    (
-                        repository_id,
-                        artifact.id,
-                        relationship.relation.value,
-                        target.target_uri,
-                        relationship.description,
-                    )
+    for reference in iter_canonical_references(document):
+        target = reference.target
+        if isinstance(target, ArtifactKey):
+            typed_by_key[
+                (
+                    reference.source.repository_id,
+                    reference.source.artifact_id,
+                    reference.relation,
+                    target.repository_id,
+                    target.artifact_id,
                 )
-        if isinstance(artifact, DesignDocument):
-            for component in artifact.components:
-                for dependency in component.dependencies:
-                    typed_by_key.setdefault(
-                        (
-                            repository_id,
-                            artifact.id,
-                            "depends_on",
-                            dependency.repository_id,
-                            dependency.artifact_id,
-                        ),
-                        None,
-                    )
-        if isinstance(artifact, TestPlan):
-            for test_case in artifact.test_cases:
-                for verified in test_case.verifies:
-                    typed_by_key.setdefault(
-                        (
-                            repository_id,
-                            artifact.id,
-                            "verifies",
-                            verified.repository_id,
-                            verified.artifact_id,
-                        ),
-                        None,
-                    )
+            ] = reference.description
+        else:
+            uris.add(
+                (
+                    reference.source.repository_id,
+                    reference.source.artifact_id,
+                    reference.relation,
+                    target,
+                    reference.description,
+                )
+            )
     typed = {(*key, description) for key, description in typed_by_key.items()}
     return typed, uris
 
@@ -142,30 +111,44 @@ class _OverlayResolver:
 
 
 class SQLiteArtifactStore:
-    def __init__(
-        self,
-        database: str | Path | sqlite3.Connection = ":memory:",
-        *,
-        ddl_path: Path | None = None,
-    ) -> None:
-        if isinstance(database, sqlite3.Connection):
-            self._connection = database
-            self._owns_connection = False
-        else:
-            self._connection = sqlite3.connect(str(database), isolation_level=None)
-            self._owns_connection = True
-        self._ddl_path = ddl_path or (
-            Path(__file__).resolve().parents[3] / "sql/sqlite/0001_initial.sql"
-        )
+    def __init__(self, database: str | Path = ":memory:") -> None:
+        if not isinstance(database, (str, Path)):
+            raise TypeError("database must be a store-owned path or ':memory:'")
+        self._connection = sqlite3.connect(str(database), isolation_level=None)
         self._connection.execute("PRAGMA foreign_keys = ON")
 
     def close(self) -> None:
-        if self._owns_connection:
-            self._connection.close()
+        self._connection.close()
+
+    def _require_foreign_keys(self) -> None:
+        if self._connection.execute("PRAGMA foreign_keys").fetchone() != (1,):
+            raise StorageError(
+                "RAPTOR.STORAGE.FOREIGN_KEYS_DISABLED: foreign keys are required"
+            )
+
+    @staticmethod
+    def _ddl() -> str:
+        resource = files("raptor_schema").joinpath(
+            "sql/sqlite/0001_initial.sql"
+        )
+        try:
+            return resource.read_text(encoding="utf-8")
+        except FileNotFoundError:
+            source = Path(__file__).resolve().parents[3] / "sql/sqlite/0001_initial.sql"
+            return source.read_text(encoding="utf-8")
 
     def initialize(self) -> None:
         self._connection.execute("PRAGMA foreign_keys = ON")
-        self._connection.executescript(self._ddl_path.read_text(encoding="utf-8"))
+        self._require_foreign_keys()
+        existed = self._connection.execute(
+            "SELECT 1 FROM sqlite_master WHERE type = 'table' AND name = 'schema_metadata'"
+        ).fetchone()
+        if existed is not None:
+            self._validate_metadata()
+        self._connection.executescript(self._ddl())
+        self._validate_metadata()
+
+    def _validate_metadata(self) -> None:
         rows = dict(
             cast(
                 list[tuple[str, str]],
@@ -174,16 +157,13 @@ class SQLiteArtifactStore:
                 ).fetchall(),
             )
         )
-        unexpected = set(rows) - set(_METADATA)
-        conflicts = {
-            key for key, value in rows.items() if _METADATA.get(key) != value
-        }
-        if unexpected or conflicts:
+        if rows != _METADATA:
             raise StorageError(
                 "RAPTOR.STORAGE.SCHEMA_VERSION: unsupported schema metadata"
             )
 
     def contains(self, key: ArtifactKey) -> bool:
+        self._require_foreign_keys()
         row = self._connection.execute(
             "SELECT 1 FROM artifacts WHERE repository_id = ? AND artifact_id = ?",
             key.sort_key(),
@@ -211,6 +191,7 @@ class SQLiteArtifactStore:
             SourceDocument.model_validate(document.model_dump(mode="python"))
             for document in documents
         )
+        self._require_foreign_keys()
         if not staged:
             return
         document_keys = {
@@ -223,22 +204,22 @@ class SQLiteArtifactStore:
         if len(document_keys) != len(staged):
             raise StorageError("RAPTOR.STORAGE.DUPLICATE_DOCUMENT: duplicate staged key")
         artifact_keys = set().union(*(_artifact_keys(document) for document in staged))
-        resolver = _OverlayResolver(self, artifact_keys, document_keys)
-        validate_documents(
-            staged, reference_mode=ReferenceValidationMode.STORE, resolver=resolver
-        )
-        for document in staged:
-            self._validate_replacement(document)
-
-        old_by_document = {
-            key: self._document_artifact_keys(key) for key in document_keys
-        }
-        old_source_keys = set().union(*old_by_document.values())
-        removed = old_source_keys - artifact_keys
-        self._reject_external_inbound(removed, old_source_keys)
-
         try:
             self._connection.execute("BEGIN IMMEDIATE")
+            resolver = _OverlayResolver(self, artifact_keys, document_keys)
+            validate_documents(
+                staged,
+                reference_mode=ReferenceValidationMode.STORE,
+                resolver=resolver,
+            )
+            for document in staged:
+                self._validate_replacement(document)
+            old_source_keys = set().union(
+                *(self._document_artifact_keys(key) for key in document_keys)
+            )
+            removed = old_source_keys - artifact_keys
+            retained = old_source_keys & artifact_keys
+            self._reject_external_inbound(removed, old_source_keys)
             for document in staged:
                 self._write_document_row(document)
             for repository_id, artifact_id in old_source_keys:
@@ -246,6 +227,7 @@ class SQLiteArtifactStore:
                     "DELETE FROM artifact_relationships WHERE source_repository_id = ? AND source_artifact_id = ?",
                     (repository_id, artifact_id),
                 )
+            for repository_id, artifact_id in retained:
                 self._connection.execute(
                     "DELETE FROM artifact_uri_relationships WHERE source_repository_id = ? AND source_artifact_id = ?",
                     (repository_id, artifact_id),
@@ -283,8 +265,6 @@ class SQLiteArtifactStore:
             raise StorageError(
                 "RAPTOR.STORAGE.PROVENANCE_TRANSITION: origin is immutable"
             )
-        if previous.provenance.materialization == document.provenance.materialization:
-            return
         try:
             validate_provenance_transition(previous.provenance, document.provenance)
         except ValueError as error:
@@ -326,6 +306,7 @@ class SQLiteArtifactStore:
     def _write_document_row(self, document: SourceDocument) -> None:
         origin = document.provenance.origin
         materialization = document.provenance.materialization
+        artifact_count, membership_sha256 = _membership(document)
         self._connection.execute(
             "INSERT OR IGNORE INTO repositories(repository_id) VALUES (?)",
             (origin.repository_id,),
@@ -334,11 +315,13 @@ class SQLiteArtifactStore:
             """
             INSERT INTO source_documents(
               repository_id, document_id, current_path, schema_version,
-              origin_json, materialization_json
-            ) VALUES (?, ?, ?, ?, ?, ?)
+              artifact_count, membership_sha256, origin_json, materialization_json
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?)
             ON CONFLICT(repository_id, document_id) DO UPDATE SET
               current_path = excluded.current_path,
               schema_version = excluded.schema_version,
+              artifact_count = excluded.artifact_count,
+              membership_sha256 = excluded.membership_sha256,
               origin_json = excluded.origin_json,
               materialization_json = excluded.materialization_json
             """,
@@ -347,8 +330,10 @@ class SQLiteArtifactStore:
                 origin.document_id,
                 materialization.repository_path,
                 document.schema_version,
-                _json(origin),
-                _json(materialization),
+                artifact_count,
+                membership_sha256,
+                dump_canonical_fragment(origin),
+                dump_canonical_fragment(materialization),
             ),
         )
 
@@ -371,7 +356,7 @@ class SQLiteArtifactStore:
                     artifact.id,
                     artifact.artifact_type.value,
                     artifact.status.value,
-                    _json(artifact),
+                    dump_canonical_fragment(artifact),
                 ),
             )
             self._connection.execute(
@@ -404,17 +389,26 @@ class SQLiteArtifactStore:
         )
 
     def get_document(self, key: DocumentKey) -> SourceDocument:
+        self._require_foreign_keys()
         row = self._connection.execute(
             """
-            SELECT current_path, schema_version, origin_json, materialization_json
+            SELECT current_path, schema_version, artifact_count, membership_sha256,
+                   origin_json, materialization_json
             FROM source_documents WHERE repository_id = ? AND document_id = ?
             """,
             (key.repository_id, key.document_id),
         ).fetchone()
         if row is None:
             raise KeyError((key.repository_id, key.document_id))
-        current_path, schema_version, origin_json, materialization_json = cast(
-            tuple[str, str, str, str], row
+        (
+            current_path,
+            schema_version,
+            expected_count,
+            expected_membership,
+            origin_json,
+            materialization_json,
+        ) = cast(
+            tuple[str, str, int, str, str, str], row
         )
         artifact_rows = cast(
             list[tuple[str, str, str, str, int]],
@@ -432,26 +426,47 @@ class SQLiteArtifactStore:
         )
         if [row[4] for row in artifact_rows] != list(range(len(artifact_rows))):
             raise StorageError("RAPTOR.STORAGE.PROJECTION_MISMATCH: invalid ordinals")
-        payload = {
-            "schema_version": schema_version,
-            "provenance": {
-                "origin": json.loads(origin_json),
-                "materialization": json.loads(materialization_json),
-            },
-            "artifacts": [json.loads(item[3]) for item in artifact_rows],
-        }
-        document = validate_document(
-            SourceDocument.model_validate(payload),
-            reference_mode=ReferenceValidationMode.STRUCTURAL,
-        )
+        actual_membership = hashlib.sha256(
+            _encode_canonical_value([row[0] for row in artifact_rows]).encode()
+        ).hexdigest()
+        if len(artifact_rows) != expected_count or actual_membership != expected_membership:
+            raise StorageError(
+                "RAPTOR.STORAGE.PROJECTION_MISMATCH: membership projection"
+            )
+        if self._connection.execute(
+            """
+            SELECT 1 FROM artifacts AS a
+            LEFT JOIN document_artifacts AS da
+              ON da.repository_id = a.repository_id AND da.artifact_id = a.artifact_id
+            WHERE da.artifact_id IS NULL LIMIT 1
+            """
+        ).fetchone() is not None:
+            raise StorageError("RAPTOR.STORAGE.PROJECTION_MISMATCH: orphan artifact")
+        try:
+            payload = {
+                "schema_version": schema_version,
+                "provenance": {
+                    "origin": json.loads(origin_json),
+                    "materialization": json.loads(materialization_json),
+                },
+                "artifacts": [json.loads(item[3]) for item in artifact_rows],
+            }
+            document = validate_document(
+                SourceDocument.model_validate(payload),
+                reference_mode=ReferenceValidationMode.STRUCTURAL,
+            )
+        except (TypeError, ValueError) as error:
+            raise StorageError(
+                "RAPTOR.STORAGE.PROJECTION_MISMATCH: invalid canonical JSON"
+            ) from error
         origin = document.provenance.origin
         materialization = document.provenance.materialization
         if (
             origin.repository_id != key.repository_id
             or origin.document_id != key.document_id
             or materialization.repository_path != current_path
-            or _json(origin) != origin_json
-            or _json(materialization) != materialization_json
+            or dump_canonical_fragment(origin) != origin_json
+            or dump_canonical_fragment(materialization) != materialization_json
         ):
             raise StorageError("RAPTOR.STORAGE.PROJECTION_MISMATCH: document projection")
         for artifact, stored in zip(document.artifacts, artifact_rows, strict=True):
@@ -459,7 +474,7 @@ class SQLiteArtifactStore:
                 artifact.id != stored[0]
                 or artifact.artifact_type.value != stored[1]
                 or artifact.status.value != stored[2]
-                or _json(artifact) != stored[3]
+                or dump_canonical_fragment(artifact) != stored[3]
             ):
                 raise StorageError("RAPTOR.STORAGE.PROJECTION_MISMATCH: artifact projection")
         expected_typed, expected_uris = _relationship_rows(document)
@@ -505,29 +520,25 @@ class SQLiteArtifactStore:
         return set(cast(list[tuple[str, str, str, str, str | None]], rows))
 
     def delete_document(self, key: DocumentKey) -> None:
-        source_keys = self._document_artifact_keys(
-            (key.repository_id, key.document_id)
-        )
-        if not source_keys:
-            if self._connection.execute(
+        self._require_foreign_keys()
+        try:
+            self._connection.execute("BEGIN IMMEDIATE")
+            source_keys = self._document_artifact_keys(
+                (key.repository_id, key.document_id)
+            )
+            if not source_keys and self._connection.execute(
                 "SELECT 1 FROM source_documents WHERE repository_id = ? AND document_id = ?",
                 (key.repository_id, key.document_id),
             ).fetchone() is None:
                 raise KeyError((key.repository_id, key.document_id))
-        self._reject_external_inbound(source_keys, source_keys)
-        try:
-            self._connection.execute("BEGIN IMMEDIATE")
+            self._reject_external_inbound(source_keys, source_keys)
             for artifact_key in source_keys:
                 self._connection.execute(
                     "DELETE FROM artifact_relationships WHERE source_repository_id = ? AND source_artifact_id = ?",
                     artifact_key,
                 )
-                self._connection.execute(
-                    "DELETE FROM artifact_uri_relationships WHERE source_repository_id = ? AND source_artifact_id = ?",
-                    artifact_key,
-                )
             self._connection.execute(
-                "DELETE FROM document_artifacts WHERE repository_id = ? AND document_id = ?",
+                "DELETE FROM source_documents WHERE repository_id = ? AND document_id = ?",
                 (key.repository_id, key.document_id),
             )
             for artifact_key in source_keys:
@@ -535,10 +546,6 @@ class SQLiteArtifactStore:
                     "DELETE FROM artifacts WHERE repository_id = ? AND artifact_id = ?",
                     artifact_key,
                 )
-            self._connection.execute(
-                "DELETE FROM source_documents WHERE repository_id = ? AND document_id = ?",
-                (key.repository_id, key.document_id),
-            )
             self._connection.commit()
         except Exception:
             self._connection.rollback()
@@ -550,6 +557,7 @@ class SQLiteArtifactStore:
         repository_id: RepositoryId | None = None,
         artifact_type: str | None = None,
     ) -> list[ArtifactKey]:
+        self._require_foreign_keys()
         clauses: list[str] = []
         parameters: list[str] = []
         if repository_id is not None:

@@ -6,18 +6,16 @@ from collections.abc import Iterable
 from enum import Enum
 from typing import Protocol, cast
 
-from pydantic import JsonValue
+from pydantic import BaseModel, JsonValue
 
+from ._references import iter_canonical_references
 from .models import (
     ArtifactKey,
-    ArtifactTarget,
-    DesignDocument,
     Diagnostic,
     DiagnosticSeverity,
     DocumentKey,
     JsonObject,
     SourceDocument,
-    TestPlan,
 )
 
 
@@ -62,22 +60,6 @@ def _artifact_key(document: SourceDocument, artifact_id: str) -> ArtifactKey:
     )
 
 
-def _references(document: SourceDocument) -> Iterable[tuple[ArtifactKey, str, ArtifactKey, str]]:
-    for artifact_index, artifact in enumerate(document.artifacts):
-        source = _artifact_key(document, artifact.id)
-        for index, relationship in enumerate(artifact.relationships):
-            if isinstance(relationship.target, ArtifactTarget):
-                yield source, relationship.relation.value, relationship.target.key(), f"/artifacts/{artifact_index}/relationships/{index}/target"
-        if isinstance(artifact, DesignDocument):
-            for component_index, component in enumerate(artifact.components):
-                for dependency_index, dependency in enumerate(component.dependencies):
-                    yield source, "depends_on", dependency, f"/artifacts/{artifact_index}/components/{component_index}/dependencies/{dependency_index}"
-        if isinstance(artifact, TestPlan):
-            for case_index, case in enumerate(artifact.test_cases):
-                for verifies_index, target in enumerate(case.verifies):
-                    yield source, "verifies", target, f"/artifacts/{artifact_index}/test_cases/{case_index}/verifies/{verifies_index}"
-
-
 def _reference_diagnostic(
     document: SourceDocument,
     source: ArtifactKey,
@@ -115,7 +97,13 @@ def validate_document(
     if reference_mode is ReferenceValidationMode.STRUCTURAL:
         return document
     local = {_artifact_key(document, artifact.id).sort_key() for artifact in document.artifacts}
-    for source, relation, target, pointer in _references(document):
+    for reference in iter_canonical_references(document):
+        if not isinstance(reference.target, ArtifactKey):
+            continue
+        source = reference.source
+        relation = reference.relation
+        target = reference.target
+        pointer = reference.json_pointer
         found = target.sort_key() in local
         if reference_mode is ReferenceValidationMode.STORE and not found:
             found = bool(resolver and resolver.contains(target))
@@ -158,7 +146,13 @@ def validate_documents(
                 raise ValueError(f"RAPTOR.REFERENCE.DUPLICATE: {key.repository_id}/{key.artifact_id}")
             keys.add(key.sort_key())
     for document in documents:
-        for source, relation, target, pointer in _references(document):
+        for reference in iter_canonical_references(document):
+            if not isinstance(reference.target, ArtifactKey):
+                continue
+            source = reference.source
+            relation = reference.relation
+            target = reference.target
+            pointer = reference.json_pointer
             found = target.sort_key() in keys or (
                 reference_mode is ReferenceValidationMode.STORE
                 and bool(resolver and resolver.contains(target))
@@ -191,17 +185,26 @@ def _normalize_numbers(value: JsonValue) -> JsonValue:
     return value
 
 
-def dump_canonical_json(value: SourceDocument | object) -> str:
-    document = _coerce(value)
-    document = SourceDocument.model_validate(document.model_dump(mode="python"))
-    payload = cast(JsonObject, document.model_dump(mode="json", exclude_none=True))
+def _encode_canonical_value(value: JsonValue) -> str:
     return json.dumps(
-        _normalize_numbers(payload),
+        _normalize_numbers(value),
         ensure_ascii=False,
         sort_keys=True,
         separators=(",", ":"),
         allow_nan=False,
-    ) + "\n"
+    )
+
+
+def dump_canonical_fragment(value: BaseModel) -> str:
+    payload = cast(JsonValue, value.model_dump(mode="json", exclude_none=True))
+    return _encode_canonical_value(payload)
+
+
+def dump_canonical_json(value: SourceDocument | object) -> str:
+    document = _coerce(value)
+    document = SourceDocument.model_validate(document.model_dump(mode="python"))
+    payload = cast(JsonObject, document.model_dump(mode="json", exclude_none=True))
+    return _encode_canonical_value(payload) + "\n"
 
 
 def load_canonical_json(value: str | bytes | bytearray) -> SourceDocument:

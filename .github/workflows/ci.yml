@@ -37,6 +37,14 @@ jobs:
           python -m raptor_schema.generate --check --output schema/json/v1
           git diff --exit-code -- schema/json/v1
 
+      - name: Verify built wheel outside repository
+        run: |
+          python -m pip wheel --no-deps ./schema --wheel-dir "$RUNNER_TEMP/raptor-wheel"
+          python -m venv "$RUNNER_TEMP/raptor-wheel-venv"
+          "$RUNNER_TEMP/raptor-wheel-venv/bin/python" -m pip install "$RUNNER_TEMP"/raptor-wheel/*.whl
+          cd "$RUNNER_TEMP"
+          "$RUNNER_TEMP/raptor-wheel-venv/bin/python" "$GITHUB_WORKSPACE/schema/tests/storage/wheel_smoke.py"
+
   fmt:
     name: Format check
     runs-on: ubuntu-latest

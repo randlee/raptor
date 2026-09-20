@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import hashlib
 from collections.abc import Iterable
 from typing import Protocol
 
@@ -20,6 +21,24 @@ class ArtifactStore(ArtifactResolver, Protocol):
         repository_id: RepositoryId | None = None,
         artifact_type: str | None = None,
     ) -> list[ArtifactKey]: ...
+
+
+def _rendered_replacement(document: SourceDocument) -> SourceDocument:
+    replacement = document.model_copy(deep=True)
+    replacement.artifacts[0].title += " (replacement)"
+    current = document.provenance.materialization
+    replacement.provenance.materialization = current.model_copy(
+        update={
+            "content_sha256": hashlib.sha256(
+                dump_canonical_json(replacement).encode()
+            ).hexdigest(),
+            "operation": "rendered",
+            "parent_content_sha256": current.content_sha256,
+            "template_set": "raptor_conformance",
+            "template_version": "1.0.0",
+        }
+    )
+    return replacement
 
 
 def assert_store_conformance(
@@ -48,6 +67,27 @@ def assert_store_conformance(
         raise AssertionError("artifact key listing disagrees with stored documents")
     if not all(store.contains(key) for key in expected_keys):
         raise AssertionError("stored artifact is missing from resolver")
+
+    for document in expected:
+        replacement = _rendered_replacement(document)
+        store.put_document(replacement)
+        recovered = store.get_document(key_for(replacement))
+        if dump_canonical_json(recovered) != dump_canonical_json(replacement):
+            raise AssertionError("valid rendered replacement did not round-trip")
+        store.delete_document(key_for(replacement))
+        try:
+            store.get_document(key_for(replacement))
+        except KeyError:
+            pass
+        else:
+            raise AssertionError("deleted document remains readable")
+
+
+def key_for(document: SourceDocument) -> DocumentKey:
+    origin = document.provenance.origin
+    return DocumentKey(
+        repository_id=origin.repository_id, document_id=origin.document_id
+    )
 
 
 __all__ = ["ArtifactStore", "assert_store_conformance"]

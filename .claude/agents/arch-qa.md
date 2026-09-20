@@ -29,15 +29,16 @@ Input must be fenced JSON. Do not proceed with free-form input.
 ### RULE-001: Canonical models must remain consumer-neutral
 **Severity: BLOCKING**
 
-Code under `schema/src/raptor_schema` defines Raptor's canonical contract. It must not import or implement a consumer adapter, Markdown parser, database driver, plugin runtime, template engine, profile discovery/loader, or client-specific convention. Consumer data may enter only through the `SourceProfile` protocol and explicit namespaced extensions.
+Canonical model modules under `schema/src/raptor_schema/models`, `canonical.py`, and `profiles.py` define Raptor's canonical contract. They must not import or implement a consumer adapter, Markdown parser, database driver, plugin runtime, template engine, profile discovery/loader, or client-specific convention. Consumer data may enter only through the `SourceProfile` protocol and explicit namespaced extensions.
 
 Check:
-- inspect imports and behavior under `schema/src/raptor_schema`
+- inspect canonical-model imports and behavior separately from `schema/src/raptor_schema/storage/`
 - reject consumer-specific names, identifiers, paths, parsing rules, or executable integration orchestration
-- reject persistence, rendering, dynamic loading, profile discovery, and plugin behavior in the canonical package
+- reject persistence, rendering, dynamic loading, profile discovery, and plugin behavior in canonical model modules
 
 Exception:
 - pure boundary data types, structural validators, deterministic canonical serialization, and protocol definitions are allowed
+- `schema/src/raptor_schema/storage/` is the explicit A2 persistence boundary: it may use a standard database driver and the checked-in dialect DDL, but must depend on canonical models without redefining them or exposing driver-specific objects through `ArtifactStore`
 
 ### RULE-002: Pydantic models are the sole schema authority
 **Severity: BLOCKING**

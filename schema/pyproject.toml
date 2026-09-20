@@ -17,6 +17,9 @@ test = ["jsonschema>=4.23,<5", "pytest>=8.3,<9", "mypy>=1.13,<2"]
 [tool.hatch.build.targets.wheel]
 packages = ["src/raptor_schema"]
 
+[tool.hatch.build.targets.wheel.force-include]
+"sql/sqlite/0001_initial.sql" = "raptor_schema/sql/sqlite/0001_initial.sql"
+
 [tool.pytest.ini_options]
 testpaths = ["tests"]
 addopts = "-q"
