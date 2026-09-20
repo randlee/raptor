@@ -1,4 +1,4 @@
-"""Strict-mypy probe for a consumer-owned SourceProfile implementation."""
+"""Strict-mypy probes for public profile and persistence protocols."""
 
 from __future__ import annotations
 
@@ -6,6 +6,7 @@ from typing import assert_type
 
 from raptor_schema import (
     ArtifactSnapshot,
+    ArtifactStore,
     ComparableDocument,
     Diagnostic,
     JsonObject,
@@ -13,6 +14,7 @@ from raptor_schema import (
     SourceDocument,
     SourceInput,
     SourceProfile,
+    SQLiteArtifactStore,
 )
 
 
@@ -42,3 +44,6 @@ class ConsumerProfile:
 
 consumer_profile: SourceProfile = ConsumerProfile()
 assert_type(consumer_profile, SourceProfile)
+
+artifact_store: ArtifactStore = SQLiteArtifactStore()
+assert_type(artifact_store, ArtifactStore)

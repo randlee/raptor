@@ -85,6 +85,12 @@ from .profiles import (
     SourceProfile,
     validate_json_object,
 )
+from .storage import (
+    ArtifactStore,
+    SQLiteArtifactStore,
+    StorageError,
+    assert_store_conformance,
+)
 
 
 def generate_json_schemas(output_dir: Path, *, check: bool = False) -> None:
@@ -119,6 +125,7 @@ __all__ = [
     "ArtifactTarget",
     "ArtifactType",
     "ArtifactSnapshot",
+    "ArtifactStore",
     "ComparableDocument",
     "ContractModel",
     "DesignComponent",
@@ -160,6 +167,7 @@ __all__ = [
     "SourceLocation",
     "SourceProfile",
     "SourceProvenance",
+    "SQLiteArtifactStore",
     "SchemaVersion",
     "Sha256",
     "TestCase",
@@ -167,6 +175,8 @@ __all__ = [
     "TestCaseId",
     "Title",
     "UriTarget",
+    "StorageError",
+    "assert_store_conformance",
     "dump_canonical_json",
     "generate_json_schemas",
     "load_canonical_json",

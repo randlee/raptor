@@ -24,7 +24,7 @@ jobs:
         run: python -m pip install -e 'schema[test]'
 
       - name: Run schema tests
-        run: python -m pytest schema/tests/models schema/tests/json_schema
+        run: python -m pytest schema/tests/models schema/tests/json_schema schema/tests/storage
 
       - name: Type-check public package
         run: >-
