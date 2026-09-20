@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 import math
-from typing import Annotated, Literal, TypeAlias
+from typing import Annotated, Literal, TypeAlias, cast
 
 from pydantic import Field, GetJsonSchemaHandler, JsonValue, StrictBool, StrictFloat, StrictInt, StrictStr, field_validator, model_validator
 from pydantic.json_schema import JsonSchemaValue
@@ -76,6 +76,16 @@ class Measurement(ContractModel):
             ]
         }
         result["allOf"] = [
+            {
+                "if": {
+                    "required": ["unit"],
+                    "properties": {
+                        "comparator": {"enum": ["eq", "ne"]},
+                        "unit": {"type": "string"},
+                    },
+                },
+                "then": {"properties": {"target": numeric}},
+            },
             {"if": {"properties": {"comparator": {"enum": ["eq", "ne"]}}}, "then": {"properties": {"target": scalar}}},
             {"if": {"properties": {"comparator": {"enum": ["lt", "lte", "gt", "gte"]}}}, "then": {"properties": {"target": numeric}}},
             {"if": {"properties": {"comparator": {"const": "range"}}}, "then": {"properties": {"target": homogeneous_range}}},
@@ -142,7 +152,7 @@ class ArtifactBase(ContractModel):
     @field_validator("extensions")
     @classmethod
     def finite_extensions(cls, value: dict[ExtensionKey, JsonValue]) -> dict[ExtensionKey, JsonValue]:
-        return reject_non_finite(value)
+        return cast(dict[ExtensionKey, JsonValue], reject_non_finite(value))
 
     @model_validator(mode="after")
     def matching_prefix(self) -> "ArtifactBase":
@@ -207,4 +217,19 @@ Artifact = Annotated[
     | DesignDocument
     | TestPlan,
     Field(discriminator="artifact_type"),
+]
+
+
+__all__ = [
+    "ArchitectureDecision",
+    "Artifact",
+    "ArtifactBase",
+    "DesignComponent",
+    "DesignDocument",
+    "DesignInterface",
+    "Measurement",
+    "NonFunctionalRequirement",
+    "Requirement",
+    "TestCase",
+    "TestPlan",
 ]

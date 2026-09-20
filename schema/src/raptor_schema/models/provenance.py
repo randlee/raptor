@@ -1,14 +1,15 @@
 from __future__ import annotations
 
-import hashlib
 from typing import Literal
 
-from pydantic import model_validator
+from pydantic import ConfigDict, model_validator
 
 from .base import ContractModel, DocumentId, ProfileId, ProfileVersion, RepositoryId, RepositoryPath, Sha256
 
 
 class OriginProvenance(ContractModel):
+    model_config = ConfigDict(extra="forbid", validate_assignment=True, frozen=True)
+
     repository_id: RepositoryId
     document_id: DocumentId
     initial_repository_path: RepositoryPath
@@ -62,32 +63,6 @@ class SourceProvenance(ContractModel):
         return self
 
 
-def create_rendered_provenance(
-    previous: SourceProvenance,
-    *,
-    repository_path: RepositoryPath,
-    content: bytes,
-    parser_profile: ProfileId,
-    parser_profile_version: ProfileVersion,
-    template_set: str,
-    template_version: ProfileVersion,
-) -> SourceProvenance:
-    """Build a validated render transition without performing filesystem I/O."""
-    return SourceProvenance(
-        origin=previous.origin,
-        materialization=MaterializationProvenance(
-            repository_path=repository_path,
-            content_sha256=hashlib.sha256(content).hexdigest(),
-            operation="rendered",
-            parent_content_sha256=previous.materialization.content_sha256,
-            parser_profile=parser_profile,
-            parser_profile_version=parser_profile_version,
-            template_set=template_set,
-            template_version=template_version,
-        ),
-    )
-
-
 def validate_provenance_transition(
     previous: SourceProvenance, current: SourceProvenance
 ) -> SourceProvenance:
@@ -98,3 +73,11 @@ def validate_provenance_transition(
     if current.materialization.parent_content_sha256 != previous.materialization.content_sha256:
         raise ValueError("RAPTOR.PROVENANCE.PARENT_HASH: parent hash does not match prior materialization")
     return current
+
+
+__all__ = [
+    "MaterializationProvenance",
+    "OriginProvenance",
+    "SourceProvenance",
+    "validate_provenance_transition",
+]

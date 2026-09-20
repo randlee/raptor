@@ -4,7 +4,9 @@ import json
 import math
 from collections.abc import Iterable
 from enum import Enum
-from typing import Any, Protocol
+from typing import Protocol, cast
+
+from pydantic import JsonValue
 
 from .models import (
     ArtifactKey,
@@ -13,6 +15,7 @@ from .models import (
     Diagnostic,
     DiagnosticSeverity,
     DocumentKey,
+    JsonObject,
     SourceDocument,
     TestPlan,
 )
@@ -182,7 +185,7 @@ def validate_documents(
     return documents
 
 
-def _normalize_numbers(value: Any) -> Any:
+def _normalize_numbers(value: JsonValue) -> JsonValue:
     if isinstance(value, float):
         if not math.isfinite(value):
             raise ValueError("canonical JSON rejects non-finite floats")
@@ -196,7 +199,7 @@ def _normalize_numbers(value: Any) -> Any:
 
 def dump_canonical_json(value: SourceDocument | object) -> str:
     document = _coerce(value)
-    payload = document.model_dump(mode="json", exclude_none=True)
+    payload = cast(JsonObject, document.model_dump(mode="json", exclude_none=True))
     return json.dumps(
         _normalize_numbers(payload),
         ensure_ascii=False,

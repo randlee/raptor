@@ -7,6 +7,33 @@ on:
     branches: [develop, main]
 
 jobs:
+  schema:
+    name: Python schema contract
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+          cache: pip
+          cache-dependency-path: schema/pyproject.toml
+
+      - name: Install schema package and test dependencies
+        run: python -m pip install -e 'schema[test]'
+
+      - name: Run schema tests
+        run: python -m pytest schema/tests/models schema/tests/json_schema
+
+      - name: Type-check public package
+        run: python -m mypy --strict schema/src/raptor_schema
+
+      - name: Verify generated schemas
+        run: |
+          python -m raptor_schema.generate --check --output schema/json/v1
+          git diff --exit-code -- schema/json/v1
+
   fmt:
     name: Format check
     runs-on: ubuntu-latest

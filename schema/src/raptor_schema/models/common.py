@@ -143,3 +143,20 @@ class Diagnostic(ContractModel):
     repository_path: RepositoryPath
     location: SourceLocation | None = None
     artifact_key: ArtifactKey | None = None
+
+
+__all__ = [
+    "ArtifactKey",
+    "ArtifactRelationship",
+    "ArtifactTarget",
+    "ArtifactType",
+    "Diagnostic",
+    "DiagnosticSeverity",
+    "DocumentKey",
+    "LifecycleStatus",
+    "Priority",
+    "RelationshipTarget",
+    "RelationshipType",
+    "SourceLocation",
+    "UriTarget",
+]

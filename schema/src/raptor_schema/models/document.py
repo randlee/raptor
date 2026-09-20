@@ -18,3 +18,6 @@ class SourceDocument(ContractModel):
         if len(ids) != len(set(ids)):
             raise ValueError("duplicate artifact key in source document")
         return self
+
+
+__all__ = ["SourceDocument"]

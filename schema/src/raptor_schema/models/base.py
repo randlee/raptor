@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import math
 import posixpath
-from typing import Annotated, Any, TypeAlias
+from typing import Annotated, TypeAlias
 
 from pydantic import AfterValidator, BaseModel, ConfigDict, JsonValue, StringConstraints
 
@@ -63,7 +63,7 @@ class ContractModel(BaseModel):
     model_config = ConfigDict(extra="forbid", validate_assignment=True)
 
 
-def reject_non_finite(value: Any) -> Any:
+def reject_non_finite(value: JsonValue) -> JsonValue:
     if isinstance(value, float) and not math.isfinite(value):
         raise ValueError("float values must be finite")
     if isinstance(value, list):
@@ -71,3 +71,32 @@ def reject_non_finite(value: Any) -> Any:
     if isinstance(value, dict):
         return {key: reject_non_finite(item) for key, item in value.items()}
     return value
+
+
+__all__ = [
+    "ARTIFACT_ID_RE",
+    "DIAGNOSTIC_CODE_RE",
+    "DOCUMENT_ID_RE",
+    "EXTENSION_KEY_RE",
+    "PROFILE_ID_RE",
+    "REPOSITORY_ID_RE",
+    "SCHEMA_VERSION_RE",
+    "SHA256_RE",
+    "TEST_CASE_ID_RE",
+    "ArtifactId",
+    "ContractModel",
+    "DiagnosticCode",
+    "DocumentId",
+    "ExtensionKey",
+    "JsonObject",
+    "NonEmptyText",
+    "ProfileId",
+    "ProfileVersion",
+    "RepositoryId",
+    "RepositoryPath",
+    "SchemaVersion",
+    "Sha256",
+    "TestCaseId",
+    "Title",
+    "reject_non_finite",
+]

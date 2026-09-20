@@ -28,8 +28,7 @@ are observably non-integral; Pydantic preserves and validates the Python numeric
 type precisely. Pydantic/API validation additionally covers
 artifact-prefix agreement, duplicate composite keys, reference existence,
 identity registration conflicts, exact Python scalar type/finiteness/order for
-measurements, provenance transitions, source-root/symlink containment, profile
-trust and hash, and semantic-version selection.
+measurements, provenance transitions, and source-root/symlink containment.
 
 ## Stable operational codes
 

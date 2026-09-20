@@ -30,6 +30,8 @@ External adapters construct the public `SourceProfile` boundary types and return
 consumer. Schema major `1` is supported; other majors fail validation.
 
 Generated JSON Schema expresses structural JSON constraints. Runtime-only checks
-include cross-document reference existence, duplicate composite keys, profile
-trust/hash/path checks, identity registration conflicts, Python float finiteness,
-and exact Python scalar distinctions in measurement ranges.
+include cross-document reference existence, duplicate composite keys, source-root
+containment, identity registration conflicts, Python float finiteness, exact
+Python scalar distinctions in measurement ranges, and range ordering. Profile
+discovery, trust, descriptor I/O, and dynamic loading belong to the later plugin
+runtime and are intentionally absent here.

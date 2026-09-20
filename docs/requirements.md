@@ -36,8 +36,8 @@ Raptor shall define a versioned source-profile protocol whose validation produce
 deterministic, structured diagnostics before canonical conversion.
 
 Acceptance: the public profile types install independently of a concrete parser,
-and profile discovery rejects untrusted, mismatched, or escaping code with stable
-Raptor error codes.
+use recursively JSON-compatible render projections, and leave discovery, trust,
+loading, and execution to the later integration runtime.
 
 ### REQ-RAP-005 — Reference persistence boundary
 

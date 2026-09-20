@@ -70,3 +70,16 @@ def validate_identity_registration(
     return manifest.model_copy(
         update={"documents": {**manifest.documents, document_id: IdentityDocument(path=path)}}
     )
+
+
+__all__ = [
+    "IDENTITY_DOCUMENT_CONFLICT",
+    "IDENTITY_MISSING",
+    "IDENTITY_PATH_CONFLICT",
+    "IDENTITY_REPOSITORY_CONFLICT",
+    "IDENTITY_REUSE",
+    "IdentityConflict",
+    "IdentityDocument",
+    "IdentityManifest",
+    "validate_identity_registration",
+]

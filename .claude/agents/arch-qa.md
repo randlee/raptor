@@ -26,26 +26,28 @@ Input must be fenced JSON. Do not proceed with free-form input.
 
 ## Architectural Rules
 
-### RULE-001: Core domain logic must stay separate from I/O and transport boundaries
+### RULE-001: Canonical models must remain consumer-neutral
 **Severity: BLOCKING**
 
-Business rules must not be embedded directly inside CLI entrypoints, network handlers, persistence adapters, or bootstrap/composition code. Boundary layers may validate inputs and wire dependencies, but feature behavior must be delegated into dedicated modules, services, or traits.
+Code under `schema/src/raptor_schema` defines Raptor's canonical contract. It must not import or implement a consumer adapter, Markdown parser, database driver, plugin runtime, template engine, profile discovery/loader, or client-specific convention. Consumer data may enter only through the `SourceProfile` protocol and explicit namespaced extensions.
 
 Check:
-- review changed files for bootstrap, transport, persistence, or handler code that also performs core business decisions
-- flag entrypoints that compute domain behavior instead of delegating to a dedicated owner
+- inspect imports and behavior under `schema/src/raptor_schema`
+- reject consumer-specific names, identifiers, paths, parsing rules, or executable integration orchestration
+- reject persistence, rendering, dynamic loading, profile discovery, and plugin behavior in the canonical package
 
 Exception:
-- small argument parsing, validation, or dependency wiring at the boundary is allowed
+- pure boundary data types, structural validators, deterministic canonical serialization, and protocol definitions are allowed
 
-### RULE-002: Alternate backends must converge behind one contract
+### RULE-002: Pydantic models are the sole schema authority
 **Severity: BLOCKING**
 
-Different runtime paths, backends, or test doubles must not force higher layers to branch on implementation type. Shared behavior should sit behind one trait or interface boundary so orchestration code depends on one contract.
+Files under `schema/json/` must be generated deterministically from the Pydantic models. They may not define fields, constraints, or compatibility behavior independently of those models.
 
 Check:
-- search changed scope for implementation-type branching outside composition/bootstrap code
-- flag duplicated operation flows that differ only by backend type instead of using a shared contract
+- require the checked-in generator command and a CI drift gate using both generator `--check` and `git diff --exit-code`
+- compare model and JSON Schema tests for JSON-Schema-expressible constraints
+- reject handwritten schema-only contract changes or duplicated persistence DTOs
 
 ### RULE-003: No file exceeding 1000 lines (excluding tests)
 **Severity: BLOCKING**

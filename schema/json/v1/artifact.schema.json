@@ -362,6 +362,34 @@
                   "eq",
                   "ne"
                 ]
+              },
+              "unit": {
+                "type": "string"
+              }
+            },
+            "required": [
+              "unit"
+            ]
+          },
+          "then": {
+            "properties": {
+              "target": {
+                "type": [
+                  "integer",
+                  "number"
+                ]
+              }
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "comparator": {
+                "enum": [
+                  "eq",
+                  "ne"
+                ]
               }
             }
           },

@@ -35,9 +35,11 @@ explicit resolver.
 
 ### RULE-005: Integration code stays at integration boundaries
 
-Source-profile loading is deterministic, offline, hash-verified, and opt-in for
-external code. Persistence, plugins, parsing, and rendering live outside the
-canonical model package and are delivered only by their owning sprints.
+The later integration runtime must make source-profile loading deterministic,
+offline, hash-verified, and opt-in for external code. A1 defines only the profile
+protocol and boundary data. Discovery, loading, persistence, plugins, parsing,
+and rendering live outside the canonical model package and are delivered only by
+their owning sprints.
 
 ## Accepted decisions
 

@@ -8,6 +8,7 @@ import pytest
 
 from raptor_schema import SourceDocument
 from raptor_schema.generate import generate_json_schemas
+from raptor_schema.models import Measurement
 
 ROOT = Path(__file__).parents[3]
 SCHEMAS = ROOT / "schema/json/v1"
@@ -42,3 +43,18 @@ def test_identity_schema_accepts_committed_manifest() -> None:
     schema = json.loads((SCHEMAS / "identity-manifest.schema.json").read_text())
     manifest = json.loads((ROOT / ".raptor/identity.json").read_text())
     jsonschema.validate(manifest, schema)
+
+
+def test_measurement_shared_comparator_type_unit_matrix(
+    measurement_cases: tuple[object, ...],
+) -> None:
+    schema = Measurement.model_json_schema()
+    for case in measurement_cases:
+        instance = {
+            "name": "threshold",
+            "comparator": case.comparator,  # type: ignore[attr-defined]
+            "target": case.target,  # type: ignore[attr-defined]
+            "unit": case.unit,  # type: ignore[attr-defined]
+        }
+        errors = list(jsonschema.Draft202012Validator(schema).iter_errors(instance))
+        assert bool(errors) is not case.valid, case.name  # type: ignore[attr-defined]
