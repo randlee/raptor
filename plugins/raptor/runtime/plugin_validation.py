@@ -621,6 +621,10 @@ def validate_plugin(
         for path in root.rglob("*")
         if path.name.casefold() == "marketplace.json"
         or (
+            path.relative_to(root).parts[0].casefold() == "templates"
+            and path.relative_to(root).parts[0] != "templates"
+        )
+        or (
             path.parent == root / "scripts"
             and path.name not in SCRIPT_CONTRACTS
             and re.search(

@@ -26,6 +26,13 @@ jobs:
         run: |
           python -m pip install -e 'schema[test]'
           python -m pip install 'sc-compose==1.6.1'
+          mkdir -p "$RUNNER_TEMP/raptor-test-bin"
+          printf '#!/bin/sh\nexec "%s" "%s" "$@"\n' \
+            "$(command -v python)" \
+            "$GITHUB_WORKSPACE/plugins/raptor/tests/support/sc_compose_cli.py" \
+            > "$RUNNER_TEMP/raptor-test-bin/sc-compose"
+          chmod +x "$RUNNER_TEMP/raptor-test-bin/sc-compose"
+          echo "$RUNNER_TEMP/raptor-test-bin" >> "$GITHUB_PATH"
 
       - name: Run schema tests
         run: python -m pytest schema/tests/models schema/tests/json_schema schema/tests/storage
