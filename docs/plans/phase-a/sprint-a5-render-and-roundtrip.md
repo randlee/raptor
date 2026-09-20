@@ -30,7 +30,9 @@ def compare_semantics(
 ) -> SemanticComparison: ...
 ```
 
-Output path is required, repository-relative, resolved beneath repository root, and may equal the current path or be a new/moved path. Rendering never changes `OriginProvenance`. It creates rendered `MaterializationProvenance` with requested path, recomputed byte hash, prior materialization hash, current parse profile/version, and template set/version. Reparse must recover the serialized immutable origin; an attempted origin rewrite is `RAPTOR.PROVENANCE.ORIGIN_MUTATION`.
+Output path is required, repository-relative, resolved beneath repository root, and may equal the current path or be a new path. Rendering never changes `OriginProvenance`. It creates rendered `MaterializationProvenance` with requested path, recomputed byte hash, prior materialization hash, current parse profile/version, and template set/version. Reparse must recover the serialized immutable origin; an attempted origin rewrite is `RAPTOR.PROVENANCE.ORIGIN_MUTATION`.
+
+For a new path, validate mode checks output safety, provenance transition, and the proposed `.raptor/identity.json` update without writing. Apply atomically renders the file and changes the existing `document_id` binding to the new path; a collision or identity reuse fails with the A1 identity code and leaves both unchanged. Persistence then uses the ordinary A2 `put_document` for the same `DocumentKey`. There is no `move_document` or other path-only storage operation, and a path change without this rendered transition is rejected as `RAPTOR.STORAGE.PROVENANCE_TRANSITION`.
 
 Every entry template emits a reserved, profile-defined machine-readable Raptor provenance block containing immutable origin and the non-self-referential materialization inputs needed for reparse. The output byte hash is computed only after atomic rendering and stored in the returned canonical object/database record; a template never embeds a hash of the bytes that contain that same hash.
 
@@ -67,7 +69,7 @@ plugins/raptor/templates/
 |---|---|
 | A5-AC1 | Each family selects one entry template, renders deterministically, fails undefined variables, and accounts for every canonical field. |
 | A5-AC2 | JSON→Markdown defaults to validate, requires apply, rejects out-of-root/symlink escapes, and atomically writes no partial output. |
-| A5-AC3 | Same-path and new-path render/reparse cases preserve immutable origin/composite keys and satisfy every materialization/hash/location transition rule. |
+| A5-AC3 | Same-path and new-path render/reparse cases preserve immutable origin/composite keys and satisfy every materialization/hash/location transition rule; new-path apply atomically updates the identity binding then uses normal `put_document`, while ambiguous path-only change is rejected. |
 | A5-AC4 | All five pipelines Markdown→JSON→SQLite→JSON→Markdown→reparse compare semantically equal with identity-qualified evidence. |
 | A5-AC5 | Mutation tests for payload, relationship repository namespace, origin, output hash, parent hash, template identity, and transport location produce exact path-level failures. |
 | A5-AC6 | `/raptor:round-trip` composes existing routes through the shared runner; neither skill nor agent duplicates transformations. |

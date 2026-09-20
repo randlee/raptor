@@ -26,6 +26,9 @@ schema/
   tests/
     models/
     json_schema/
+
+.raptor/
+  identity.json
 ```
 
 The implementation may refine model module names, but the public type relationship must remain equivalent to:
@@ -76,7 +79,24 @@ class SourceDocument(BaseModel):
     provenance: SourceProvenance
     artifacts: list[Artifact]
 
-def validate_document(value: object) -> SourceDocument: ...
+class ReferenceValidationMode(str, Enum):
+    STRUCTURAL = "structural"
+    DOCUMENT = "document"
+    BATCH = "batch"
+    STORE = "store"
+
+class ArtifactResolver(Protocol):
+    def contains(self, key: ArtifactKey) -> bool: ...
+
+def validate_document(
+    value: object, *, reference_mode: ReferenceValidationMode = ReferenceValidationMode.STRUCTURAL,
+    resolver: ArtifactResolver | None = None,
+) -> SourceDocument: ...
+def validate_documents(
+    values: Iterable[object], *,
+    reference_mode: ReferenceValidationMode = ReferenceValidationMode.BATCH,
+    resolver: ArtifactResolver | None = None,
+) -> tuple[SourceDocument, ...]: ...
 def dump_canonical_json(document: SourceDocument) -> str: ...
 def generate_json_schemas(output_dir: Path) -> None: ...
 ```
@@ -137,9 +157,42 @@ class ProfileDescriptor:
     module_sha256: Sha256
 ```
 
+`SourceInput.repository_id` and `document_id` are populated from the repository identity authority defined below; a profile receives them but cannot derive or replace them.
+
 All paths are resolved against `SourceInput.repo_root`; symlink resolution, absolute paths, and `..` escapes outside that root fail with `RAPTOR.PATH.OUTSIDE_ROOT`. Profile resolution is deterministic: an explicit `--profile-path` descriptor wins, then repository-local `.raptor/profiles/<profile-id>/profile.toml`, then the plugin built-in registry. Within the selected source, an exact requested version wins; otherwise a declared `1.x` constraint selects the highest compatible installed version. Duplicate same-precedence versions, constraint mismatch, API mismatch, entrypoint mismatch, or hash mismatch fail respectively with `RAPTOR.PROFILE.AMBIGUOUS`, `.VERSION`, `.API`, `.ENTRYPOINT`, or `.HASH`.
 
 External profile code is trusted local code, never sandboxed implicitly. Loading repository-local or explicit profile code requires `--allow-profile-code`, validates descriptor/module paths and hash, uses no network discovery, and imports only after user trust is explicit. A consumer keeps its descriptor, module, and tests under its own `.raptor/profiles/`; Raptor receives the path at invocation and copies none of those assets into this repository or plugin bundle. `RAPTOR.PROFILE.UNTRUSTED` stops before import when trust is absent. Parse failures, invalid returned types, validation findings, and canonicalization failures use `RAPTOR.PROFILE.PARSE`, `.RETURN_TYPE`, `.VALIDATION`, and `.CANONICALIZE` without exposing tool traces or source secrets.
+
+### Repository identity authority
+
+Each source repository owns `.raptor/identity.json`; it is the only authority for assigning repository and document identity on Markdown import. It has this canonical shape:
+
+```json
+{
+  "identity_version": "1.0.0",
+  "repository_id": "urn:raptor:repo:raptor",
+  "documents": {
+    "DOC-RAP-001": {"path": "docs/requirements.md"}
+  }
+}
+```
+
+`repository_id` is immutable once registered. Document IDs and paths are unique within the manifest, paths use the repository-relative path grammar, and object keys serialize canonically. Neither repository nor document identity may be inferred from a path, clone URL, Git remote, directory name, content hash, or artifact ID. A clone carries the same committed identity manifest and therefore retains its keys even when its filesystem root changes.
+
+First import is an explicit two-step operation: `identity register --validate` checks a proposed repository/document/path binding without writing; `identity register --apply` atomically creates or extends the manifest; normal validation/import then consumes that binding. Missing identity fails `RAPTOR.IDENTITY.MISSING` with the registration command and does not invent an ID. A repeated registration/import of the same tuple is idempotent. Changing an existing repository ID fails `RAPTOR.IDENTITY.REPOSITORY_CONFLICT`; binding one document ID to two paths fails `RAPTOR.IDENTITY.DOCUMENT_CONFLICT`; binding two IDs to one path fails `RAPTOR.IDENTITY.PATH_CONFLICT`; and reuse of an identity from a different repository fails `RAPTOR.IDENTITY.REUSE`. Legacy repositories without a manifest follow the same explicit registration path—there is no automatic compatibility inference. A5 owns the sole path-relocation flow: render to a new path, atomically update the same document's manifest binding, then persist the rendered document under the unchanged `DocumentKey`.
+
+### Referential validation modes
+
+Reference validation is explicit and never depends on an ambient repository:
+
+| Mode | Resolution set and behavior |
+|---|---|
+| `structural` | Context-free validation of target discriminator, composite key grammar, and duplicate relationship shape only; target existence is not asserted. This is `validate_document`'s default and the JSON Schema boundary. |
+| `document` | Resolve every artifact-bearing field (relationships, component dependencies, and test-case verification keys) against artifact keys in the one submitted `SourceDocument`; a target in another document or repository is unresolved even if it may exist elsewhere. |
+| `batch` | Build the complete key set from all submitted documents before resolving, so forward references and cycles within a multi-document/multi-repository batch are valid. Duplicate composite keys fail before resolution. |
+| `store` | Resolve against the submitted document/batch overlay plus the supplied `ArtifactResolver`; staged keys shadow the matching stored keys. A resolver is mandatory. |
+
+An unresolved target produces `RAPTOR.REFERENCE.UNRESOLVED` with source `ArtifactKey`, relation, target `ArtifactKey`, selected mode, current `DocumentKey`/path, and JSON pointer or source location. Duplicate submitted keys use `RAPTOR.REFERENCE.DUPLICATE`. A1 tests cover a same-document reference in `document` mode, a forward cyclic batch in `batch` mode, a target supplied by a fake existing-store resolver in `store` mode, and a missing cross-repository target in every resolving mode. Structural mode must accept the last case while preserving its fully qualified target for a later boundary.
 
 ## Authoritative field, type, and constraint contract
 
@@ -166,7 +219,7 @@ TEST_CASE_ID_RE = r"^TC-[A-Z0-9][A-Z0-9-]*-[0-9]{3,}$"
 | `SchemaVersion` | string matching `SCHEMA_VERSION_RE`; Phase A accepts major `1` only |
 | `ProfileVersion` | semantic-version string matching the same grammar |
 | `RepositoryId` | stable identity matching `REPOSITORY_ID_RE`; it is assigned once and does not change with clone URL, checkout, or rename |
-| `DocumentId` | repository-scoped stable identity matching `DOCUMENT_ID_RE`; it does not change when the path moves |
+| `DocumentId` | repository-scoped stable identity matching `DOCUMENT_ID_RE`; it does not change when the registered path changes |
 | `ArtifactId` | string matching `ARTIFACT_ID_RE`; prefix must match `artifact_type` |
 | `Title` | trimmed string, 1–200 Unicode scalar values |
 | `NonEmptyText` | trimmed string, minimum length 1 |
@@ -191,7 +244,7 @@ TEST_CASE_ID_RE = r"^TC-[A-Z0-9][A-Z0-9-]*-[0-9]{3,}$"
 | `OriginProvenance.original_content_sha256` | `Sha256` of first imported source bytes | required; immutable |
 | `OriginProvenance.source_format` | literal `markdown` | required; immutable |
 | `OriginProvenance.parser_profile`, `parser_profile_version` | `PROFILE_ID_RE`, `ProfileVersion` used for first import | required; immutable |
-| `MaterializationProvenance.repository_path` | current normalized repository-relative output/input path | required; may change on render/move |
+| `MaterializationProvenance.repository_path` | current normalized repository-relative output/input path | required; may change only through the A5 render-to-new-path transition |
 | `MaterializationProvenance.content_sha256` | hash recomputed from current bytes | required |
 | `MaterializationProvenance.operation` | `imported` or `rendered` | required |
 | `MaterializationProvenance.parent_content_sha256` | prior materialization hash | required for `rendered`; omitted for first import |
@@ -270,7 +323,7 @@ Every float must be finite; NaN and positive/negative infinity fail before canon
 | first import | create from repository identity, stable document ID, initial path/hash/profile | same path/hash, `operation=imported` | compute both hashes from input bytes | canonical artifacts and origin establish baseline |
 | SQLite store/load | byte-identical model values | unchanged | no recomputation | full model equality required |
 | render to same path | preserve origin byte-for-byte | requested path, `operation=rendered`, parent hash, template identity | compute new hash from atomically written bytes | artifact semantics and origin equal; materialization transition validated, not expected equal |
-| render to new path/move | preserve origin including initial path | new repository-relative path | compute new hash; parent is prior hash | document/artifact composite keys unchanged; current path changes |
+| render to new path | preserve origin including initial path | new repository-relative path registered for the same document by A5 | compute new hash; parent is prior hash | document/artifact composite keys unchanged; manifest binding and current path change together before normal store put |
 | reparse rendered bytes | preserve serialized origin; reject attempted origin rewrite | current render path/profile and recomputed byte hash | recomputed hash must equal stored materialization hash | locations may be recomputed; artifact semantic fields, relationships, extensions, and origin must equal |
 
 `source_location` and diagnostic locations are transport positions: after rendering they must be valid for the new bytes but need not equal the prior positions. Semantic comparison excludes only current materialization path/hash, operation/template fields, and transport locations from direct equality; it separately proves the transition rules above. Repository/document/artifact keys and immutable origin are never excluded.
@@ -284,10 +337,11 @@ Every float must be finite; NaN and positive/negative infinity fail before canon
 | A1-D3 | Executable five-family field/type/constraint matrix, source-profile protocol, diagnostic shape, and ownership matrix classifying canonical, provenance, relationship, presentation-only, and extension data. | this authoritative contract and generated-model mapping |
 | A1-D4 | Raptor dogfood corpus manifest mapping every fixture/example to originating `REQ-RAP-*`, `NFR-RAP-*`, or `ADR-RAP-*` artifacts. | corpus manifest consumed by Phase A tests |
 | A1-D5 | Installable `schema/` Pydantic v2 package with `SourceDocument`, provenance/location, typed references, shared envelope, and all five discriminated artifact families. | `schema/pyproject.toml`, `schema/src/raptor_schema/models/`, public exports |
-| A1-D6 | Strict validation for schema version, IDs/types, duplicate IDs, references, family fields, extension namespace, and unknown fields. | validators and `schema/tests/models/` |
+| A1-D6 | Strict validation for schema version, IDs/types, duplicate IDs, four explicit reference modes, family fields, extension namespace, and unknown fields. | validators and `schema/tests/models/` |
 | A1-D7 | Deterministic canonical JSON dump/load API and versioned JSON Schemas generated from Pydantic by one documented command. | `schema/src/raptor_schema/canonical.py`, `schema/json/v1/`, drift test |
 | A1-D8 | Positive/negative tests derived only from the Raptor corpus, with origin artifact IDs recorded, plus compatibility documentation for external adapters. | `schema/tests/{models,json_schema}/` and package docs |
-| A1-D9 | Concrete source-profile types, deterministic trusted discovery/loading/version contract, multi-repository composite identity, and origin/materialization transition rules. | public model/protocol docs and contract tests |
+| A1-D9 | Concrete source-profile types, deterministic trusted discovery/loading/version contract, repository-owned identity-manifest contract, multi-repository composite identity, and origin/materialization transition rules. | public model/protocol docs and contract tests |
+| A1-D10 | Raptor's own registered repository/document identities for its dogfood corpus. | `.raptor/identity.json` mapped to Raptor `REQ-RAP-*`/`NFR-RAP-*`/`ADR-RAP-*` sources |
 
 ## Authoritative acceptance criteria
 
@@ -307,16 +361,19 @@ Every float must be finite; NaN and positive/negative infinity fail before canon
 | A1-AC12 | Measurement cases cover every comparator/type cell, mixed/homogeneous ranges, bool-versus-int, finite/non-finite floats, canonical numeric output, and the documented JSON Schema/Python validation split. |
 | A1-AC13 | Profile resolution tests cover precedence, exact/major version selection, ambiguity, API/entrypoint/hash mismatch, root/symlink escapes, explicit trust, and a temporary consumer-owned profile outside Raptor assets. |
 | A1-AC14 | Provenance tests prove immutable origin preservation and every materialization transition, including same/new output paths, recomputed hashes, parent hash, template identity, and transport-location inequality. |
+| A1-AC15 | The structural/document/batch/store reference API has deterministic mode-specific tests for same-document resolution, batch cycles, existing-store resolution, and missing cross-repository targets with fully qualified diagnostics. |
+| A1-AC16 | `.raptor/identity.json` tests prove explicit validate/apply registration, first and repeat import, clone/root-path independence, repository/document/path conflict rejection, and actionable failure for legacy repositories without identity; no identity is derived from a path. |
 
 ## Authoritative validation
 
 ```sh
 python -m pip install -e 'schema[test]'
 python -m pytest schema/tests/models schema/tests/json_schema
-python -m pytest schema/tests/models -k 'field_contract or identity or measurement or provenance or profile or ordering or omission or relationship or diagnostic or location'
+python -m pytest schema/tests/models -k 'field_contract or identity or reference_mode or measurement or provenance or profile or ordering or omission or relationship or diagnostic or location'
 python -m raptor_schema.generate --check --output schema/json/v1
 git diff --exit-code -- schema/json/v1
 rg -n 'REQ-RAP-|NFR-RAP-|ADR-RAP-' docs/requirements.md docs/architecture.md docs/adr
+python -m json.tool .raptor/identity.json >/dev/null
 rg -n '\bNFT\b|p3-documentation|REQ-P3-|NFR-P3-|ADR-P3-|REQ-GEN-|NFR-GEN-|ADR-GEN-' schema docs/requirements.md docs/architecture.md docs/adr && exit 1 || true
 rg -n 'sqlx' Cargo.toml crates && exit 1 || true
 ```
@@ -333,6 +390,7 @@ Manual review verifies field classification, decision alternatives, traceability
 | A1-D5, A1-D6 | PA-REQ-001, PA-REQ-002, PA-NFR-005 |
 | A1-D7 | PA-REQ-003, PA-NFR-004 |
 | A1-D9 | PA-REQ-002, PA-REQ-004, PA-NFR-001, PA-NFR-004, PA-NFR-005 |
+| A1-D10 | PA-REQ-002, PA-REQ-009, PA-NFR-004 |
 
 ## Risks and mitigations
 

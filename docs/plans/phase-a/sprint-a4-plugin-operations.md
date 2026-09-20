@@ -32,6 +32,8 @@ Skills only select the focused reference and ask the A3 runner to invoke its reg
 
 A4 implements A1's `SourceInput`, `ParsedSection`, `ParsedDocument`, `ComparableDocument`, `ProfileDescriptor`, and `SourceProfile` types exactly. Inputs require repository root, stable repository/document identities, and repository-relative path. Resolution order, exact/`1.x` version selection, module hash/API/entrypoint checks, `--allow-profile-code`, no-network rule, root/symlink allowlist, trust/failure codes, and external consumer-owned `.raptor/profiles/` workflow are acceptance contracts, not examples.
 
+Before Markdown validation/import, the operation resolves repository/document identity only through `<repo-root>/.raptor/identity.json`. A shared `scripts/identity.py register` command exposes `--validate` and `--apply`: validate reports the proposed binding and conflicts without mutation; apply atomically creates or extends the A1 manifest. A missing legacy manifest returns `RAPTOR.IDENTITY.MISSING` with this exact remediation path. Repeat import reuses the binding; clone/root changes do not affect it; repository/document/path conflicts use A1 codes. Neither profile nor command derives an ID from the input path.
+
 The built-in Raptor profile is the only committed profile/fixture source. A temporary test creates an external profile under a temporary consumer repository, invokes it by descriptor/path with explicit trust, and proves no consumer file is copied into plugin or Raptor source.
 
 ## Mutation and response contract
@@ -40,6 +42,7 @@ The built-in Raptor profile is the only committed profile/fixture source. A temp
 - File/database mutation defaults to `--validate`/`--dry-run`, requires `--apply`, stages files for atomic replace, and uses one SQLite transaction.
 - Diagnostics carry composite document/artifact identity and current materialization path. Agents return exactly one fenced standard JSON envelope with namespaced error and no secret/tool trace.
 - Markdown import establishes immutable origin plus imported materialization. SQLite export returns those values unchanged. JSON→SQLite uses composite repository/document/artifact keys and A2 replacement semantics.
+- Reference modes are explicit at every route: single-file Markdown validation/import uses `document`; directory/multi-file validation/import uses `batch`; context-free JSON validation defaults to `structural` and accepts `--reference-mode structural|document|batch|store` (`store` requires `--database`); JSON→SQLite uses A2 batch/store overlay resolution. Missing targets use A1 diagnostics, including the selected mode and fully qualified source/target keys.
 
 ## Authoritative deliverables
 
@@ -47,7 +50,7 @@ The built-in Raptor profile is the only committed profile/fixture source. A temp
 |---|---|---|
 | A4-D1 | Six shared scripts/operation modes activating the matrix without duplicated schema/storage logic. | `plugins/raptor/scripts/` and tests |
 | A4-D2 | Six focused agents activated through the shared runner with fenced envelopes and namespaced errors. | agent/runner integration tests |
-| A4-D3 | Concrete source-profile discovery/loading/trust/version/path implementation plus built-in Raptor profile. | profile implementation and tests |
+| A4-D3 | Concrete identity registration/resolution and source-profile discovery/loading/trust/version/path implementation plus built-in Raptor profile. | identity/profile implementation and tests |
 | A4-D4 | Deterministic structured validation diagnostics for Markdown, canonical JSON, and SQLite. | positive/negative diagnostic suite |
 | A4-D5 | Atomic validate/apply Markdown→JSON, JSON→SQLite, and SQLite→JSON flows preserving composite identity and provenance. | route integration/conformance tests |
 | A4-D6 | Updated dual-client inventories and external-consumer guide without consumer assets. | manifest gate and docs |
@@ -65,6 +68,8 @@ The built-in Raptor profile is the only committed profile/fixture source. A temp
 | A4-AC7 | A3 vendor hash/bootstrap/registry/runner/client parity gates continue passing after scripts are added. |
 | A4-AC8 | JSON→Markdown, round-trip, and Dolt retain their exact structured unsupported responses; no templates or Dolt implementation appear. |
 | A4-AC9 | No P3 asset, `NFT`, Rust SQLx, duplicated client logic, secret, or raw tool trace is present. |
+| A4-AC10 | Identity CLI tests cover validate versus apply, first/repeat import, clone/root-path change, repository/document/path conflict or reuse, and legacy missing identity without inference. |
+| A4-AC11 | Route tests prove document, batch, structural, and store-backed reference modes with same-document, cyclic batch, existing-store, and missing cross-repository cases and exact diagnostics. |
 
 ## Authoritative validation
 
@@ -73,14 +78,16 @@ python -m pip install -e 'schema[test]'
 python -m pytest plugins/raptor/tests/operations plugins/raptor/tests/profiles
 python plugins/raptor/scripts/validate_plugin.py --guideline docs/plans/phase-a/references/claude-code-skills-agents-guidelines-v0.7.md --check-frontmatter --check-registry --check-manifests --check-inventory --check-vendor
 mkdir -p plugins/raptor/tests/.tmp
-python plugins/raptor/scripts/validate.py markdown --profile raptor --repo-root . --input plugins/raptor/tests/fixtures/raptor --format json
-python plugins/raptor/scripts/markdown_to_json.py --profile raptor --repo-root . --input plugins/raptor/tests/fixtures/raptor --output plugins/raptor/tests/.tmp/canonical.json --validate
-python plugins/raptor/scripts/markdown_to_json.py --profile raptor --repo-root . --input plugins/raptor/tests/fixtures/raptor --output plugins/raptor/tests/.tmp/canonical.json --apply
+python plugins/raptor/scripts/identity.py register --repo-root . --repository-id urn:raptor:repo:raptor --document-id DOC-RAP-001 --path docs/requirements.md --validate
+python plugins/raptor/scripts/identity.py register --repo-root . --repository-id urn:raptor:repo:raptor --document-id DOC-RAP-001 --path docs/requirements.md --apply
+python plugins/raptor/scripts/validate.py markdown --profile raptor --repo-root . --input docs/requirements.md --reference-mode document --format json
+python plugins/raptor/scripts/markdown_to_json.py --profile raptor --repo-root . --input docs/requirements.md --reference-mode document --output plugins/raptor/tests/.tmp/canonical.json --validate
+python plugins/raptor/scripts/markdown_to_json.py --profile raptor --repo-root . --input docs/requirements.md --reference-mode document --output plugins/raptor/tests/.tmp/canonical.json --apply
 python plugins/raptor/scripts/import_sqlite.py --repo-root . --database plugins/raptor/tests/.tmp/phase-a.sqlite --input plugins/raptor/tests/.tmp/canonical.json --validate
 python plugins/raptor/scripts/import_sqlite.py --repo-root . --database plugins/raptor/tests/.tmp/phase-a.sqlite --input plugins/raptor/tests/.tmp/canonical.json --apply
 python plugins/raptor/scripts/export_sqlite.py --repo-root . --database plugins/raptor/tests/.tmp/phase-a.sqlite --repository-id urn:raptor:repo:raptor --document-id DOC-RAP-001 --output plugins/raptor/tests/.tmp/export.json --validate
 python plugins/raptor/scripts/export_sqlite.py --repo-root . --database plugins/raptor/tests/.tmp/phase-a.sqlite --repository-id urn:raptor:repo:raptor --document-id DOC-RAP-001 --output plugins/raptor/tests/.tmp/export.json --apply
-python plugins/raptor/scripts/validate.py json --repo-root . --input plugins/raptor/tests/.tmp/export.json --format json
+python plugins/raptor/scripts/validate.py json --repo-root . --input plugins/raptor/tests/.tmp/export.json --reference-mode structural --format json
 test ! -e plugins/raptor/templates
 test ! -e schema/sql/dolt
 rg -n 'unsupported|RAPTOR\.UNSUPPORTED\.DOLT' plugins/raptor/skills/import/references/json-dolt.md plugins/raptor/skills/export/references/dolt-json.md plugins/raptor/skills/validate/references/dolt.md

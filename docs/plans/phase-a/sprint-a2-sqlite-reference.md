@@ -29,12 +29,12 @@ schema/
 ```
 
 ```python
-class ArtifactStore(Protocol):
+class ArtifactStore(ArtifactResolver, Protocol):
     def initialize(self) -> None: ...
+    def contains(self, key: ArtifactKey) -> bool: ...
     def put_document(self, document: SourceDocument) -> None: ...
     def put_documents(self, documents: Iterable[SourceDocument]) -> None: ...
     def get_document(self, key: DocumentKey) -> SourceDocument: ...
-    def move_document(self, key: DocumentKey, new_path: RepositoryPath) -> None: ...
     def delete_document(self, key: DocumentKey) -> None: ...
     def list_artifact_keys(
         self, *, repository_id: RepositoryId | None = None,
@@ -132,7 +132,11 @@ CREATE TABLE artifact_uri_relationships (
 
 One database may contain many repositories. All document/artifact/membership/reference keys are composite with `repository_id`; no query or adapter method identifies a document or artifact by path or local ID alone.
 
-Replacement is a single transaction keyed by `DocumentKey`: validate the whole incoming document and all target keys; upsert its repository; remove the old source relationship projections/membership/artifacts that are no longer present; insert/update canonical JSON and projections; then commit. `put_documents` performs the same work atomically for a batch so cyclic/cross-repository references can resolve after all target artifacts are staged. Removing an artifact targeted by another document fails with `RAPTOR.STORAGE.REFERENCE_CONFLICT` rather than cascading. Deleting a document uses the same restriction. Moving a document updates only `source_documents.current_path` and materialization JSON for the same key; immutable origin, membership, artifact keys, and relationships remain unchanged. A path collision within one repository fails; identical paths/IDs across different repository IDs are valid.
+Replacement is a single transaction keyed by `DocumentKey`: validate the whole incoming document in A1 `store` mode against an overlay of its staged keys plus existing store keys; upsert its repository; remove the old source relationship projections/membership/artifacts that are no longer present; insert/update canonical JSON and projections; then commit. `put_documents` validates the complete staged set using `batch` semantics overlaid on the store and performs the work atomically, so forward/cyclic/cross-repository references can resolve after all target artifacts are staged. Unresolved targets fail with A1's identity-qualified `RAPTOR.REFERENCE.UNRESOLVED`; no transaction begins or all work rolls back. Removing an artifact targeted by another document fails with `RAPTOR.STORAGE.REFERENCE_CONFLICT` rather than cascading. Deleting a document uses the same restriction.
+
+There is deliberately no path-only move API. A current-path change is accepted only as a normal transactional `put_document` of the same `DocumentKey` after A5 has rendered to the new path and updated `.raptor/identity.json`; the incoming model must preserve immutable origin and carry a valid rendered materialization transition whose parent hash is the stored current hash. Any direct/ambiguous path-only change or imported-materialization rewrite fails `RAPTOR.STORAGE.PROVENANCE_TRANSITION`. The transactional put updates `source_documents.current_path` and materialization JSON while preserving composite identity, membership, and relationships. A path collision within one repository fails; identical paths/IDs across different repository IDs are valid.
+
+`get_document` performs A1 structural validation and verifies JSON/projection equality; database foreign keys and the relationship projection establish stored target existence. It does not silently select a weaker or ambient reference-resolution mode.
 
 ## Authoritative deliverables
 
@@ -144,7 +148,7 @@ Replacement is a single transaction keyed by `DocumentKey`: validate the whole i
 | A2-D4 | Reusable dialect-neutral persistence conformance tests callable later against Dolt and callable now by external consumers with their own validated `SourceDocument`. | helper under `schema/tests/storage/` and Raptor-only executions |
 | A2-D5 | SQLite tests covering clean/idempotent initialization, rollback, replacement behavior, foreign keys, relationship recovery, and unsupported schema version. | `schema/tests/storage/` |
 | A2-D6 | Exact semantic recovery test for all five families and provenance using A1 Raptor fixtures. | canonical comparison evidence |
-| A2-D7 | Multi-repository composite-key, replace/delete/move, inbound-reference restriction, JSON/projection ownership, and metadata-version contract. | DDL, adapter behavior, and conformance tests |
+| A2-D7 | Multi-repository composite-key, replace/delete/rendered-path-update, inbound-reference restriction, JSON/projection ownership, and metadata-version contract. | DDL, adapter behavior, and conformance tests |
 
 ## Authoritative acceptance criteria
 
@@ -159,14 +163,15 @@ Replacement is a single transaction keyed by `DocumentKey`: validate the whole i
 | A2-AC7 | No SQLAlchemy, server process, MySQL/Dolt code or placeholder, Rust SQLx dependency, or consumer-specific table/column is introduced. |
 | A2-AC8 | Same local document/artifact IDs and paths coexist under different repository IDs without collision; no path-only/local-ID-only storage API exists. |
 | A2-AC9 | DDL contains every normative table/key/FK/check and JSON ownership rule; corrupt projection/JSON disagreement is detected before model return. |
-| A2-AC10 | Replace/delete/move tests cover retained IDs, removed artifacts, inbound reference conflicts, path collision, rollback, immutable origin, and materialization updates. |
+| A2-AC10 | Replace/delete/rendered-path-update tests cover retained IDs, removed artifacts, inbound reference conflicts, path collision, rollback, immutable origin, valid A5 transition, and rejection of ambiguous path-only changes. |
+| A2-AC11 | `put_document` uses store-backed resolution and `put_documents` uses batch-plus-store overlay resolution; tests cover same-document, staged cyclic batch, existing-store, and missing cross-repository targets with rollback. |
 
 ## Authoritative validation
 
 ```sh
 python -m pip install -e 'schema[test]'
 python -m pytest schema/tests/storage
-python -m pytest schema/tests/storage -k 'round_trip or multi_repository or replacement or delete or move or rollback or foreign_key or projection or schema_version or conformance'
+python -m pytest schema/tests/storage -k 'round_trip or multi_repository or replacement or delete or rendered_path_update or reference_mode or rollback or foreign_key or projection or schema_version or conformance'
 rg -n 'CREATE TABLE|FOREIGN KEY|UNIQUE' schema/sql/sqlite/0001_initial.sql
 test ! -e schema/sql/dolt
 rg -n '\b(sqlalchemy|sqlx|mysqlclient|pymysql|mysql-connector|doltpy)\b|p3-documentation|REQ-P3-|NFR-P3-|ADR-P3-|\bNFT\b' schema/src schema/tests schema/sql/sqlite schema/pyproject.toml && exit 1 || true

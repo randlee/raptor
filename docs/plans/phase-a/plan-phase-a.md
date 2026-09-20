@@ -30,7 +30,7 @@ This establishes the contract needed to migrate 30–50 repositories without put
 | ID | Requirement |
 |---|---|
 | PA-REQ-001 | Define canonical representations for Requirement, NonFunctionalRequirement, ArchitectureDecision, DesignDocument, and TestPlan. |
-| PA-REQ-002 | Preserve stable repository/document/artifact composite identity, immutable origin, and current materialization provenance so artifacts remain traceable across repositories, storage, moves, and rendering. |
+| PA-REQ-002 | Preserve stable repository/document/artifact composite identity, immutable origin, and current materialization provenance so artifacts remain traceable across repositories, storage, registered path changes, and rendering. |
 | PA-REQ-003 | Publish Pydantic models and generated JSON Schemas from one implementation contract under top-level `schema/`. |
 | PA-REQ-004 | Provide deterministic, structured source-profile validation findings before canonical conversion. |
 | PA-REQ-005 | Persist and recover canonical artifacts with a minimal SQLite reference schema compatible with the models. |
@@ -174,6 +174,8 @@ Canonical model fields describe Raptor concepts. A source profile may map reposi
 
 Every imported document carries a stable `RepositoryId`, repository-scoped `DocumentId`, and repository-scoped artifact IDs. Canonical document/artifact keys are composite with repository identity, so one SQLite database safely holds many repositories with overlapping local IDs and paths. Immutable origin records first path/hash/profile; materialization provenance records current path/hash/profile and render transition. Preservation of original bytes is optional; preservation of immutable origin is required.
 
+Each repository owns `.raptor/identity.json` as the stable repository/document identity authority. First import requires an explicit validate/apply registration; identity is never inferred from a path or remote. A1 defines the manifest and four reference-validation modes, A2 enforces store/batch resolution on writes, A4 exposes registration and mode-selecting routes, and A5 alone changes a registered path as part of render-to-new-path followed by ordinary transactional `put_document`.
+
 ### Semantic round trip
 
 The authoritative comparison is:
@@ -194,7 +196,7 @@ An external repository may supply Markdown adapters, profile rules, and its own 
 | Requirement | Owning sprint | Evidence at phase close |
 |---|---|---|
 | PA-REQ-001, PA-REQ-003 | A1 | Pydantic API, schema files, family tests |
-| PA-REQ-002 | A1, A2, A5 | composite identity/provenance model, persisted recovery/move tests, render-transition proof |
+| PA-REQ-002 | A1, A2, A4, A5 | identity manifest and reference modes, persisted recovery/rendered-path-update tests, explicit registration, render-transition proof |
 | PA-REQ-004 | A1, A4 | concrete source-profile contract and structured diagnostic route tests |
 | PA-REQ-005 | A2 | SQL migration plus store/load tests |
 | PA-REQ-006 | A3, A4, A5 | shared discovery/vendor/runner foundation and activated focused operation agents |

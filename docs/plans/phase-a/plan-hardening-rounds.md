@@ -9,8 +9,10 @@ This ledger records the reviewer chain for `plan-phase-a.md` and all Phase A spr
 | 1 | 3 | arch-ctm | WORKTREE | READY_FOR_REREVIEW | 0 | 0 | 0 | step2-r1-correction | 45c592c0d7d0993ccb282428340a5739d1b3cdabb8b3b35b14cdad43acb66648 | Applied every STEP2-R1 finding; validation pending coordinator commit/rerun. |
 | 2 | 2 | plan-scope-reviewer | fca037aa1473730c6200c056bfb0644564713a8d | PASS | 0 | 0 | 0 | 4c8a230187229ef0217661a3c9353ded5196ace8ec53b7f95cbd4f264d8b5895 | 45c592c0d7d0993ccb282428340a5739d1b3cdabb8b3b35b14cdad43acb66648 | STEP2-R2 scope review passed the then-current four-sprint topology with no findings. |
 | 2 | 3 | arch-ctm | 28499639777293f08c555be5098d50bcc48c073b | PASS | 0 | 0 | 0 | 4c8a230187229ef0217661a3c9353ded5196ace8ec53b7f95cbd4f264d8b5895 | 4c8a230187229ef0217661a3c9353ded5196ace8ec53b7f95cbd4f264d8b5895 | Step 3 content and handoff metadata were committed in 2849963; this row identifies the reviewed content commit, not the later metadata-correction commit. |
-| 2 | 4 | critical-plan-reviewer | 28499639777293f08c555be5098d50bcc48c073b | FAIL | 9 | 0 | 0 | 2a7d444d84df64c5b62b33ecebbead78a27a8a2607969ae4d8cdc0106f3b494e | 4c8a230187229ef0217661a3c9353ded5196ace8ec53b7f95cbd4f264d8b5895 | CRIT-001..009: handoff metadata, identity, measurement, SQLite, sprint split, profiles, vendor, runner, provenance. |
+| 2 | 4 | critical-plan-reviewer | 28499639777293f08c555be5098d50bcc48c073b | FAIL | 1 | 8 | 0 | 2a7d444d84df64c5b62b33ecebbead78a27a8a2607969ae4d8cdc0106f3b494e | 4c8a230187229ef0217661a3c9353ded5196ace8ec53b7f95cbd4f264d8b5895 | CRIT-001..009: handoff metadata, identity, measurement, SQLite, sprint split, profiles, vendor, runner, provenance. |
 | 2 | 5 | arch-ctm | WORKTREE | READY_FOR_REREVIEW | 0 | 0 | 0 | critical-r1-correction | 2a7d444d84df64c5b62b33ecebbead78a27a8a2607969ae4d8cdc0106f3b494e | Corrected all critical findings and split plugin foundation/operations/rendering into A3/A4/A5; metadata commit remains pending. |
+| 3 | 4 | critical-plan-reviewer | 5ada27ecfda2e7268e4e16d934714294820403f8 | FAIL | 0 | 4 | 0 | 5d751b50a7385e117c09daadaa0905b31b4132147d9a01fe5d55003f9c10a5db | 2a7d444d84df64c5b62b33ecebbead78a27a8a2607969ae4d8cdc0106f3b494e | CRIT-010..013: historical handoff paths/counts, reference-validation modes, first-import identity authority, and removal of path-only storage move. |
+| 3 | 5 | arch-ctm | WORKTREE | READY_FOR_REREVIEW | 0 | 0 | 0 | critical-r2-correction | 5d751b50a7385e117c09daadaa0905b31b4132147d9a01fe5d55003f9c10a5db | Corrected CRIT-010..013 without adding or splitting product scope; validation pending coordinator commit/rerun. |
 
 Cycle caps:
 
@@ -39,13 +41,12 @@ The original Step 1 work was committed, but the coordinator handoff omitted the 
   "docs_created": [
     "docs/plans/phase-a/sprint-a1-models-and-json-schema.md",
     "docs/plans/phase-a/sprint-a2-sqlite-reference.md",
-    "docs/plans/phase-a/sprint-a3-plugin-foundation.md",
-    "docs/plans/phase-a/sprint-a4-plugin-operations.md",
-    "docs/plans/phase-a/sprint-a5-render-and-roundtrip.md"
+    "docs/plans/phase-a/sprint-a3-plugin-ingest.md",
+    "docs/plans/phase-a/sprint-a4-render-and-roundtrip.md"
   ],
   "ready_for_next_step": true,
   "errors": [],
-  "tracking_correction": "Envelope reconstructed after commit because the original Step 1 handoff was not preserved in the round ledger; document paths reflect the later critical-review sprint split."
+  "tracking_correction": "Envelope reconstructed after commit because the original Step 1 handoff was not preserved in the round ledger."
 }
 ```
 
@@ -70,9 +71,8 @@ The original Step 1 work was committed, but the coordinator handoff omitted the 
     "docs/plans/phase-a/plan-hardening-rounds.md",
     "docs/plans/phase-a/sprint-a1-models-and-json-schema.md",
     "docs/plans/phase-a/sprint-a2-sqlite-reference.md",
-    "docs/plans/phase-a/sprint-a3-plugin-foundation.md",
-    "docs/plans/phase-a/sprint-a4-plugin-operations.md",
-    "docs/plans/phase-a/sprint-a5-render-and-roundtrip.md"
+    "docs/plans/phase-a/sprint-a3-plugin-routing.md",
+    "docs/plans/phase-a/sprint-a4-render-and-roundtrip.md"
   ],
   "docs_created": [],
   "ready_for_next_step": true,
@@ -111,6 +111,42 @@ The original Step 1 work was committed, but the coordinator handoff omitted the 
     "docs/plans/phase-a/sprint-a3-plugin-routing.md",
     "docs/plans/phase-a/sprint-a4-render-and-roundtrip.md"
   ],
+  "rename_history": [
+    "STEP2-R1: sprint-a3-plugin-ingest.md -> sprint-a3-plugin-routing.md",
+    "STEP4-R1 correction: sprint-a3-plugin-routing.md -> sprint-a3-plugin-foundation.md",
+    "STEP4-R1 correction: sprint-a4-render-and-roundtrip.md -> sprint-a5-render-and-roundtrip.md; new sprint-a4-plugin-operations.md"
+  ],
+  "ready_for_critical_rereview": true,
+  "errors": []
+}
+```
+
+## Critical-review round 2 correction handoff
+
+```json
+{
+  "status": "PASS",
+  "mode": "plan-hardening-consistency",
+  "round_id": "STEP4-R2-CORRECTION",
+  "round_index": 2,
+  "reviewed_commit": "WORKTREE",
+  "previous_reviewed_commit": "5ada27ecfda2e7268e4e16d934714294820403f8",
+  "findings_hash": "5d751b50a7385e117c09daadaa0905b31b4132147d9a01fe5d55003f9c10a5db",
+  "metadata_commit": null,
+  "iterations": 1,
+  "findings_resolved": 4,
+  "final_finding_count": 0,
+  "sprint_splits_added": 0,
+  "docs_modified": [
+    "docs/plans/phase-a/plan-hardening-rounds.md",
+    "docs/plans/phase-a/plan-phase-a.md",
+    "docs/plans/phase-a/sprint-a1-models-and-json-schema.md",
+    "docs/plans/phase-a/sprint-a2-sqlite-reference.md",
+    "docs/plans/phase-a/sprint-a4-plugin-operations.md",
+    "docs/plans/phase-a/sprint-a5-render-and-roundtrip.md"
+  ],
+  "docs_created": [],
+  "docs_removed_or_renamed": [],
   "ready_for_critical_rereview": true,
   "errors": []
 }
