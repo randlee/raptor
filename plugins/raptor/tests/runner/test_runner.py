@@ -484,8 +484,9 @@ def test_redactor_normalizes_trace_and_common_secret_forms() -> None:
                 "url": "https://user:password@example.test/x?token=secret",
                 "dsn": "postgresql://admin:database-secret@example.test/db",
                 "pem": "-----BEGIN PRIVATE KEY-----\nabc\n-----END PRIVATE KEY-----",
-                "message": "TOKEN=supersecret AccountKey=storage-secret Basic YWRtaW46c2VjcmV0 AIza12345678901234567890123456789012345 sk_live_1234567890 xoxb-1234567890 xoxc-1234567890 glpat-1234567890 github_pat_12345678901234567890 eyJabc.def.ghi ASIA1234567890ABCDEF",
+                "message": "TOKEN=supersecret Authorization=opaque-value AccountKey=storage-secret Basic YWRtaW46c2VjcmV0 AIza12345678901234567890123456789012345 sk_live_1234567890 xoxb-1234567890 xoxc-1234567890 glpat-1234567890 github_pat_12345678901234567890 eyJabc.def.ghi ASIA1234567890ABCDEF",
                 "nested_url": "https://host/x?client_secret=deep-secret&ok=1",
+                "mysql": "mysql://admin:database-secret@example.test/db",
             },
         }
     )
@@ -507,5 +508,6 @@ def test_redactor_normalizes_trace_and_common_secret_forms() -> None:
         "eyJabc",
         "ASIA",
         "deep-secret",
+        "opaque-value",
     ):
         assert secret not in text
