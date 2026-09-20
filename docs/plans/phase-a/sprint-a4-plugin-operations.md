@@ -48,7 +48,7 @@ The built-in Raptor profile is the only committed profile/fixture source. A temp
 
 | ID | Deliverable | Expected evidence |
 |---|---|---|
-| A4-D1 | Six shared scripts/operation modes activating the matrix without duplicated schema/storage logic. | `plugins/raptor/scripts/` and tests |
+| A4-D1 | Shared scripts activating all six route modes in the matrix without duplicated schema/storage logic. | `plugins/raptor/scripts/{markdown_to_json,import_sqlite,export_sqlite,validate}.py` and tests |
 | A4-D2 | Six focused agents activated through the shared runner with fenced envelopes and namespaced errors. | agent/runner integration tests |
 | A4-D3 | Sole executable identity registration/resolution CLI and tests, plus source-profile discovery/loading/trust/version/path implementation and built-in Raptor profile. | `scripts/identity.py`, CLI tests, profile implementation and tests |
 | A4-D4 | Deterministic structured validation diagnostics for Markdown, canonical JSON, and SQLite. | positive/negative diagnostic suite |

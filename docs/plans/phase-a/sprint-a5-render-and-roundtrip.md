@@ -11,7 +11,7 @@ Activate JSON→Markdown and `/raptor:round-trip` with shared sc-compose templat
 
 ## Scope boundary
 
-A5 adds `plugins/raptor/templates/`, shared `scripts/json_to_markdown.py` plus comparison support, activates `json-markdown-export` and `migration-round-trip`, changes `json-md`/round-trip from Phase-unsupported to supported, and preserves Dolt unsupported behavior. Skills remain routers; round-trip composes A4 routes rather than duplicating them.
+A5 adds `plugins/raptor/templates/`, shared `scripts/json_to_markdown.py`, `scripts/render_transaction.py`, and comparison support; activates `json-markdown-export` and `migration-round-trip`; changes `json-md`/round-trip from Phase-unsupported to supported; and preserves Dolt unsupported behavior. Skills remain routers; round-trip composes A4 routes rather than duplicating them.
 
 Every authoritative deliverable must land production-ready. Templates, projection, rendering, provenance transitions, focused agents, route composition, and loss detection close together.
 
@@ -64,7 +64,7 @@ plugins/raptor/templates/
 |---|---|---|
 | A5-D1 | Five strict sc-compose entry templates plus inventoried shared macros/partials. | complete `plugins/raptor/templates/**/*.j2` inventory |
 | A5-D2 | Model-to-template projection and pre-render validation rejecting missing/unsupported family data. | projection API and negative tests |
-| A5-D3 | Validate/apply JSON→Markdown implementation with atomic single-file replaces and bounded journal/recovery across rendered output, identity manifest, and idempotent SQLite put. | script/agent and recovery tests |
+| A5-D3 | Validate/apply JSON→Markdown implementation with atomic single-file replaces and bounded journal/recovery across rendered output, identity manifest, and idempotent SQLite put. | `scripts/json_to_markdown.py`, `scripts/render_transaction.py`, agent tests, and recovery tests |
 | A5-D4 | Path-level semantic comparator implementing A1 identity/origin/materialization equality and transition matrix. | public API and mutation tests |
 | A5-D5 | Operational round-trip agent/router composing validate/import/export for all five families. | five-family integration suite |
 | A5-D6 | Dual-client inventory gate covering all skills/references, eight agents, scripts, every `.j2`, vendor, registry, and manifest metadata. | CI/package audit |

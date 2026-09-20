@@ -15,6 +15,7 @@ This ledger records the reviewer chain for `plan-phase-a.md` and all Phase A spr
 | 3 | 5 | arch-ctm | WORKTREE | READY_FOR_REREVIEW | 0 | 0 | 0 | critical-r2-correction | 5d751b50a7385e117c09daadaa0905b31b4132147d9a01fe5d55003f9c10a5db | Corrected CRIT-010..013 without adding or splitting product scope; validation pending coordinator commit/rerun. |
 | 4 | 4 | critical-plan-reviewer | 8f5eec9b7bd9b52731f1dff4fa06485dc481bf18 | FAIL | 0 | 2 | 0 | efda24d70b9483b29f7639674dd4d7300d0e589f3879a4067efc4fc084b6c9f7 | 5d751b50a7385e117c09daadaa0905b31b4132147d9a01fe5d55003f9c10a5db | CRIT-014..015: identity execution ownership and false cross-resource atomicity. Third critical-review attempt exhausted the configured cap. |
 | 4 | 5 | arch-ctm | WORKTREE | CAP_REACHED_CORRECTIONS_APPLIED | 0 | 0 | 0 | critical-r3-final-correction | efda24d70b9483b29f7639674dd4d7300d0e589f3879a4067efc4fc084b6c9f7 | Applied bounded corrections for CRIT-014..015; the reviewer loop is closed and the corrected plan advances to consistency hardening and QA. |
+| 5 | 5 | arch-ctm | WORKTREE | PASS | 0 | 0 | 0 | step5-consistency-handoff | critical-r3-final-correction | Audited committed base abc2fb8; resolved four cross-document consistency findings and prepared the corrected worktree for Step 6 QA without another critical-review cycle. |
 
 Cycle caps:
 
@@ -184,6 +185,35 @@ The original Step 1 work was committed, but the coordinator handoff omitted the 
   "docs_removed_or_renamed": [],
   "ready_for_critical_rereview": false,
   "next_action": "Proceed to Step 5 consistency hardening, then Step 6 quality-mgr QA without another critical-review cycle.",
+  "errors": []
+}
+```
+
+## Step 5 consistency-hardening handoff
+
+```json
+{
+  "status": "PASS",
+  "mode": "plan-hardening-consistency",
+  "round_id": "STEP5-R1",
+  "round_index": 1,
+  "reviewed_commit": "WORKTREE",
+  "previous_reviewed_commit": "abc2fb8b7bd375d8901722e47093b7d05a730cb8",
+  "iterations": 2,
+  "findings_resolved": 4,
+  "final_finding_count": 0,
+  "docs_modified": [
+    "docs/plans/phase-a/plan-hardening-rounds.md",
+    "docs/plans/phase-a/plan-phase-a.md",
+    "docs/plans/phase-a/sprint-a1-models-and-json-schema.md",
+    "docs/plans/phase-a/sprint-a2-sqlite-reference.md",
+    "docs/plans/phase-a/sprint-a4-plugin-operations.md",
+    "docs/plans/phase-a/sprint-a5-render-and-roundtrip.md"
+  ],
+  "docs_created": [],
+  "ready_for_next_step": true,
+  "next_step": "Step 6 quality-mgr QA",
+  "critical_reviewer_relaunched": false,
   "errors": []
 }
 ```

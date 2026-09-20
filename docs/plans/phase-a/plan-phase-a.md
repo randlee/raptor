@@ -144,8 +144,20 @@ plugins/raptor/
     _bootstrap.py
     agent_runner.py
     validate_plugin.py
+    identity.py
+    markdown_to_json.py
+    import_sqlite.py
+    export_sqlite.py
+    validate.py
+    json_to_markdown.py
+    render_transaction.py
     client_adapters/{claude,codex}.py
   templates/
+    requirement.md.j2
+    non-functional-requirement.md.j2
+    architecture-decision.md.j2
+    design-document.md.j2
+    test-plan.md.j2
   _vendor/raptor_schema/
 ```
 
