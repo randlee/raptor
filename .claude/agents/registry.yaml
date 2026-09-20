@@ -1,4 +1,10 @@
 agents:
+  plan-scope-reviewer:
+    path: .claude/agents/plan-scope-reviewer.md
+    version: 0.1.0
+  critical-plan-reviewer:
+    path: .claude/agents/critical-plan-reviewer.md
+    version: 0.1.0
   quality-mgr:
     path: .claude/agents/quality-mgr.md
     version: 1.12.0
