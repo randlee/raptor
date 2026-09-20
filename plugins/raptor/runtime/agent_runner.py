@@ -22,7 +22,7 @@ _SECRET_KEY = re.compile(
     re.I,
 )
 _SECRET_VALUE = re.compile(
-    r"(?:Basic\s+[A-Za-z0-9+/=]+|Bearer\s+\S+|AIza[0-9A-Za-z_-]{20,}|sk_live_[A-Za-z0-9_-]{8,}|(?:sk|xox[bcaprs]|glpat)-[A-Za-z0-9_-]{8,}|(?:AKIA|ASIA)[0-9A-Z]{16}|gh[pousr]_[A-Za-z0-9]{20,}|github_pat_[A-Za-z0-9_]{20,}|eyJ[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+|-----BEGIN [^-]*PRIVATE KEY-----.*?-----END [^-]*PRIVATE KEY-----|(?:https?|postgres(?:ql)?)://[^\s/@:]+:[^\s/@]+@|(?:secret|token|password|api[_-]?key|account[_-]?key|client[_-]?secret|access[_-]?key)\s*[=:]\s*[^\s,;]+)",
+    r"(?:Basic\s+[A-Za-z0-9+/=]+|Bearer\s+\S+|AIza[0-9A-Za-z_-]{20,}|sk_live_[A-Za-z0-9_-]{8,}|(?:sk|xox[bcaprs]|glpat)-[A-Za-z0-9_-]{8,}|(?:AKIA|ASIA)[0-9A-Z]{16}|gh[pousr]_[A-Za-z0-9]{20,}|github_pat_[A-Za-z0-9_]{20,}|eyJ[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+|-----BEGIN [^-]*PRIVATE KEY-----.*?-----END [^-]*PRIVATE KEY-----|[a-z][a-z0-9+.-]*://[^\s/@:]+:[^\s/@]+@|(?:authorization|secret|token|password|api[_-]?key|account[_-]?key|client[_-]?secret|access[_-]?key)\s*[=:]\s*[^\s,;]+)",
     re.I | re.DOTALL,
 )
 _URL_SECRET = re.compile(

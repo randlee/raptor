@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+import os
 import shutil
 import sqlite3
 import stat
@@ -18,7 +19,7 @@ from raptor_schema import (
 )
 
 from runtime.identity import document_identity, load_identity, register_identity
-from runtime.cli import failure
+from runtime.cli import emit, failure, success
 from runtime.operations import (
     export_sqlite,
     import_sqlite,
@@ -264,7 +265,9 @@ def test_cli_preserves_identity_remediation_and_reference_diagnostic(
     assert diagnostic["json_pointer"] == "/artifacts/0/relationships/0/target"
 
 
-def test_cli_redacts_untrusted_and_pydantic_error_values() -> None:
+def test_cli_redacts_untrusted_and_pydantic_error_values(
+    capsys: pytest.CaptureFixture[str],
+) -> None:
     secret = "SECRET_TOKEN_sk_live_1234567890"
     namespaced = failure(ValueError(f"RAPTOR.INPUT.INVALID: value={secret}"))
     encoded = json.dumps(namespaced)
@@ -280,6 +283,21 @@ def test_cli_redacts_untrusted_and_pydantic_error_values() -> None:
         "suggested_action": "Correct the reported plugin state and retry.",
     }
     assert secret not in json.dumps(pydantic)
+    emit(
+        success(
+            {
+                "nested": [
+                    {
+                        "message": "Authorization=opaque-credential",
+                        "dsn": "mysql://admin:database-secret@example.test/db",
+                    }
+                ]
+            }
+        )
+    )
+    emitted = capsys.readouterr().out
+    assert "opaque-credential" not in emitted
+    assert "database-secret" not in emitted
 
 
 def test_repository_io_windows_branch_uses_handle_safe_contracts(
@@ -312,23 +330,33 @@ def test_windows_repository_read_is_bound_to_verified_handle(
 ) -> None:
     from runtime import io as runtime_io
 
-    target = tmp_path / "source.json"
-    target.write_bytes(b"verified")
+    source = tmp_path / "docs"
+    source.mkdir()
+    (source / "source.json").write_bytes(b"verified")
+    attacker = tmp_path / "attacker"
+    attacker.mkdir()
+    (attacker / "source.json").write_bytes(b"attacker")
 
-    def swap_after_open(
-        path: Path, *, write: bool, directory: bool, create: bool
+    def open_root(path: Path, *, write: bool, directory: bool, create: bool) -> int:
+        assert path == tmp_path and not write and directory and not create
+        return runtime_io.os.open(path, runtime_io.os.O_RDONLY)
+
+    def open_relative(
+        parent: int, name: str, *, write: bool, directory: bool, create: bool
     ) -> int:
-        assert not write and not directory and not create
-        descriptor = runtime_io.os.open(path, runtime_io.os.O_RDONLY)
-        path.unlink()
-        path.write_bytes(b"attacker")
+        descriptor = runtime_io.os.open(name, runtime_io.os.O_RDONLY, dir_fd=parent)
+        if directory:
+            source.rename(tmp_path / "retained-docs")
+            source.symlink_to(attacker, target_is_directory=True)
         return descriptor
 
-    monkeypatch.setattr(runtime_io, "_windows_open_checked", swap_after_open)
+    monkeypatch.setattr(runtime_io, "_windows_open_checked", open_root)
+    monkeypatch.setattr(runtime_io, "_windows_open_relative", open_relative)
     assert (
-        runtime_io._windows_repository_read(tmp_path, ("source.json",)) == b"verified"
+        runtime_io._windows_repository_read(tmp_path, ("docs", "source.json"))
+        == b"verified"
     )
-    assert target.read_bytes() == b"attacker"
+    assert (source / "source.json").read_bytes() == b"attacker"
 
 
 def test_windows_repository_publish_renames_relative_to_verified_parent_handle(
@@ -338,31 +366,65 @@ def test_windows_repository_publish_renames_relative_to_verified_parent_handle(
 
     output = tmp_path / "output"
     output.mkdir()
-    opened_temporary: list[Path] = []
+    attacker = tmp_path / "attacker-output"
+    attacker.mkdir()
+    opened_temporary: list[str] = []
     renamed: list[tuple[int, int, str]] = []
 
     def open_checked(path: Path, *, write: bool, directory: bool, create: bool) -> int:
+        assert path == tmp_path and write and directory and not create
+        return runtime_io.os.open(path, runtime_io.os.O_RDONLY)
+
+    def open_relative(
+        parent: int, name: str, *, write: bool, directory: bool, create: bool
+    ) -> int:
         if directory:
-            return runtime_io.os.open(path, runtime_io.os.O_RDONLY)
+            descriptor = runtime_io.os.open(name, runtime_io.os.O_RDONLY, dir_fd=parent)
+            output.rename(tmp_path / "retained-output")
+            output.symlink_to(attacker, target_is_directory=True)
+            return descriptor
         assert write and create
-        opened_temporary.append(path)
+        opened_temporary.append(name)
         return runtime_io.os.open(
-            path,
-            runtime_io.os.O_WRONLY | runtime_io.os.O_CREAT | runtime_io.os.O_EXCL,
+            name,
+            runtime_io.os.O_RDWR | runtime_io.os.O_CREAT | runtime_io.os.O_EXCL,
+            dir_fd=parent,
         )
 
     def rename_relative(descriptor: int, parent: int, name: str) -> None:
         assert runtime_io.os.fstat(descriptor).st_size == len(b"published")
         assert stat.S_ISDIR(runtime_io.os.fstat(parent).st_mode)
+        assert (
+            runtime_io.os.fstat(parent).st_ino
+            == (tmp_path / "retained-output").stat().st_ino
+        )
+        runtime_io.os.rename(
+            opened_temporary[0], name, src_dir_fd=parent, dst_dir_fd=parent
+        )
         renamed.append((descriptor, parent, name))
 
     monkeypatch.setattr(runtime_io, "_windows_open_checked", open_checked)
+    monkeypatch.setattr(runtime_io, "_windows_open_relative", open_relative)
     monkeypatch.setattr(runtime_io, "_windows_rename_relative", rename_relative)
     runtime_io._windows_repository_publish(
         tmp_path, ("output", "result.json"), b"published"
     )
     assert len(opened_temporary) == 1
     assert renamed and renamed[0][2] == "result.json"
+    assert (tmp_path / "retained-output/result.json").read_bytes() == b"published"
+    assert not (attacker / "result.json").exists()
+
+
+@pytest.mark.skipif(os.name != "nt", reason="native Windows repository I/O")
+def test_windows_repository_io_native_round_trip(tmp_path: Path) -> None:
+    from runtime import io as runtime_io
+
+    runtime_io.atomic_repository_bytes(tmp_path, "nested/result.json", b"native")
+    runtime_io.atomic_repository_bytes(tmp_path, "nested/result.json", b"replacement")
+    assert (
+        runtime_io.read_repository_bytes(tmp_path, "nested/result.json")
+        == b"replacement"
+    )
 
 
 def test_markdown_json_sqlite_round_trip_and_validation_is_read_only(

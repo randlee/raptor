@@ -266,50 +266,55 @@ def _is_windows() -> bool:
 
 
 def _windows_repository_read(repository_root: Path, parts: tuple[str, ...]) -> bytes:
-    """Read through a verified final Windows handle, never through Path.read_bytes."""
+    """Read through retained, no-reparse handles rooted at the repository."""
     descriptor = _windows_open_checked(
-        repository_root.joinpath(*parts), write=False, directory=False, create=False
+        repository_root, write=False, directory=True, create=False
     )
     try:
-        with os.fdopen(descriptor, "rb") as stream:
+        for part in parts[:-1]:
+            child = _windows_open_relative(
+                descriptor, part, write=False, directory=True, create=False
+            )
+            os.close(descriptor)
+            descriptor = child
+        file_descriptor = _windows_open_relative(
+            descriptor, parts[-1], write=False, directory=False, create=False
+        )
+        with os.fdopen(file_descriptor, "rb") as stream:
             return stream.read()
     except OSError as error:
-        try:
-            os.close(descriptor)
-        except OSError:
-            pass
         raise ValueError(
             "RAPTOR.PATH.OUTSIDE_ROOT: file is missing or unsafe"
         ) from error
+    finally:
+        os.close(descriptor)
 
 
 def _windows_repository_publish(
     repository_root: Path, parts: tuple[str, ...], value: bytes
 ) -> None:
     """Publish using verified handles and a parent-handle-relative rename."""
-    parent = repository_root
     parent_descriptor = _windows_open_checked(
-        parent, write=False, directory=True, create=False
+        repository_root, write=True, directory=True, create=False
     )
     try:
         for part in parts[:-1]:
-            child = parent / part
-            try:
-                child_descriptor = _windows_open_checked(
-                    child, write=False, directory=True, create=False
-                )
-            except FileNotFoundError:
-                _windows_create_directory(child)
-                child_descriptor = _windows_open_checked(
-                    child, write=False, directory=True, create=False
-                )
+            child_descriptor = _windows_open_relative(
+                parent_descriptor,
+                part,
+                write=True,
+                directory=True,
+                create=True,
+            )
             os.close(parent_descriptor)
             parent_descriptor = child_descriptor
-            parent = child
         temporary_name = f".{parts[-1]}.{secrets.token_hex(8)}"
-        temporary_path = parent / temporary_name
-        descriptor = _windows_open_checked(
-            temporary_path, write=True, directory=False, create=True
+        descriptor = _windows_open_relative(
+            parent_descriptor,
+            temporary_name,
+            write=True,
+            directory=False,
+            create=True,
         )
         published = False
         try:
@@ -345,7 +350,7 @@ def _windows_open_checked(
         ctypes.c_void_p,
     ]
     create_file.restype = ctypes.c_void_p
-    access = 0x40000000 if write else 0x80000000
+    access = (0xC0000000 | (0x00000040 if directory else 0)) if write else 0x80000000
     share = 0 if write else 0x00000001 | 0x00000002 | 0x00000004
     disposition = 1 if create else 3
     flags = 0x00200000 | (0x02000000 if directory else 0x00000080)
@@ -364,6 +369,109 @@ def _windows_open_checked(
         _windows_is_reparse(descriptor)
         or _windows_normal_path(_windows_final_path(descriptor)) != expected
     ):
+        os.close(descriptor)
+        raise ValueError("RAPTOR.PATH.OUTSIDE_ROOT: reparse points are not allowed")
+    return cast(int, descriptor)
+
+
+def _windows_open_relative(
+    parent_descriptor: int,
+    name: str,
+    *,
+    write: bool,
+    directory: bool,
+    create: bool,
+) -> int:
+    """Open/create one child with NtCreateFile RootDirectory semantics."""
+    import ctypes
+    import msvcrt
+
+    class UnicodeString(ctypes.Structure):
+        _fields_ = [
+            ("length", ctypes.c_ushort),
+            ("maximum_length", ctypes.c_ushort),
+            ("buffer", ctypes.c_wchar_p),
+        ]
+
+    class ObjectAttributes(ctypes.Structure):
+        _fields_ = [
+            ("length", ctypes.c_ulong),
+            ("root_directory", ctypes.c_void_p),
+            ("object_name", ctypes.POINTER(UnicodeString)),
+            ("attributes", ctypes.c_ulong),
+            ("security_descriptor", ctypes.c_void_p),
+            ("security_quality_of_service", ctypes.c_void_p),
+        ]
+
+    class IoStatusBlock(ctypes.Structure):
+        _fields_ = [("status", ctypes.c_void_p), ("information", ctypes.c_size_t)]
+
+    buffer = ctypes.create_unicode_buffer(name)
+    encoded_length = len(name.encode("utf-16-le"))
+    unicode_name = UnicodeString(
+        encoded_length, encoded_length + 2, ctypes.cast(buffer, ctypes.c_wchar_p)
+    )
+    get_osfhandle = cast(Any, getattr(msvcrt, "get_osfhandle"))
+    attributes = ObjectAttributes(
+        ctypes.sizeof(ObjectAttributes),
+        get_osfhandle(parent_descriptor),
+        ctypes.pointer(unicode_name),
+        0x40,
+        None,
+        None,
+    )
+    status_block = IoStatusBlock()
+    handle = ctypes.c_void_p()
+    access = 0x00100000 | 0x00000080 | 0x00000001
+    if write:
+        access |= 0x00000002 | 0x00000100
+        if directory:
+            access |= 0x00000004 | 0x00000040
+    if write and not directory:
+        access |= 0x00010000  # DELETE is required by FileRenameInfo.
+    options = 0x00200000 | 0x00000020 | (0x1 if directory else 0x40)
+    disposition = 3 if create and directory else 2 if create else 1
+    nt_create_file = cast(
+        Any,
+        ctypes.windll.ntdll.NtCreateFile,  # type: ignore[attr-defined]
+    )
+    nt_create_file.argtypes = [
+        ctypes.POINTER(ctypes.c_void_p),
+        ctypes.c_uint32,
+        ctypes.POINTER(ObjectAttributes),
+        ctypes.POINTER(IoStatusBlock),
+        ctypes.c_void_p,
+        ctypes.c_uint32,
+        ctypes.c_uint32,
+        ctypes.c_uint32,
+        ctypes.c_uint32,
+        ctypes.c_void_p,
+        ctypes.c_uint32,
+    ]
+    nt_create_file.restype = ctypes.c_long
+    status = nt_create_file(
+        ctypes.byref(handle),
+        access,
+        ctypes.byref(attributes),
+        ctypes.byref(status_block),
+        None,
+        0x80,
+        0x7,
+        disposition,
+        options,
+        None,
+        0,
+    )
+    if status < 0:
+        unsigned = status & 0xFFFFFFFF
+        if unsigned in (0xC0000034, 0xC000003A):
+            raise FileNotFoundError(name)
+        raise OSError(f"NtCreateFile failed with NTSTATUS 0x{unsigned:08x}")
+    descriptor = msvcrt.open_osfhandle(  # type: ignore[attr-defined]
+        handle.value,
+        (os.O_RDWR if write else os.O_RDONLY) | getattr(os, "O_BINARY", 0),
+    )
+    if _windows_is_reparse(descriptor):
         os.close(descriptor)
         raise ValueError("RAPTOR.PATH.OUTSIDE_ROOT: reparse points are not allowed")
     return cast(int, descriptor)
@@ -392,15 +500,6 @@ def _windows_is_reparse(descriptor: int) -> bool:
     if not result:
         raise ctypes.WinError()  # type: ignore[attr-defined]
     return bool(info.attributes & 0x00000400)
-
-
-def _windows_create_directory(path: Path) -> None:
-    import ctypes
-
-    if not ctypes.windll.kernel32.CreateDirectoryW(str(path), None):  # type: ignore[attr-defined]
-        error = ctypes.get_last_error()  # type: ignore[attr-defined]
-        if error != 183:
-            raise ctypes.WinError(error)  # type: ignore[attr-defined]
 
 
 def _windows_rename_relative(
