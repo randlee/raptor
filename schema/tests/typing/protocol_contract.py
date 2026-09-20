@@ -5,6 +5,7 @@ from __future__ import annotations
 from typing import assert_type
 
 from raptor_schema import (
+    ArtifactSnapshot,
     ComparableDocument,
     Diagnostic,
     JsonObject,
@@ -35,7 +36,7 @@ class ConsumerProfile:
         return ComparableDocument(
             schema_version=document.schema_version,
             origin=document.provenance.origin,
-            artifacts=tuple(document.artifacts),
+            artifacts=tuple(ArtifactSnapshot.from_artifact(item) for item in document.artifacts),
         )
 
 

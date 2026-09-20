@@ -144,10 +144,14 @@ class ParsedDocument:
     sections: tuple[ParsedSection, ...]
 
 @dataclass(frozen=True)
+class ArtifactSnapshot:
+    data: FrozenJsonObject  # recursively frozen canonical artifact dump
+
+@dataclass(frozen=True)
 class ComparableDocument:
     schema_version: SchemaVersion
     origin: OriginProvenance
-    artifacts: tuple[Artifact, ...]
+    artifacts: tuple[ArtifactSnapshot, ...]
 
 @dataclass(frozen=True)
 class ProfileDescriptor:
@@ -160,7 +164,7 @@ class ProfileDescriptor:
 
 `SourceInput.repository_id` and `document_id` are populated from the repository identity authority defined below; a profile receives them but cannot derive or replace them.
 
-`SourceInput` performs the A1 runtime boundary checks: `repo_root` resolves to an existing directory; repository/document identities satisfy their canonical grammars; `repository_path` is a normalized relative `PurePosixPath`; symlink, absolute, and `..` escapes fail with `RAPTOR.PATH.OUTSIDE_ROOT`; and `content` is bytes. `ParsedSection`, `ParsedDocument`, `ComparableDocument`, and `ProfileDescriptor` are immutable data contracts. `SourceProfile.project_render_input` returns recursive `JsonObject`, and A1 validates that projection boundary rejects non-JSON and non-finite values. `ProfileDescriptor` records future loader inputs but performs no descriptor I/O or module resolution in A1.
+`SourceInput` performs the A1 runtime boundary checks: `repo_root` resolves to an existing directory; repository/document identities satisfy their canonical grammars; `repository_path` is a non-empty normalized relative `PurePosixPath`; current-directory, symlink, absolute, and `..` escapes fail with `RAPTOR.PATH.OUTSIDE_ROOT`; and `content` is bytes. `ParsedSection` and `ParsedDocument` recursively snapshot caller mappings into immutable mappings/tuples. `ArtifactSnapshot` captures a recursively frozen canonical artifact dump so `ComparableDocument` cannot be changed through an original artifact or nested collection. `ComparableDocument` and `ProfileDescriptor` are immutable data contracts. `SourceProfile.project_render_input` returns recursive `JsonObject`, and A1 validates that projection boundary rejects non-JSON and non-finite values. `ProfileDescriptor` records future loader inputs but performs no descriptor I/O or module resolution in A1.
 
 A4 exclusively owns source-profile discovery, precedence, exact/major version selection, descriptor/module I/O, path and hash verification, trust opt-in, dynamic loading, invocation wrappers, return-type enforcement at invocation, and operational error-code acceptance tests. Its future contract must cover `RAPTOR.PROFILE.AMBIGUOUS`, `.VERSION`, `.API`, `.ENTRYPOINT`, `.HASH`, `.UNTRUSTED`, `.PARSE`, `.RETURN_TYPE`, `.VALIDATION`, and `.CANONICALIZE` without exposing tool traces or source secrets. A consumer keeps its descriptor, module, and tests under its own `.raptor/profiles/`; Raptor copies none of those assets into this repository or plugin bundle. A1 contains no resolver, loader, registry, trust flag, dynamic import, or invocation wrapper.
 
@@ -341,7 +345,7 @@ Every float must be finite; NaN and positive/negative infinity fail before canon
 | A1-D6 | Strict validation for schema version, IDs/types, duplicate IDs, four explicit reference modes, family fields, extension namespace, and unknown fields. | validators and `schema/tests/models/` |
 | A1-D7 | Deterministic canonical JSON dump/load API and versioned JSON Schemas generated from Pydantic by one documented command. | `schema/src/raptor_schema/canonical.py`, `schema/json/v1/`, drift test |
 | A1-D8 | Positive/negative tests derived only from the Raptor corpus, with origin artifact IDs recorded, plus compatibility documentation for external adapters. | `schema/tests/{models,json_schema}/` and package docs |
-| A1-D9 | Executable `SourceProfile` protocol and concrete boundary data types, recursive JSON render-projection contract, runtime `SourceInput` validation, `ProfileDescriptor` as data only, identity-manifest model/schema and conflict semantics, multi-repository composite identity, and origin/materialization transition rules. Discovery/loading/trust/invocation are documented future A4 contracts only. | `schema/src/raptor_schema/profiles.py`, explicit public exports, generated schema, runtime boundary tests, and strict typed-consumer probe; no resolver, loader, registry, profile implementation, invocation wrapper, or registration executable |
+| A1-D9 | Executable `SourceProfile` protocol and deeply immutable concrete boundary snapshots, recursive JSON render-projection contract, runtime `SourceInput` validation, `ProfileDescriptor` as data only, identity-manifest model/schema and conflict semantics, multi-repository composite identity, and origin/materialization transition rules. Discovery/loading/trust/invocation are documented future A4 contracts only. | `schema/src/raptor_schema/profiles.py`, explicit public exports, generated schema, nested-mutation/runtime boundary tests, and strict typed-consumer probe; no resolver, loader, registry, profile implementation, invocation wrapper, or registration executable |
 | A1-D10 | Raptor's own registered repository/document identities for its dogfood corpus and model/schema validation cases. | `.raptor/identity.json` mapped to Raptor `REQ-RAP-*`/`NFR-RAP-*`/`ADR-RAP-*` sources |
 
 ## Authoritative acceptance criteria
@@ -360,11 +364,11 @@ Every float must be finite; NaN and positive/negative infinity fail before canon
 | A1-AC10 | Product paths contain no `NFT`, P3-specific artifact identifier, `p3-documentation` asset, or Rust SQLx dependency. |
 | A1-AC11 | Two repositories may use the same local artifact/document IDs without collision; all references, diagnostics, comparisons, and serialization retain the stable repository namespace. |
 | A1-AC12 | Measurement cases cover every comparator/type cell, mixed/homogeneous ranges, bool-versus-int, finite/non-finite floats, canonical numeric output, and the documented JSON Schema/Python validation split. |
-| A1-AC13 | A1 tests cover runtime `SourceInput` identity/path/content validation, root/symlink escape rejection, immutable profile boundary data, and recursive JSON render-projection validation. A dedicated consumer probe proves `SourceProfile` conformance under strict mypy. A4 exclusively accepts/tests discovery precedence, exact/major version selection, ambiguity, API/entrypoint/hash mismatch, trust, loading, invocation, and the associated operational error codes. |
+| A1-AC13 | A1 tests cover runtime `SourceInput` identity/path/content validation, empty/current-directory/root/symlink escape rejection, recursively immutable profile boundary snapshots, caller-mutation isolation, and recursive JSON render-projection validation. A dedicated consumer probe proves `SourceProfile` conformance under strict mypy. A4 exclusively accepts/tests discovery precedence, exact/major version selection, ambiguity, API/entrypoint/hash mismatch, trust, loading, invocation, and the associated operational error codes. |
 | A1-AC14 | Provenance tests prove immutable origin preservation and every materialization transition, including same/new output paths, recomputed hashes, parent hash, template identity, and transport-location inequality. |
 | A1-AC15 | The structural/document/batch/store reference API has deterministic mode-specific tests for same-document resolution, batch cycles, existing-store resolution, and missing cross-repository targets with fully qualified diagnostics. |
 | A1-AC16 | Model/schema tests prove `.raptor/identity.json` shape, canonical serialization, stable IDs independent of clone/root path, identical-tuple idempotence, repository/document/path conflict and reuse diagnostics, missing-manifest diagnostic contract, and Raptor dogfood validity; A1 contains no register CLI or filesystem-mutation test. |
-| A1-AC17 | `SourceProfile`, `SourceInput`, `ParsedSection`, `ParsedDocument`, `ComparableDocument`, and `ProfileDescriptor` are executable explicit public exports from `raptor_schema.profiles`, install in a clean environment, and pass both runtime contract tests and a strict-mypy consumer conformance probe independent of any plugin profile implementation or loader. |
+| A1-AC17 | `SourceProfile`, `SourceInput`, `ParsedSection`, `ParsedDocument`, `ArtifactSnapshot`, `ComparableDocument`, and `ProfileDescriptor` are executable explicit public exports from `raptor_schema.profiles`, install in a clean environment, and pass both runtime/deep-immutability contract tests and a strict-mypy consumer conformance probe independent of any plugin profile implementation or loader. |
 
 ## Authoritative validation
 

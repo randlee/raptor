@@ -3,7 +3,8 @@ from __future__ import annotations
 from collections.abc import Mapping
 from dataclasses import dataclass
 from pathlib import Path, PurePosixPath
-from typing import Literal, Protocol, cast
+from types import MappingProxyType
+from typing import Literal, Protocol, TypeAlias, cast
 
 from pydantic import JsonValue, TypeAdapter
 
@@ -26,6 +27,11 @@ from .models.base import reject_non_finite
 _REPOSITORY_ID_ADAPTER = TypeAdapter(RepositoryId)
 _DOCUMENT_ID_ADAPTER = TypeAdapter(DocumentId)
 _JSON_OBJECT_ADAPTER = TypeAdapter(JsonObject)
+
+FrozenJsonValue: TypeAlias = (
+    None | bool | int | float | str | tuple["FrozenJsonValue", ...] | Mapping[str, "FrozenJsonValue"]
+)
+FrozenJsonObject: TypeAlias = Mapping[str, FrozenJsonValue]
 
 
 def _resolved_inside(root: Path, relative: PurePosixPath) -> Path:
@@ -51,6 +57,19 @@ def _require_json_shape(value: object) -> None:
     raise ValueError("render projection must contain only JSON-compatible values")
 
 
+def _freeze_json(value: JsonValue) -> FrozenJsonValue:
+    if isinstance(value, list):
+        return tuple(_freeze_json(item) for item in value)
+    if isinstance(value, dict):
+        return MappingProxyType({key: _freeze_json(item) for key, item in value.items()})
+    return value
+
+
+def _snapshot_mapping(value: Mapping[str, JsonValue]) -> FrozenJsonObject:
+    validated = validate_json_object(dict(value))
+    return cast(FrozenJsonObject, _freeze_json(validated))
+
+
 @dataclass(frozen=True)
 class SourceInput:
     repo_root: Path
@@ -70,7 +89,12 @@ class SourceInput:
         if not isinstance(self.repository_path, PurePosixPath):
             raise TypeError("repository_path must be pathlib.PurePosixPath")
         relative = self.repository_path
-        if relative.is_absolute() or any(part in {"", ".", ".."} for part in relative.parts):
+        if (
+            str(relative) == "."
+            or not relative.parts
+            or relative.is_absolute()
+            or any(part in {"", ".", ".."} for part in relative.parts)
+        ):
             raise ValueError("RAPTOR.PATH.OUTSIDE_ROOT: source path must be normalized and relative")
         _resolved_inside(root, relative)
         if not isinstance(self.content, bytes):
@@ -86,21 +110,47 @@ class ParsedSection:
     heading: str | None
     body: str
     location: SourceLocation
-    attributes: Mapping[str, JsonValue]
+    attributes: FrozenJsonObject
+
+    def __post_init__(self) -> None:
+        source = cast(Mapping[str, JsonValue], self.attributes)
+        object.__setattr__(self, "attributes", _snapshot_mapping(source))
 
 
 @dataclass(frozen=True)
 class ParsedDocument:
     source: SourceInput
-    frontmatter: Mapping[str, JsonValue]
+    frontmatter: FrozenJsonObject
     sections: tuple[ParsedSection, ...]
+
+    def __post_init__(self) -> None:
+        source = cast(Mapping[str, JsonValue], self.frontmatter)
+        object.__setattr__(self, "frontmatter", _snapshot_mapping(source))
+        object.__setattr__(self, "sections", tuple(self.sections))
+
+
+@dataclass(frozen=True)
+class ArtifactSnapshot:
+    data: FrozenJsonObject
+
+    def __post_init__(self) -> None:
+        source = cast(Mapping[str, JsonValue], self.data)
+        object.__setattr__(self, "data", _snapshot_mapping(source))
+
+    @classmethod
+    def from_artifact(cls, artifact: Artifact) -> "ArtifactSnapshot":
+        value = cast(JsonObject, artifact.model_dump(mode="json", exclude_none=True))
+        return cls(data=cast(FrozenJsonObject, value))
 
 
 @dataclass(frozen=True)
 class ComparableDocument:
     schema_version: SchemaVersion
     origin: OriginProvenance
-    artifacts: tuple[Artifact, ...]
+    artifacts: tuple[ArtifactSnapshot, ...]
+
+    def __post_init__(self) -> None:
+        object.__setattr__(self, "artifacts", tuple(self.artifacts))
 
 
 @dataclass(frozen=True)
@@ -132,6 +182,9 @@ def validate_json_object(value: object) -> JsonObject:
 
 __all__ = [
     "ComparableDocument",
+    "ArtifactSnapshot",
+    "FrozenJsonObject",
+    "FrozenJsonValue",
     "ParsedDocument",
     "ParsedSection",
     "ProfileDescriptor",

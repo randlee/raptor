@@ -55,6 +55,36 @@ def test_store_resolver_and_required(document_dict: dict[str, object]) -> None:
     )
 
 
+def test_store_unresolved_reports_complete_context(document_dict: dict[str, object]) -> None:
+    target = document_dict["artifacts"][1]["relationships"][0]["target"]  # type: ignore[index]
+    target["repository_id"] = "urn:raptor:repo:remote"  # type: ignore[index]
+    with pytest.raises(ReferenceValidationError) as caught:
+        validate_documents(
+            [document_dict],
+            reference_mode=ReferenceValidationMode.STORE,
+            resolver=Resolver(set()),
+        )
+    error = caught.value
+    diagnostic = error.diagnostic
+    assert diagnostic.code == "RAPTOR.REFERENCE.UNRESOLVED"
+    assert diagnostic.repository_id == "urn:raptor:repo:raptor"
+    assert diagnostic.document_id == "DOC-RAP-001"
+    assert diagnostic.repository_path == "docs/requirements.md"
+    assert diagnostic.artifact_key == ArtifactKey(
+        repository_id="urn:raptor:repo:raptor", artifact_id="NFR-RAP-004"
+    )
+    assert error.source == diagnostic.artifact_key
+    assert error.target == ArtifactKey(
+        repository_id="urn:raptor:repo:remote", artifact_id="REQ-RAP-001"
+    )
+    assert error.mode is ReferenceValidationMode.STORE
+    assert error.document_key.repository_id == diagnostic.repository_id
+    assert error.document_key.document_id == diagnostic.document_id
+    assert error.repository_path == diagnostic.repository_path
+    assert error.relation == "satisfies"
+    assert error.json_pointer == "/artifacts/1/relationships/0/target"
+
+
 def test_forward_cyclic_batch_and_duplicate(document_dict: dict[str, object]) -> None:
     left = deepcopy(document_dict)
     left["artifacts"] = [deepcopy(document_dict["artifacts"][0])]  # type: ignore[index]

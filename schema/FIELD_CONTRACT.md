@@ -12,6 +12,7 @@ identifies the owner used by the executable models.
 | relationship | typed relation and exactly one artifact or URI target | `ArtifactRelationship` |
 | diagnostics/location | stable code/severity/message/context and transport coordinates | `Diagnostic`, `SourceLocation` |
 | presentation-only | source headings/frontmatter/sections and renderer projection | source-profile boundary; never canonicalized implicitly |
+| comparison snapshot | recursively frozen canonical artifact mappings isolated from caller mutation | `ArtifactSnapshot`, `ComparableDocument` |
 | consumer extension | recursively JSON-compatible value behind reverse-domain key | `ArtifactBase.extensions` |
 
 Authorial lists preserve input order. Relationships, dependency/verification keys,

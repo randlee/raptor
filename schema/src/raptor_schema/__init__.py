@@ -74,7 +74,10 @@ from .models import (
     validate_provenance_transition,
 )
 from .profiles import (
+    ArtifactSnapshot,
     ComparableDocument,
+    FrozenJsonObject,
+    FrozenJsonValue,
     ParsedDocument,
     ParsedSection,
     ProfileDescriptor,
@@ -115,6 +118,7 @@ __all__ = [
     "ArtifactResolver",
     "ArtifactTarget",
     "ArtifactType",
+    "ArtifactSnapshot",
     "ComparableDocument",
     "ContractModel",
     "DesignComponent",
@@ -126,6 +130,8 @@ __all__ = [
     "DocumentId",
     "DocumentKey",
     "ExtensionKey",
+    "FrozenJsonObject",
+    "FrozenJsonValue",
     "IdentityConflict",
     "IdentityDocument",
     "IdentityManifest",

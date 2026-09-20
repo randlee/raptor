@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import hashlib
 import json
 import re
 from pathlib import Path
@@ -25,6 +26,19 @@ def test_every_fixture_has_raptor_origin() -> None:
 
 
 def test_all_corpus_documents_validate() -> None:
+    identity = json.loads((ROOT / ".raptor/identity.json").read_text())
     for path in CORPUS.glob("*.json"):
         if path.name != "origin-manifest.json":
-            SourceDocument.model_validate_json(path.read_text())
+            document = SourceDocument.model_validate_json(path.read_text())
+            origin = document.provenance.origin
+            materialization = document.provenance.materialization
+            assert origin.repository_id == identity["repository_id"]
+            assert origin.document_id in identity["documents"]
+            registered_path = identity["documents"][origin.document_id]["path"]
+            assert origin.initial_repository_path == registered_path
+            source_bytes = (ROOT / registered_path).read_bytes()
+            actual_hash = hashlib.sha256(source_bytes).hexdigest()
+            assert origin.original_content_sha256 == actual_hash
+            if materialization.operation == "imported":
+                assert materialization.repository_path == registered_path
+                assert materialization.content_sha256 == actual_hash

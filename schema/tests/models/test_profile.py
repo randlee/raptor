@@ -1,18 +1,22 @@
 from __future__ import annotations
 
+from collections.abc import Mapping
 from pathlib import Path, PurePosixPath
 
 import pytest
 from pydantic import ValidationError
 
 from raptor_schema import (
+    ArtifactSnapshot,
     ComparableDocument,
     Diagnostic,
     JsonObject,
     ParsedDocument,
+    ParsedSection,
     ProfileDescriptor,
     SourceDocument,
     SourceInput,
+    SourceLocation,
     SourceProfile,
     validate_json_object,
 )
@@ -79,6 +83,18 @@ def test_profile_descriptor_is_data_only() -> None:
     assert descriptor.api_version == "1"
 
 
+@pytest.mark.parametrize(
+    "path",
+    [PurePosixPath("."), PurePosixPath(""), PurePosixPath("/absolute.md"), PurePosixPath("../escape.md")],
+    ids=["current-directory", "empty", "absolute", "parent-escape"],
+)
+def test_source_input_path_failures_use_namespaced_code(
+    tmp_path: Path, path: PurePosixPath
+) -> None:
+    with pytest.raises(ValueError, match="RAPTOR.PATH.OUTSIDE_ROOT"):
+        source_input(tmp_path, repository_path=path)
+
+
 def test_render_projection_json_boundary_accepts_recursive_json() -> None:
     value = {"artifact": {"ids": ["REQ-RAP-001", None], "accepted": True, "count": 1}}
     assert validate_json_object(value) == value
@@ -121,7 +137,7 @@ class ContractProfile:
         return ComparableDocument(
             schema_version=document.schema_version,
             origin=document.provenance.origin,
-            artifacts=tuple(document.artifacts),
+            artifacts=tuple(ArtifactSnapshot.from_artifact(item) for item in document.artifacts),
         )
 
 
@@ -131,3 +147,73 @@ def test_source_profile_contract_uses_json_object(document: SourceDocument) -> N
     assert validate_json_object(profile.project_render_input(document)) == {
         "schema_version": "1.0.0"
     }
+
+
+def test_boundary_types_are_deeply_immutable(
+    tmp_path: Path, document: SourceDocument
+) -> None:
+    source = source_input(tmp_path)
+    with pytest.raises(Exception):
+        setattr(source, "content", b"changed")
+
+    attributes: dict[str, object] = {"nested": {"items": [1, 2]}}
+    section = ParsedSection(
+        kind="requirement",
+        heading="Requirement",
+        body="body",
+        location=SourceLocation(start_line=1, start_column=1),
+        attributes=attributes,  # type: ignore[arg-type]
+    )
+    attributes["nested"] = "changed"
+    assert section.attributes["nested"] != "changed"
+    with pytest.raises(TypeError):
+        section.attributes["new"] = True  # type: ignore[index]
+    nested = section.attributes["nested"]
+    assert isinstance(nested, Mapping)
+    with pytest.raises(TypeError):
+        nested["items"] = ()  # type: ignore[index]
+    items = nested["items"]
+    assert isinstance(items, tuple)
+    with pytest.raises(AttributeError):
+        items.append(3)  # type: ignore[union-attr]
+
+    frontmatter: dict[str, object] = {"tags": ["one"]}
+    sections = [section]
+    parsed = ParsedDocument(
+        source=source,
+        frontmatter=frontmatter,  # type: ignore[arg-type]
+        sections=tuple(sections),
+    )
+    frontmatter["tags"] = ["changed"]
+    sections.clear()
+    assert parsed.frontmatter["tags"] == ("one",)
+    assert parsed.sections == (section,)
+    with pytest.raises(TypeError):
+        parsed.frontmatter["new"] = None  # type: ignore[index]
+
+    original = document.artifacts[0]
+    snapshot = ArtifactSnapshot.from_artifact(original)
+    original.acceptance_criteria.append("caller mutation")  # type: ignore[attr-defined]
+    assert "caller mutation" not in snapshot.data["acceptance_criteria"]
+    with pytest.raises(TypeError):
+        snapshot.data["title"] = "changed"  # type: ignore[index]
+
+    comparable = ComparableDocument(
+        schema_version=document.schema_version,
+        origin=document.provenance.origin,
+        artifacts=(snapshot,),
+    )
+    with pytest.raises(Exception):
+        setattr(comparable, "artifacts", ())
+    with pytest.raises(TypeError):
+        comparable.artifacts[0].data["title"] = "changed"  # type: ignore[index]
+
+    descriptor = ProfileDescriptor(
+        profile_id="consumer",
+        profile_version="1.0.0",
+        api_version="1",
+        entrypoint="profile.py:Profile",
+        module_sha256="a" * 64,
+    )
+    with pytest.raises(Exception):
+        setattr(descriptor, "entrypoint", "changed")
