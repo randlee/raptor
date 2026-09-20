@@ -111,6 +111,16 @@ class SQLiteArtifactStore:
         self._connection = sqlite3.connect(str(database), isolation_level=None)
         self._connection.execute("PRAGMA foreign_keys = ON")
 
+    @classmethod
+    def open_read_only(cls, database: str | Path) -> "SQLiteArtifactStore":
+        path = Path(database).resolve()
+        instance = cls.__new__(cls)
+        instance._connection = sqlite3.connect(
+            f"{path.as_uri()}?mode=ro&immutable=1", uri=True, isolation_level=None
+        )
+        instance._connection.execute("PRAGMA foreign_keys = ON")
+        return instance
+
     def close(self) -> None:
         self._connection.close()
 
@@ -169,6 +179,34 @@ class SQLiteArtifactStore:
             raise StorageError(
                 "RAPTOR.STORAGE.SCHEMA_VERSION: unsupported schema metadata"
             )
+
+    def list_document_keys(self) -> list[DocumentKey]:
+        self._require_foreign_keys()
+        rows = cast(
+            list[tuple[str, str]],
+            self._connection.execute(
+                "SELECT repository_id, document_id FROM source_documents "
+                "ORDER BY repository_id, document_id"
+            ).fetchall(),
+        )
+        return [
+            DocumentKey(repository_id=repository_id, document_id=document_id)
+            for repository_id, document_id in rows
+        ]
+
+    def validate(self) -> None:
+        self._require_foreign_keys()
+        self._validate_metadata()
+        if self._connection.execute("PRAGMA integrity_check").fetchone() != ("ok",):
+            raise StorageError(
+                "RAPTOR.STORAGE.INTEGRITY_CONFLICT: integrity check failed"
+            )
+        if self._connection.execute("PRAGMA foreign_key_check").fetchone() is not None:
+            raise StorageError(
+                "RAPTOR.STORAGE.INTEGRITY_CONFLICT: foreign key check failed"
+            )
+        for key in self.list_document_keys():
+            self.get_document(key)
 
     def contains(self, key: ArtifactKey) -> bool:
         self._require_foreign_keys()

@@ -1,8 +1,10 @@
 from __future__ import annotations
 
+from collections.abc import Mapping
+from pathlib import Path
 from typing import Any
 
-from .cli import success
+from .agent_runner import AgentBackend, JsonValue, run_agent
 from .dependencies import dependency_error
 
 _SUPPORTED: dict[tuple[str, str | None, str | None], tuple[str, str]] = {
@@ -17,9 +19,15 @@ _SUPPORTED: dict[tuple[str, str | None, str | None], tuple[str, str]] = {
 
 
 def route(
-    command: str, source: str | None = None, target: str | None = None
+    command: str,
+    source: str | None = None,
+    target: str | None = None,
+    *,
+    backend: AgentBackend | None = None,
+    repository_root: Path | None = None,
+    params: Mapping[str, JsonValue] | None = None,
 ) -> dict[str, Any]:
-    """Return A3's explicit route boundary without invoking an agent."""
+    """Resolve one public route and dispatch active work through the A3 runner."""
     dependency_failure = dependency_error()
     if dependency_failure is not None:
         return dependency_failure
@@ -31,8 +39,19 @@ def route(
         return unsupported_envelope("Dolt")
     supported = _SUPPORTED.get((command, normalized_source, normalized_target))
     if supported is not None:
-        agent, script = supported
-        return success({"agent": agent, "script": f"scripts/{script}"})
+        agent, _ = supported
+        if backend is None or repository_root is None:
+            return _unsupported(
+                "RAPTOR.ROUTE.CONTEXT",
+                "Active routes require a client backend and repository root.",
+                "Invoke the route through the Claude or Codex client adapter.",
+            )
+        return run_agent(
+            agent=agent,
+            params=params or {},
+            backend=backend,
+            repository_root=repository_root,
+        )
     owner = (
         "A5"
         if command == "round-trip"

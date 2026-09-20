@@ -37,7 +37,7 @@ def main() -> int:
                 _required(arguments.input, "--input"),
                 profile_id=arguments.profile,
                 profile_version=arguments.profile_version,
-                reference_mode=arguments.reference_mode or "document",
+                reference_mode=arguments.reference_mode,
                 database=arguments.database,
                 allow_profile_code=arguments.allow_profile_code,
             )

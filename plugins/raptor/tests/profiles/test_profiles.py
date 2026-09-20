@@ -16,6 +16,7 @@ from raptor_schema import (
 )
 
 from runtime.profiles import RaptorMarkdownProfile, resolve_profile
+from runtime import profiles as profile_runtime
 from runtime.identity import register_identity
 from runtime.operations import validate_markdown
 
@@ -23,24 +24,26 @@ from runtime.operations import validate_markdown
 def _external(root: Path, source: str, *, version: str = "1.0.0") -> Path:
     directory = root / ".raptor/profiles/consumer" / version
     directory.mkdir(parents=True)
-    module = directory / "profile.py"
+    module = directory / "implementation.json"
     module.write_text(source)
     descriptor = {
         "profile_id": "consumer",
         "profile_version": version,
         "api_version": "1",
-        "entrypoint": "profile.py:Profile",
+        "entrypoint": "implementation.json:raptor-markdown",
         "module_sha256": hashlib.sha256(module.read_bytes()).hexdigest(),
     }
     (directory / "profile.json").write_text(json.dumps(descriptor))
     return directory
 
 
-GOOD = """from runtime.profiles import RaptorMarkdownProfile
-class Profile(RaptorMarkdownProfile):
-    profile_id = 'consumer'
-    profile_version = '1.0.0'
-"""
+GOOD = json.dumps(
+    {
+        "kind": "raptor-markdown-profile",
+        "profile_id": "consumer",
+        "profile_version": "1.0.0",
+    }
+)
 
 
 def test_builtin_implements_a1_boundary_without_redefinition(tmp_path: Path) -> None:
@@ -76,6 +79,26 @@ def test_external_profile_requires_trust_and_resolves_compatible_version(
         resolve_profile(root, "consumer")
     profile = resolve_profile(root, "consumer", "1.x", allow_profile_code=True)
     assert profile.profile_version == "1.0.0"
+    (root / "docs").mkdir()
+    (root / "docs/source.md").write_text(
+        "### REQ-RAP-001 — Requirement\nStatement.\nAcceptance: accepted.\n"
+    )
+    register_identity(
+        root,
+        repository_id="urn:raptor:repo:consumer",
+        document_id="DOC-RAP-001",
+        repository_path="docs/source.md",
+        apply=True,
+    )
+    assert (
+        validate_markdown(
+            root,
+            "docs/source.md",
+            profile_id="consumer",
+            allow_profile_code=True,
+        )["diagnostics"]
+        == []
+    )
     with pytest.raises(ValueError, match="RAPTOR.PROFILE.VERSION"):
         resolve_profile(root, "consumer", "2.x", allow_profile_code=True)
     assert resolve_profile(root, "raptor").profile_id == "raptor"
@@ -103,19 +126,29 @@ def test_descriptor_api_entrypoint_and_hash_fail_closed(
         resolve_profile(root, "consumer", allow_profile_code=True)
 
 
-def test_symlink_and_network_capable_profile_are_rejected(tmp_path: Path) -> None:
+@pytest.mark.parametrize(
+    "source",
+    [
+        "import importlib; importlib.import_module('socket')",
+        "import smtplib; smtplib.SMTP('example.test')",
+        "import subprocess; subprocess.run(['true'])",
+    ],
+)
+def test_symlink_and_executable_profiles_are_rejected(
+    tmp_path: Path, source: str
+) -> None:
     root = tmp_path / "consumer"
     root.mkdir()
     directory = _external(root, GOOD)
-    module = directory / "profile.py"
+    module = directory / "implementation.json"
     real = directory / "real.py"
     module.rename(real)
     module.symlink_to(real.name)
     with pytest.raises(ValueError, match="RAPTOR.PROFILE.ENTRYPOINT"):
         resolve_profile(root, "consumer", allow_profile_code=True)
-    root2 = tmp_path / "network"
+    root2 = tmp_path / "executable"
     root2.mkdir()
-    _external(root2, "import socket\n" + GOOD)
+    _external(root2, source)
     with pytest.raises(ValueError, match="RAPTOR.PROFILE.NETWORK"):
         resolve_profile(root2, "consumer", allow_profile_code=True)
 
@@ -126,7 +159,9 @@ def test_duplicate_profile_version_is_ambiguous(tmp_path: Path) -> None:
     first = _external(root, GOOD)
     second = first.parent / "duplicate"
     second.mkdir()
-    (second / "profile.py").write_bytes((first / "profile.py").read_bytes())
+    (second / "implementation.json").write_bytes(
+        (first / "implementation.json").read_bytes()
+    )
     (second / "profile.json").write_bytes((first / "profile.json").read_bytes())
     with pytest.raises(ValueError, match="RAPTOR.PROFILE.AMBIGUOUS"):
         resolve_profile(root, "consumer", allow_profile_code=True)
@@ -142,41 +177,31 @@ def test_profile_root_symlink_is_rejected(tmp_path: Path) -> None:
         resolve_profile(root, "consumer", allow_profile_code=True)
 
 
+def test_verified_declaration_bytes_are_not_reopened_by_path(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    root = tmp_path / "consumer"
+    root.mkdir()
+    directory = _external(root, GOOD)
+    original = profile_runtime.read_repository_bytes
+
+    def swap_after_open(repository_root: Path, relative: str) -> bytes:
+        value = original(repository_root, relative)
+        if relative.endswith("implementation.json"):
+            (directory / "implementation.json").write_text("import subprocess")
+        return value
+
+    monkeypatch.setattr(profile_runtime, "read_repository_bytes", swap_after_open)
+    profile = resolve_profile(root, "consumer", allow_profile_code=True)
+    assert profile.profile_id == "consumer"
+
+
 def test_invalid_profile_contract_is_rejected(tmp_path: Path) -> None:
     root = tmp_path / "consumer"
     root.mkdir()
-    _external(
-        root, "class Profile:\n profile_id='consumer'\n profile_version='1.0.0'\n"
-    )
-    with pytest.raises(ValueError, match="RAPTOR.PROFILE.RETURN_TYPE"):
+    _external(root, json.dumps({"kind": "other"}))
+    with pytest.raises(ValueError, match="RAPTOR.PROFILE.NETWORK"):
         resolve_profile(root, "consumer", allow_profile_code=True)
-
-
-def test_invalid_profile_return_type_is_rejected_at_runtime(tmp_path: Path) -> None:
-    root = tmp_path / "consumer"
-    (root / "docs").mkdir(parents=True)
-    (root / "docs/source.md").write_text("source")
-    source = """class Profile:
- profile_id='consumer'
- profile_version='1.0.0'
- def parse(self, source): return {}
- def validate(self, parsed): return []
- def canonicalize(self, parsed): return {}
- def project_render_input(self, document): return {}
- def normalize(self, document): return {}
-"""
-    _external(root, source)
-    register_identity(
-        root,
-        repository_id="urn:raptor:repo:consumer",
-        document_id="DOC-RAP-001",
-        repository_path="docs/source.md",
-        apply=True,
-    )
-    with pytest.raises(ValueError, match="RAPTOR.PROFILE.RETURN_TYPE"):
-        validate_markdown(
-            root, "docs/source.md", profile_id="consumer", allow_profile_code=True
-        )
 
 
 def test_identity_symlink_escape_is_rejected(tmp_path: Path) -> None:

@@ -37,5 +37,8 @@ The table/key/foreign-key contract and JSON checks in
 `sqlite/0001_initial.sql` are the SQLite authority. The `ArtifactStore`
 protocol and conformance helper are dialect-neutral; connection handling,
 `json_valid`, foreign-key pragmas, and transaction syntax are SQLite-specific.
+`SQLiteArtifactStore.open_read_only`, `validate`, and `list_document_keys`
+provide the plugin boundary for immutable validation and enumeration without
+duplicating SQL outside the adapter.
 The wheel build force-includes that authoritative file as a package resource;
 there is no second checked-in DDL copy.

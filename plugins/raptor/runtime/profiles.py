@@ -1,8 +1,6 @@
 from __future__ import annotations
 
-import ast
 import hashlib
-import importlib.util
 import re
 from pathlib import Path
 from typing import cast
@@ -11,6 +9,7 @@ from pydantic import TypeAdapter
 
 from raptor_schema import (
     ArchitectureDecision,
+    DesignDocument,
     Diagnostic,
     JsonObject,
     MaterializationProvenance,
@@ -22,6 +21,7 @@ from raptor_schema import (
     SourceDocument,
     SourceLocation,
     SourceProvenance,
+    TestPlan,
     validate_json_object,
 )
 from raptor_schema.profiles import (
@@ -35,21 +35,60 @@ from raptor_schema.profiles import (
 )
 
 from .strict_json import loads
+from .io import read_repository_bytes
 
 _HEADING = re.compile(
     r"^###\s+((?:REQ|NFR|ADR|DES|TST)-[A-Z0-9][A-Z0-9-]*-[0-9]{3,})\s+[—-]\s+(.+?)\s*$",
     re.MULTILINE,
 )
-_JSON_BLOCK = re.compile(r"```raptor-json\s*\n(.*?)\n```", re.DOTALL)
 
 
 def _paragraph(value: str) -> str:
     return " ".join(line.strip() for line in value.strip().splitlines() if line.strip())
 
 
+def _native_fields(body: str) -> dict[str, str]:
+    fields: dict[str, str] = {}
+    for line in body.splitlines():
+        if ":" not in line:
+            continue
+        name, value = line.split(":", 1)
+        fields[name.strip().lower()] = value.strip()
+    return fields
+
+
+def _required_field(fields: dict[str, str], name: str) -> str:
+    value = fields.get(name, "")
+    if not value:
+        raise ValueError(f"RAPTOR.PROFILE.CANONICALIZE: missing {name}")
+    return value
+
+
+def _parts(fields: dict[str, str], name: str, count: int) -> list[str]:
+    values = [item.strip() for item in _required_field(fields, name).split("|")]
+    if len(values) != count or any(not item for item in values):
+        raise ValueError(f"RAPTOR.PROFILE.CANONICALIZE: invalid {name}")
+    return values
+
+
+def _artifact_keys(value: str) -> list[dict[str, str]]:
+    if not value:
+        return []
+    keys: list[dict[str, str]] = []
+    for item in value.split(","):
+        repository_id, separator, artifact_id = item.strip().rpartition("/")
+        if not separator:
+            raise ValueError("RAPTOR.PROFILE.CANONICALIZE: invalid artifact key")
+        keys.append({"repository_id": repository_id, "artifact_id": artifact_id})
+    return keys
+
+
 class RaptorMarkdownProfile:
-    profile_id = "raptor"
-    profile_version = "1.0.0"
+    def __init__(
+        self, profile_id: str = "raptor", profile_version: str = "1.0.0"
+    ) -> None:
+        self.profile_id = profile_id
+        self.profile_version = profile_version
 
     def parse(self, source: SourceInput) -> ParsedDocument:
         try:
@@ -89,19 +128,6 @@ class RaptorMarkdownProfile:
                         attributes={"artifact_id": heading.group(1)},
                     )
                 )
-        for match in _JSON_BLOCK.finditer(text):
-            sections.append(
-                ParsedSection(
-                    kind="JSON",
-                    heading=None,
-                    body=match.group(1),
-                    location=SourceLocation(
-                        start_line=text.count("\n", 0, match.start()) + 1,
-                        start_column=1,
-                    ),
-                    attributes={},
-                )
-            )
         if not sections:
             raise ValueError("RAPTOR.PROFILE.PARSE: no Raptor artifacts found")
         return ParsedDocument(source=source, frontmatter={}, sections=tuple(sections))
@@ -113,11 +139,6 @@ class RaptorMarkdownProfile:
         artifacts: list[object] = []
         repository_id = parsed.source.repository_id
         for section in parsed.sections:
-            if section.kind == "JSON":
-                value = loads(section.body)
-                values = value if isinstance(value, list) else [value]
-                artifacts.extend(values)
-                continue
             artifact_id = str(section.attributes["artifact_id"])
             location = section.location.model_dump(mode="json")
             if section.kind in {"REQ", "NFR"}:
@@ -190,6 +211,74 @@ class RaptorMarkdownProfile:
                             ],
                             "source_location": location,
                         },
+                    )
+                )
+            elif section.kind == "DES":
+                fields = _native_fields(section.body)
+                component = _parts(fields, "component", 2)
+                interface = _parts(fields, "interface", 3)
+                artifacts.append(
+                    DesignDocument.model_validate(
+                        {
+                            "artifact_type": "design_document",
+                            "id": artifact_id,
+                            "title": section.heading,
+                            "status": "proposed",
+                            "overview": _required_field(fields, "overview"),
+                            "components": [
+                                {
+                                    "name": component[0],
+                                    "responsibility": component[1],
+                                    "dependencies": _artifact_keys(
+                                        fields.get("dependencies", "")
+                                    ),
+                                }
+                            ],
+                            "interfaces": [
+                                {
+                                    "name": interface[0],
+                                    "description": interface[1],
+                                    "participants": [
+                                        item.strip() for item in interface[2].split(",")
+                                    ],
+                                }
+                            ],
+                            "source_location": location,
+                        }
+                    )
+                )
+            elif section.kind == "TST":
+                fields = _native_fields(section.body)
+                case = _parts(fields, "test case", 4)
+                verifies = _artifact_keys(_required_field(fields, "verifies"))
+                artifacts.append(
+                    TestPlan.model_validate(
+                        {
+                            "artifact_type": "test_plan",
+                            "id": artifact_id,
+                            "title": section.heading,
+                            "status": "proposed",
+                            "objective": _required_field(fields, "objective"),
+                            "scope": _required_field(fields, "scope"),
+                            "test_cases": [
+                                {
+                                    "id": case[0],
+                                    "title": case[1],
+                                    "steps": [
+                                        item.strip() for item in case[2].split(";")
+                                    ],
+                                    "expected_result": case[3],
+                                    "verifies": verifies,
+                                }
+                            ],
+                            "entry_criteria": [
+                                item.strip()
+                                for item in fields.get("entry criteria", "").split(";")
+                                if item.strip()
+                            ],
+                            "exit_criteria": [_required_field(fields, "exit criteria")],
+                            "source_location": location,
+                        }
                     )
                 )
         digest = hashlib.sha256(parsed.source.content).hexdigest()
@@ -289,7 +378,11 @@ def resolve_profile(
                 "RAPTOR.PROFILE.ENTRYPOINT: descriptor escapes root"
             ) from error
         try:
-            raw_descriptor = loads(resolved.read_text())
+            raw_descriptor = loads(
+                read_repository_bytes(
+                    root, descriptor_path.relative_to(root).as_posix()
+                ).decode("utf-8")
+            )
             if not isinstance(raw_descriptor, dict):
                 raise ValueError("descriptor must be an object")
             descriptor = ProfileDescriptor(**raw_descriptor)
@@ -327,12 +420,13 @@ def resolve_profile(
     descriptor, directory = compatible[-1]
     if descriptor.api_version != "1":
         raise ValueError("RAPTOR.PROFILE.API: unsupported profile API")
-    module_name, separator, class_name = descriptor.entrypoint.partition(":")
+    module_name, separator, implementation_name = descriptor.entrypoint.partition(":")
     raw_module_path = directory / module_name
     module_path = raw_module_path.resolve()
     if (
         not separator
-        or not class_name
+        or implementation_name != "raptor-markdown"
+        or Path(module_name).suffix != ".json"
         or directory.resolve() not in module_path.parents
     ):
         raise ValueError("RAPTOR.PROFILE.ENTRYPOINT: invalid profile entrypoint")
@@ -340,70 +434,30 @@ def resolve_profile(
         raise ValueError(
             "RAPTOR.PROFILE.ENTRYPOINT: profile module is not a regular file"
         )
-    module_bytes = module_path.read_bytes()
+    module_bytes = read_repository_bytes(
+        root, raw_module_path.relative_to(root).as_posix()
+    )
     if hashlib.sha256(module_bytes).hexdigest() != descriptor.module_sha256:
         raise ValueError("RAPTOR.PROFILE.HASH: profile module hash mismatch")
-    tree = ast.parse(module_bytes, filename=str(module_path))
-    forbidden_roots = {"socket", "urllib", "http", "requests", "aiohttp", "ftplib"}
-    if any(
-        (
-            isinstance(node, ast.Import)
-            and any(
-                item.name.split(".", 1)[0] in forbidden_roots for item in node.names
-            )
-        )
-        or (
-            isinstance(node, ast.ImportFrom)
-            and (node.module or "").split(".", 1)[0] in forbidden_roots
-        )
-        for node in ast.walk(tree)
-    ):
-        raise ValueError(
-            "RAPTOR.PROFILE.NETWORK: profile imports network-capable modules"
-        )
-    if any(
-        isinstance(node, ast.Call)
-        and isinstance(node.func, ast.Name)
-        and node.func.id in {"__import__", "eval", "exec"}
-        for node in ast.walk(tree)
-    ):
-        raise ValueError("RAPTOR.PROFILE.NETWORK: dynamic loading is not permitted")
-    spec = importlib.util.spec_from_file_location(
-        f"raptor_external_{profile_id}_{descriptor.profile_version}", module_path
-    )
-    if spec is None or spec.loader is None:
-        raise ValueError("RAPTOR.PROFILE.ENTRYPOINT: profile cannot be loaded")
-    module = importlib.util.module_from_spec(spec)
     try:
-        spec.loader.exec_module(module)
+        declaration = loads(module_bytes.decode("utf-8"))
     except Exception as error:
         raise ValueError(
-            "RAPTOR.PROFILE.ENTRYPOINT: profile module failed to load"
+            "RAPTOR.PROFILE.NETWORK: external profiles must be declarative"
         ) from error
-    implementation = getattr(module, class_name, None)
-    if not isinstance(implementation, type):
-        raise ValueError("RAPTOR.PROFILE.ENTRYPOINT: profile class is missing")
-    try:
-        profile = implementation()
-    except Exception as error:
+    expected = {
+        "kind": "raptor-markdown-profile",
+        "profile_id": descriptor.profile_id,
+        "profile_version": descriptor.profile_version,
+    }
+    if declaration != expected:
         raise ValueError(
-            "RAPTOR.PROFILE.ENTRYPOINT: profile construction failed"
-        ) from error
-    required = (
-        "parse",
-        "validate",
-        "canonicalize",
-        "project_render_input",
-        "normalize",
+            "RAPTOR.PROFILE.NETWORK: external profiles must be declarative"
+        )
+    return cast(
+        SourceProfile,
+        RaptorMarkdownProfile(descriptor.profile_id, descriptor.profile_version),
     )
-    if any(not callable(getattr(profile, name, None)) for name in required):
-        raise ValueError("RAPTOR.PROFILE.RETURN_TYPE: profile contract is incomplete")
-    if (
-        getattr(profile, "profile_id", None) != descriptor.profile_id
-        or getattr(profile, "profile_version", None) != descriptor.profile_version
-    ):
-        raise ValueError("RAPTOR.PROFILE.RETURN_TYPE: profile identity differs")
-    return cast(SourceProfile, profile)
 
 
 __all__ = ["RaptorMarkdownProfile", "resolve_profile"]

@@ -159,6 +159,27 @@ def test_initialize_in_memory_file_backed_and_idempotent(tmp_path: Path) -> None
     ).fetchone() == (2,)
 
 
+def test_read_only_validation_and_document_enumeration(
+    tmp_path: Path, document: SourceDocument
+) -> None:
+    path = tmp_path / "read-only.db"
+    writer = SQLiteArtifactStore(path)
+    writer.initialize()
+    writer.put_document(document)
+    writer.close()
+    before = path.read_bytes(), path.stat().st_mtime_ns
+    reader = SQLiteArtifactStore.open_read_only(path)
+    reader.validate()
+    assert reader.list_document_keys() == [key(document)]
+    assert reader.get_document(key(document)) == document
+    with pytest.raises(sqlite3.OperationalError):
+        reader.delete_document(key(document))
+    reader.close()
+    assert (path.read_bytes(), path.stat().st_mtime_ns) == before
+    assert not path.with_name(f"{path.name}-journal").exists()
+    assert not path.with_name(f"{path.name}-wal").exists()
+
+
 def test_constructor_rejects_borrowed_connection_and_ddl_override() -> None:
     connection = sqlite3.connect(":memory:")
     with pytest.raises(TypeError, match="store-owned"):

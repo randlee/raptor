@@ -13,6 +13,8 @@ from runtime.plugin_validation import COMMANDS, validate_plugin
 from runtime.plugin_validation import PluginValidationError
 from runtime import routes
 from runtime.routes import route
+from runtime.client_adapters.claude import ClaudeBackend
+from runtime.client_adapters.codex import CodexBackend
 
 ROOT = Path(__file__).parents[2]
 REPO = ROOT.parents[1]
@@ -30,31 +32,51 @@ def test_dual_manifests_expose_exact_commands() -> None:
 
 def test_six_a4_routes_are_active_and_later_routes_remain_unsupported(
     monkeypatch: pytest.MonkeyPatch,
+    tmp_path: Path,
 ) -> None:
-    import runtime.agent_runner as runner
+    invoked: list[tuple[str, object]] = []
 
-    invoked = False
+    def dispatch(**values: object) -> dict[str, object]:
+        invoked.append((str(values["agent"]), values["backend"]))
+        return {
+            "success": True,
+            "data": {"dispatched": values["agent"]},
+            "metadata": {"tool_calls": 0},
+        }
 
-    def forbidden(**values: object) -> object:
-        nonlocal invoked
-        invoked = True
-        raise AssertionError(values)
-
-    monkeypatch.setattr(runner, "run_agent", forbidden)
+    monkeypatch.setattr(routes, "run_agent", dispatch)
+    (tmp_path / ".raptor").mkdir()
+    claude, codex = ClaudeBackend("claude"), CodexBackend("codex")
     supported = {
-        ("import", "markdown", "json"): ("markdown-json-import", "scripts/markdown_to_json.py"),
-        ("import", "json", "sqlite"): ("json-sqlite-import", "scripts/import_sqlite.py"),
-        ("export", "sqlite", "json"): ("sqlite-json-export", "scripts/export_sqlite.py"),
+        ("import", "markdown", "json"): (
+            "markdown-json-import",
+            "scripts/markdown_to_json.py",
+        ),
+        ("import", "json", "sqlite"): (
+            "json-sqlite-import",
+            "scripts/import_sqlite.py",
+        ),
+        ("export", "sqlite", "json"): (
+            "sqlite-json-export",
+            "scripts/export_sqlite.py",
+        ),
         ("validate", "markdown", None): ("markdown-validate", "scripts/validate.py"),
         ("validate", "json", None): ("json-validate", "scripts/validate.py"),
         ("validate", "sqlite", None): ("sqlite-validate", "scripts/validate.py"),
     }
-    for (command, source, target), (agent, script) in supported.items():
-        result = route(command, source, target)
-        assert result["success"] is True
-        assert result["data"] == {"agent": agent, "script": script}
-        assert script in (ROOT / f"agents/{agent}.md").read_text()
-        assert result["metadata"]["tool_calls"] == 0
+    for backend in (claude, codex):
+        for (command, source, target), (agent, script) in supported.items():
+            result = route(
+                command,
+                source,
+                target,
+                backend=backend,
+                repository_root=tmp_path,
+                params={"apply": False},
+            )
+            assert result["success"] is True
+            assert result["data"] == {"dispatched": agent}
+            assert script in (ROOT / f"agents/{agent}.md").read_text()
     cases = [
         ("import", "json", "dolt"),
         ("export", "json", "markdown"),
@@ -73,7 +95,7 @@ def test_six_a4_routes_are_active_and_later_routes_remain_unsupported(
         )
         assert result["error"]["code"] == expected
         assert result["metadata"]["tool_calls"] == 0
-    assert not invoked
+    assert len(invoked) == 12
 
 
 def test_dependency_failure_stops_before_route(

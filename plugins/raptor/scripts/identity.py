@@ -23,6 +23,7 @@ def main() -> int:
     register.add_argument("--repository-id", required=True)
     register.add_argument("--document-id", required=True)
     register.add_argument("--path", required=True)
+    register.add_argument("--registered-repository-id")
     mode = register.add_mutually_exclusive_group()
     mode.add_argument("--validate", action="store_true")
     mode.add_argument("--apply", action="store_true")
@@ -33,6 +34,7 @@ def main() -> int:
             repository_id=arguments.repository_id,
             document_id=arguments.document_id,
             repository_path=arguments.path,
+            registered_repository_id=arguments.registered_repository_id,
             apply=arguments.apply,
         )
     )

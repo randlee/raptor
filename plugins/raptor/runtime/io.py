@@ -11,6 +11,111 @@ from pathlib import Path
 from typing import Any
 
 
+def repository_parts(value: str) -> tuple[str, ...]:
+    path = Path(value)
+    if (
+        not value
+        or value == "-"
+        or "\\" in value
+        or path.is_absolute()
+        or any(part in {"", ".", ".."} for part in path.parts)
+    ):
+        raise ValueError(
+            "RAPTOR.PATH.OUTSIDE_ROOT: path must be normalized and relative"
+        )
+    return path.parts
+
+
+def read_repository_bytes(repository_root: Path, relative: str) -> bytes:
+    """Read one repository file without following any path-component symlink."""
+    parts = repository_parts(relative)
+    if os.name == "nt":
+        path = repository_root.joinpath(*parts)
+        if any(
+            item.is_symlink()
+            for item in (path, *path.parents)
+            if item != repository_root.parent
+        ):
+            raise ValueError("RAPTOR.PATH.OUTSIDE_ROOT: symlinks are not allowed")
+        return path.read_bytes()
+    directory_flags = os.O_RDONLY | os.O_DIRECTORY | getattr(os, "O_NOFOLLOW", 0)
+    descriptor = os.open(repository_root, directory_flags)
+    try:
+        for part in parts[:-1]:
+            child = os.open(part, directory_flags, dir_fd=descriptor)
+            os.close(descriptor)
+            descriptor = child
+        file_descriptor = os.open(
+            parts[-1], os.O_RDONLY | getattr(os, "O_NOFOLLOW", 0), dir_fd=descriptor
+        )
+        if not stat.S_ISREG(os.fstat(file_descriptor).st_mode):
+            os.close(file_descriptor)
+            raise ValueError("RAPTOR.PATH.OUTSIDE_ROOT: source must be a regular file")
+        with os.fdopen(file_descriptor, "rb") as stream:
+            return stream.read()
+    except OSError as error:
+        raise ValueError(
+            "RAPTOR.PATH.OUTSIDE_ROOT: file is missing or unsafe"
+        ) from error
+    finally:
+        os.close(descriptor)
+
+
+def atomic_repository_bytes(repository_root: Path, relative: str, value: bytes) -> None:
+    """Atomically publish one file below an existing, no-follow directory tree."""
+    parts = repository_parts(relative)
+    if os.name == "nt":
+        destination = repository_root.joinpath(*parts)
+        if any(
+            item.is_symlink()
+            for item in destination.parents
+            if item != repository_root.parent
+        ):
+            raise ValueError("RAPTOR.PATH.OUTSIDE_ROOT: symlinks are not allowed")
+        destination.parent.mkdir(parents=True, exist_ok=True)
+        descriptor, temporary = tempfile.mkstemp(dir=destination.parent)
+        try:
+            with os.fdopen(descriptor, "wb") as stream:
+                stream.write(value)
+                stream.flush()
+                os.fsync(stream.fileno())
+            os.replace(temporary, destination)
+        finally:
+            if os.path.exists(temporary):
+                os.unlink(temporary)
+        return
+    flags = os.O_RDONLY | os.O_DIRECTORY | getattr(os, "O_NOFOLLOW", 0)
+    descriptor = os.open(repository_root, flags)
+    temporary = f".{parts[-1]}.{secrets.token_hex(8)}"
+    try:
+        for part in parts[:-1]:
+            try:
+                os.mkdir(part, mode=0o755, dir_fd=descriptor)
+            except FileExistsError:
+                pass
+            child = os.open(part, flags, dir_fd=descriptor)
+            os.close(descriptor)
+            descriptor = child
+        file_descriptor = os.open(
+            temporary,
+            os.O_WRONLY | os.O_CREAT | os.O_EXCL | getattr(os, "O_NOFOLLOW", 0),
+            0o600,
+            dir_fd=descriptor,
+        )
+        with os.fdopen(file_descriptor, "wb") as stream:
+            stream.write(value)
+            stream.flush()
+            os.fsync(stream.fileno())
+        os.replace(temporary, parts[-1], src_dir_fd=descriptor, dst_dir_fd=descriptor)
+        os.fsync(descriptor)
+    finally:
+        try:
+            os.unlink(temporary, dir_fd=descriptor)
+        except FileNotFoundError:
+            pass
+        os.close(descriptor)
+
+
 def fsync_directory(path: Path) -> None:
     if os.name == "nt":
         return

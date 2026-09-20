@@ -27,7 +27,6 @@ def main() -> int:
     parser.add_argument(
         "--reference-mode",
         choices=("structural", "document", "batch", "store"),
-        default="document",
     )
     mode = parser.add_mutually_exclusive_group()
     mode.add_argument("--validate", action="store_true")

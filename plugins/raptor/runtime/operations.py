@@ -1,9 +1,8 @@
 from __future__ import annotations
 
-import os
-import shutil
-import sqlite3
 import tempfile
+from contextlib import contextmanager
+from collections.abc import Iterator
 from pathlib import Path, PurePosixPath
 from typing import Any
 
@@ -22,6 +21,7 @@ from raptor_schema import (
 from raptor_schema.profiles import ParsedDocument, SourceInput
 
 from .identity import document_identity
+from .io import atomic_repository_bytes, read_repository_bytes, repository_parts
 from .profiles import resolve_profile
 
 
@@ -35,35 +35,17 @@ def repository_path(
     raw = str(value)
     if not root.is_dir() or not raw or raw == "-" or "\\" in raw:
         raise ValueError("RAPTOR.PATH.OUTSIDE_ROOT: path must be repository-relative")
-    relative = PurePosixPath(raw)
-    if relative.is_absolute() or any(
-        part in {"", ".", ".."} for part in relative.parts
+    relative = PurePosixPath(*repository_parts(raw))
+    candidate = root.joinpath(*relative.parts)
+    if any(
+        item.is_symlink()
+        for item in (candidate, *candidate.parents)
+        if item != root.parent
     ):
-        raise ValueError("RAPTOR.PATH.OUTSIDE_ROOT: path must be normalized")
-    candidate = root.joinpath(*relative.parts).resolve()
-    try:
-        candidate.relative_to(root)
-    except ValueError as error:
-        raise ValueError(
-            "RAPTOR.PATH.OUTSIDE_ROOT: path escapes repository root"
-        ) from error
+        raise ValueError("RAPTOR.PATH.OUTSIDE_ROOT: symlinks are not allowed")
     if must_exist and not candidate.exists():
         raise ValueError("RAPTOR.PATH.OUTSIDE_ROOT: input does not exist")
     return candidate, relative.as_posix()
-
-
-def _atomic_text(path: Path, value: str) -> None:
-    path.parent.mkdir(parents=True, exist_ok=True)
-    descriptor, temporary = tempfile.mkstemp(prefix=f".{path.name}.", dir=path.parent)
-    try:
-        with os.fdopen(descriptor, "w", encoding="utf-8") as stream:
-            stream.write(value)
-            stream.flush()
-            os.fsync(stream.fileno())
-        os.replace(temporary, path)
-    finally:
-        if os.path.exists(temporary):
-            os.unlink(temporary)
 
 
 def _markdown_sources(
@@ -80,6 +62,8 @@ def _markdown_sources(
         if source_path.is_dir()
         else (source_path,)
     )
+    if not paths:
+        raise ValueError("RAPTOR.OPERATION.EMPTY_INPUT: no Markdown documents found")
     profile = resolve_profile(
         repository_root,
         profile_id,
@@ -96,7 +80,7 @@ def _markdown_sources(
             repository_id=repository_id,
             document_id=document_id,
             repository_path=PurePosixPath(relative),
-            content=path.read_bytes(),
+            content=read_repository_bytes(root, relative),
         )
         try:
             parsed = profile.parse(source)
@@ -140,7 +124,7 @@ def validate_markdown(
     *,
     profile_id: str = "raptor",
     profile_version: str | None = None,
-    reference_mode: str = "document",
+    reference_mode: str | None = None,
     database: str | None = None,
     allow_profile_code: bool = False,
 ) -> dict[str, Any]:
@@ -151,7 +135,12 @@ def validate_markdown(
         profile_version=profile_version,
         allow_profile_code=allow_profile_code,
     )
-    _validate_references(repository_root, documents, reference_mode, database)
+    selected_mode = reference_mode or ("batch" if len(documents) > 1 else "document")
+    if len(documents) > 1 and selected_mode != "batch":
+        raise ValueError(
+            "RAPTOR.REFERENCE.MODE_MISMATCH: directories require batch mode"
+        )
+    _validate_references(repository_root, documents, selected_mode, database)
     return {
         "diagnostics": [],
         "documents": [
@@ -172,7 +161,7 @@ def markdown_to_json(
     *,
     profile_id: str = "raptor",
     profile_version: str | None = None,
-    reference_mode: str = "document",
+    reference_mode: str | None = None,
     database: str | None = None,
     allow_profile_code: bool = False,
     apply: bool = False,
@@ -184,25 +173,56 @@ def markdown_to_json(
         profile_version=profile_version,
         allow_profile_code=allow_profile_code,
     )
-    _validate_references(repository_root, documents, reference_mode, database)
-    if len(documents) != 1:
+    selected_mode = reference_mode or ("batch" if len(documents) > 1 else "document")
+    if len(documents) > 1 and selected_mode != "batch":
         raise ValueError(
-            "RAPTOR.OPERATION.CARDINALITY: one output requires one document"
+            "RAPTOR.REFERENCE.MODE_MISMATCH: directories require batch mode"
         )
-    canonical = dump_canonical_json(documents[0])
+    _validate_references(repository_root, documents, selected_mode, database)
+    canonical = dump_canonical_json(documents[0]) if len(documents) == 1 else None
     if output_path == "-":
+        if canonical is None:
+            raise ValueError(
+                "RAPTOR.OPERATION.CARDINALITY: directory import requires an output directory"
+            )
         return {"applied": False, "canonical_json": canonical}
-    destination, relative = repository_path(repository_root, output_path)
+    _, relative = repository_path(repository_root, output_path)
+    outputs = (
+        [(relative, documents[0], canonical)]
+        if canonical is not None
+        else [
+            (
+                f"{relative}/{item.provenance.origin.document_id}.json",
+                item,
+                dump_canonical_json(item),
+            )
+            for item in documents
+        ]
+    )
     if apply:
-        _atomic_text(destination, canonical)
-    return {
+        for target, _, body in outputs:
+            atomic_repository_bytes(repository_root.resolve(), target, body.encode())
+    result: dict[str, Any] = {
         "applied": apply,
-        "output": relative,
-        "document": {
-            "repository_id": documents[0].provenance.origin.repository_id,
-            "document_id": documents[0].provenance.origin.document_id,
-        },
+        "outputs": [target for target, _, _ in outputs],
+        "documents": [
+            {
+                "repository_id": item.provenance.origin.repository_id,
+                "document_id": item.provenance.origin.document_id,
+            }
+            for _, item, _ in outputs
+        ],
     }
+    if len(outputs) == 1:
+        target, item, _ = outputs[0]
+        result.update(
+            output=target,
+            document={
+                "repository_id": item.provenance.origin.repository_id,
+                "document_id": item.provenance.origin.document_id,
+            },
+        )
+    return result
 
 
 def _json_documents(
@@ -210,7 +230,15 @@ def _json_documents(
 ) -> tuple[SourceDocument, ...]:
     path, _ = repository_path(repository_root, input_path, must_exist=True)
     paths = tuple(sorted(path.rglob("*.json"))) if path.is_dir() else (path,)
-    return tuple(load_canonical_json(item.read_bytes()) for item in paths)
+    if not paths:
+        raise ValueError("RAPTOR.OPERATION.EMPTY_INPUT: no JSON documents found")
+    root = repository_root.resolve()
+    return tuple(
+        load_canonical_json(
+            read_repository_bytes(root, item.relative_to(root).as_posix())
+        )
+        for item in paths
+    )
 
 
 class _Resolver:
@@ -230,6 +258,30 @@ class _Resolver:
         )
 
 
+@contextmanager
+def _read_only_store(
+    repository_root: Path, database: str
+) -> Iterator[SQLiteArtifactStore]:
+    database_path, _ = repository_path(repository_root, database, must_exist=True)
+    if any(
+        database_path.with_name(f"{database_path.name}{suffix}").exists()
+        for suffix in ("-wal", "-journal")
+    ):
+        raise ValueError(
+            "RAPTOR.STORAGE.READ_ONLY_SIDECAR: validation will not recover journal state"
+        )
+    payload = read_repository_bytes(repository_root.resolve(), database)
+    with tempfile.TemporaryDirectory() as directory:
+        snapshot = Path(directory) / "store.sqlite"
+        snapshot.write_bytes(payload)
+        store = SQLiteArtifactStore.open_read_only(snapshot)
+        try:
+            store.validate()
+            yield store
+        finally:
+            store.close()
+
+
 def _validate_references(
     repository_root: Path,
     documents: tuple[SourceDocument, ...],
@@ -237,30 +289,22 @@ def _validate_references(
     database: str | None,
 ) -> None:
     mode = ReferenceValidationMode(mode_value)
-    store: SQLiteArtifactStore | None = None
-    try:
-        if mode is ReferenceValidationMode.STORE:
-            if database is None:
-                raise ValueError(
-                    "RAPTOR.REFERENCE.RESOLVER_REQUIRED: store mode requires --database"
-                )
-            database_path, _ = repository_path(
-                repository_root, database, must_exist=True
+    if mode is ReferenceValidationMode.STORE:
+        if database is None:
+            raise ValueError(
+                "RAPTOR.REFERENCE.RESOLVER_REQUIRED: store mode requires --database"
             )
-            store = SQLiteArtifactStore(database_path)
-            # Existing stores are opened read-only at the operation boundary.
-        resolver = (
-            _Resolver(documents, store)
-            if mode is ReferenceValidationMode.STORE
-            else None
-        )
-        if len(documents) == 1 and mode is not ReferenceValidationMode.BATCH:
-            validate_document(documents[0], reference_mode=mode, resolver=resolver)
-        else:
-            validate_documents(documents, reference_mode=mode, resolver=resolver)
-    finally:
-        if store:
-            store.close()
+        with _read_only_store(repository_root, database) as store:
+            validate_documents(
+                documents,
+                reference_mode=mode,
+                resolver=_Resolver(documents, store),
+            )
+        return
+    if len(documents) == 1 and mode is not ReferenceValidationMode.BATCH:
+        validate_document(documents[0], reference_mode=mode)
+    else:
+        validate_documents(documents, reference_mode=mode)
 
 
 def validate_json(
@@ -284,25 +328,22 @@ def import_sqlite(
 ) -> dict[str, Any]:
     documents = _json_documents(repository_root, input_path)
     destination, relative = repository_path(repository_root, database)
-    # Exercise the complete write against an isolated clone before touching the
-    # requested resource. The real write remains one A2-managed transaction.
     with tempfile.TemporaryDirectory() as directory:
-        staged = Path(directory) / "validation.sqlite"
+        staged = Path(directory) / "staged.sqlite"
         if destination.exists():
-            shutil.copy2(destination, staged)
+            staged.write_bytes(
+                read_repository_bytes(repository_root.resolve(), relative)
+            )
         store = SQLiteArtifactStore(staged)
         try:
             store.initialize()
             store.put_documents(documents)
         finally:
             store.close()
-    if apply:
-        store = SQLiteArtifactStore(destination)
-        try:
-            store.initialize()
-            store.put_documents(documents)
-        finally:
-            store.close()
+        if apply:
+            atomic_repository_bytes(
+                repository_root.resolve(), relative, staged.read_bytes()
+            )
     return {"applied": apply, "database": relative, "document_count": len(documents)}
 
 
@@ -315,44 +356,24 @@ def export_sqlite(
     *,
     apply: bool = False,
 ) -> dict[str, Any]:
-    source, _ = repository_path(repository_root, database, must_exist=True)
-    store = SQLiteArtifactStore(source)
-    try:
+    repository_path(repository_root, database, must_exist=True)
+    with _read_only_store(repository_root, database) as store:
         document = store.get_document(
             DocumentKey(repository_id=repository_id, document_id=document_id)
         )
-    finally:
-        store.close()
     canonical = dump_canonical_json(document)
     if output_path == "-":
         return {"applied": False, "canonical_json": canonical}
-    destination, relative = repository_path(repository_root, output_path)
+    _, relative = repository_path(repository_root, output_path)
     if apply:
-        _atomic_text(destination, canonical)
+        atomic_repository_bytes(repository_root.resolve(), relative, canonical.encode())
     return {"applied": apply, "output": relative}
 
 
 def validate_sqlite(repository_root: Path, database: str) -> dict[str, Any]:
-    path, relative = repository_path(repository_root, database, must_exist=True)
-    connection = sqlite3.connect(f"file:{path}?mode=ro", uri=True)
-    try:
-        if connection.execute("PRAGMA integrity_check").fetchone() != ("ok",):
-            raise ValueError(
-                "RAPTOR.STORAGE.INTEGRITY_CONFLICT: integrity check failed"
-            )
-        keys = connection.execute(
-            "SELECT repository_id, document_id FROM source_documents ORDER BY repository_id, document_id"
-        ).fetchall()
-    finally:
-        connection.close()
-    store = SQLiteArtifactStore(path)
-    try:
-        for repository_id, document_id in keys:
-            store.get_document(
-                DocumentKey(repository_id=repository_id, document_id=document_id)
-            )
-    finally:
-        store.close()
+    _, relative = repository_path(repository_root, database, must_exist=True)
+    with _read_only_store(repository_root, database) as store:
+        keys = store.list_document_keys()
     return {"diagnostics": [], "database": relative, "document_count": len(keys)}
 
 
