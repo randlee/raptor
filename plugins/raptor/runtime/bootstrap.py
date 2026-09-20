@@ -138,6 +138,20 @@ def bootstrap(plugin_root: Path | None = None) -> ModuleType:
         for name, module in tuple(sys.modules.items())
         if name == "raptor_schema" or name.startswith("raptor_schema.")
     }
+    for module in prior.values():
+        try:
+            origin_value = module.__file__
+            if not isinstance(origin_value, str):
+                raise TypeError("module origin is not a path")
+            origin = Path(origin_value).resolve()
+        except (AttributeError, OSError, TypeError) as error:
+            raise BootstrapError(
+                "RAPTOR.BOOTSTRAP.PRECEDENCE: preloaded schema has no verified origin"
+            ) from error
+        if not origin.is_file() or live not in origin.parents:
+            raise BootstrapError(
+                "RAPTOR.BOOTSTRAP.PRECEDENCE: raptor_schema is already loaded from another path"
+            )
     for name in prior:
         sys.modules.pop(name, None)
     vendor_root = str(live.parent)

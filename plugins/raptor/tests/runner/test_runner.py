@@ -347,7 +347,7 @@ def test_audit_rejects_symlinked_destination(
     assert outside.read_text() == "safe"
 
 
-def test_audit_uuid_collision_never_overwrites_existing_record(
+def test_audit_uuid_collision_regenerates_without_overwriting_existing_record(
     monkeypatch: pytest.MonkeyPatch, tmp_path: Path
 ) -> None:
     logs = tmp_path / ".raptor/state/logs"
@@ -356,12 +356,16 @@ def test_audit_uuid_collision_never_overwrites_existing_record(
     existing.write_text("original")
 
     class Invocation:
-        hex = "fixed-invocation"
+        def __init__(self, value: str) -> None:
+            self.hex = value
 
-    monkeypatch.setattr(agent_runner.uuid, "uuid4", lambda: Invocation())
-    with pytest.raises(FileExistsError):
-        run(monkeypatch, tmp_path, Backend([envelope()]))
+    values = iter((Invocation("fixed-invocation"), Invocation("replacement")))
+    monkeypatch.setattr(agent_runner.uuid, "uuid4", lambda: next(values))
+    result = run(monkeypatch, tmp_path, Backend([envelope()]))
+    assert result["success"] is True
     assert existing.read_text() == "original"
+    replacement = json.loads((logs / "replacement.json").read_text())
+    assert replacement["invocation_id"] == "replacement"
 
 
 def test_windows_audit_verifies_open_handle_before_writing(

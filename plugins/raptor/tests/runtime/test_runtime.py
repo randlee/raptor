@@ -20,7 +20,13 @@ ROOT = Path(__file__).parents[2]
 
 
 def test_bootstrap_loads_verified_vendor(monkeypatch: pytest.MonkeyPatch) -> None:
-    prior = sys.modules.pop("raptor_schema", None)
+    prior = {
+        name: module
+        for name, module in tuple(sys.modules.items())
+        if name == "raptor_schema" or name.startswith("raptor_schema.")
+    }
+    for name in prior:
+        sys.modules.pop(name, None)
     monkeypatch.setattr(
         sys, "path", [item for item in sys.path if "schema/src" not in item]
     )
@@ -31,22 +37,26 @@ def test_bootstrap_loads_verified_vendor(monkeypatch: pytest.MonkeyPatch) -> Non
         for name in tuple(sys.modules):
             if name == "raptor_schema" or name.startswith("raptor_schema."):
                 sys.modules.pop(name)
-        if prior is not None:
-            sys.modules["raptor_schema"] = prior
+        sys.modules.update(prior)
 
 
-def test_bootstrap_replaces_already_loaded_foreign_module(
+def test_bootstrap_rejects_already_loaded_foreign_module_without_mutation(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     foreign = ModuleType("raptor_schema")
     foreign.__file__ = "/tmp/foreign/raptor_schema/__init__.py"
     monkeypatch.setitem(sys.modules, "raptor_schema", foreign)
-    assert bootstrap(ROOT) is not foreign
+    with pytest.raises(BootstrapError, match="PRECEDENCE"):
+        bootstrap(ROOT)
+    assert sys.modules["raptor_schema"] is foreign
 
 
 def test_bootstrap_replaces_forged_preloaded_vendor_modules(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
+    for name in tuple(sys.modules):
+        if name == "raptor_schema" or name.startswith("raptor_schema."):
+            monkeypatch.delitem(sys.modules, name, raising=False)
     fake = ModuleType("raptor_schema")
     fake.__file__ = str(ROOT / "_vendor/raptor_schema/__init__.py")
     fake.__version__ = "evil"

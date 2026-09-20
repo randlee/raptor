@@ -24,10 +24,162 @@ REQUIRED_AGENT_SECTIONS = {
     "## Error Handling",
     "## Constraints",
 }
-SCRIPT_FUNCTIONS = {
-    "run_agent.py": {"main"},
-    "validate_plugin.py": {"main"},
-    "vendor_schema.py": {"main", "_run"},
+SCRIPT_CONTRACTS: dict[str, dict[str, object]] = {
+    "run_agent.py": {
+        "imports": frozenset(
+            {
+                "__future__.annotations",
+                "argparse",
+                "json",
+                "pathlib.Path",
+                "runtime.agent_runner.run_agent",
+                "runtime.cli.emit",
+                "runtime.cli.failure",
+                "runtime.client_adapters.claude.ClaudeBackend",
+                "runtime.client_adapters.codex.CodexBackend",
+                "sys",
+            }
+        ),
+        "functions": frozenset({"main"}),
+        "calls": frozenset(
+            {
+                "Call.resolve",
+                "ClaudeBackend",
+                "CodexBackend",
+                "Path",
+                "SystemExit",
+                "argparse.ArgumentParser",
+                "emit",
+                "failure",
+                "json.loads",
+                "main",
+                "parser.add_argument",
+                "parser.parse_args",
+                "run_agent",
+                "str",
+                "sys.path.insert",
+            }
+        ),
+        "assignments": (
+            "arguments",
+            "backend",
+            "parser",
+            "result",
+            "result",
+            "sys.dont_write_bytecode",
+        ),
+        "lambdas": 0,
+        "top": (
+            "ImportFrom",
+            "Import",
+            "Import",
+            "Import",
+            "ImportFrom",
+            "Assign",
+            "Expr",
+            "ImportFrom",
+            "ImportFrom",
+            "ImportFrom",
+            "ImportFrom",
+            "FunctionDef",
+            "If",
+        ),
+    },
+    "validate_plugin.py": {
+        "imports": frozenset(
+            {
+                "__future__.annotations",
+                "argparse",
+                "pathlib.Path",
+                "runtime.cli.invoke",
+                "runtime.plugin_validation.validate_plugin",
+                "sys",
+            }
+        ),
+        "functions": frozenset({"main"}),
+        "calls": frozenset(
+            {
+                "Call.resolve",
+                "Path",
+                "SystemExit",
+                "argparse.ArgumentParser",
+                "invoke",
+                "main",
+                "parser.add_argument",
+                "parser.parse_args",
+                "str",
+                "sys.path.insert",
+                "validate_plugin",
+            }
+        ),
+        "assignments": ("arguments", "parser", "sys.dont_write_bytecode"),
+        "lambdas": 1,
+        "top": (
+            "ImportFrom",
+            "Import",
+            "Import",
+            "ImportFrom",
+            "Assign",
+            "Expr",
+            "ImportFrom",
+            "ImportFrom",
+            "FunctionDef",
+            "If",
+        ),
+    },
+    "vendor_schema.py": {
+        "imports": frozenset(
+            {
+                "__future__.annotations",
+                "argparse",
+                "pathlib.Path",
+                "runtime.cli.invoke",
+                "runtime.vendor.check",
+                "runtime.vendor.refresh",
+                "sys",
+                "typing.Any",
+            }
+        ),
+        "functions": frozenset({"_run", "main"}),
+        "calls": frozenset(
+            {
+                "Call.resolve",
+                "Path",
+                "SystemExit",
+                "_run",
+                "argparse.ArgumentParser",
+                "check",
+                "invoke",
+                "main",
+                "parser.add_argument",
+                "parser.parse_args",
+                "refresh",
+                "str",
+                "sys.path.insert",
+            }
+        ),
+        "assignments": (
+            "arguments",
+            "parser",
+            "root",
+            "sys.dont_write_bytecode",
+        ),
+        "lambdas": 1,
+        "top": (
+            "ImportFrom",
+            "Import",
+            "Import",
+            "ImportFrom",
+            "ImportFrom",
+            "Assign",
+            "Expr",
+            "ImportFrom",
+            "ImportFrom",
+            "FunctionDef",
+            "FunctionDef",
+            "If",
+        ),
+    },
 }
 
 
@@ -57,37 +209,55 @@ def _sha(path: Path) -> str:
     return hashlib.sha256(path.read_bytes()).hexdigest()
 
 
+def _node_name(node: ast.AST) -> str:
+    if isinstance(node, ast.Name):
+        return node.id
+    if isinstance(node, ast.Attribute):
+        return f"{_node_name(node.value)}.{node.attr}"
+    return type(node).__name__
+
+
 def _validate_scripts(root: Path) -> None:
     scripts = {path.name: path for path in (root / "scripts").glob("*.py")}
-    if set(scripts) != set(SCRIPT_FUNCTIONS):
+    if set(scripts) != set(SCRIPT_CONTRACTS):
         raise PluginValidationError("scripts are not the exact thin-wrapper inventory")
-    forbidden_imports = {"hashlib", "shutil", "sqlite3", "subprocess"}
-    forbidden_names = re.compile(r"(?:convert|render|transform)", re.I)
     for name, path in scripts.items():
+        contract = SCRIPT_CONTRACTS[name]
         tree = ast.parse(path.read_text(encoding="utf-8"))
-        functions = {
-            node.name for node in ast.walk(tree) if isinstance(node, ast.FunctionDef)
-        }
         imports = {
-            item.name.split(".", 1)[0]
+            (
+                item.name
+                if isinstance(node, ast.Import)
+                else f"{node.module}.{item.name}"
+            )
             for node in ast.walk(tree)
             if isinstance(node, (ast.Import, ast.ImportFrom))
             for item in node.names
         }
-        identifiers = {
-            node.id for node in ast.walk(tree) if isinstance(node, ast.Name)
-        } | {
-            node.attr for node in ast.walk(tree) if isinstance(node, ast.Attribute)
-        }
+        assignments: list[str] = []
+        for node in ast.walk(tree):
+            if isinstance(node, ast.Assign):
+                assignments.extend(_node_name(item) for item in node.targets)
+            elif isinstance(node, ast.AnnAssign):
+                assignments.append(_node_name(node.target))
         if (
-            functions != SCRIPT_FUNCTIONS[name]
-            or imports & forbidden_imports
-            or any(forbidden_names.search(item) for item in identifiers)
-            or any(
-                isinstance(node, (ast.AsyncFunctionDef, ast.ClassDef, ast.For, ast.While))
+            imports != contract["imports"]
+            or {
+                node.name
                 for node in ast.walk(tree)
-            )
-            or len(list(ast.walk(tree))) >= 260
+                if isinstance(node, ast.FunctionDef)
+            }
+            != contract["functions"]
+            or {
+                _node_name(node.func)
+                for node in ast.walk(tree)
+                if isinstance(node, ast.Call)
+            }
+            != contract["calls"]
+            or tuple(sorted(assignments)) != contract["assignments"]
+            or sum(isinstance(node, ast.Lambda) for node in ast.walk(tree))
+            != contract["lambdas"]
+            or tuple(type(node).__name__ for node in tree.body) != contract["top"]
         ):
             raise PluginValidationError("scripts must remain thin runtime wrappers")
 

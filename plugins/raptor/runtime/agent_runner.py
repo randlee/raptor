@@ -165,7 +165,6 @@ def _audit(
     correlation_hash = hashlib.sha256(
         (correlation_id or uuid.uuid4().hex).encode()
     ).hexdigest()
-    invocation_id = uuid.uuid4().hex
     record = {
         "timestamp": time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime()),
         "agent": _redact(agent),
@@ -177,10 +176,20 @@ def _audit(
     }
     if correlation_id is not None:
         record["correlation_id"] = correlation_hash
-    record["invocation_id"] = invocation_id
-    secure_repository_json(
-        repository_root, (".raptor", "state", "logs"), f"{invocation_id}.json", record
-    )
+    for _ in range(8):
+        invocation_id = uuid.uuid4().hex
+        record["invocation_id"] = invocation_id
+        try:
+            secure_repository_json(
+                repository_root,
+                (".raptor", "state", "logs"),
+                f"{invocation_id}.json",
+                record,
+            )
+            return
+        except FileExistsError:
+            continue
+    raise OSError("unable to allocate a unique audit invocation identifier")
 
 
 def run_agent(

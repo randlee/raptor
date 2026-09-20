@@ -185,6 +185,33 @@ def test_validator_rejects_short_transformation_inside_known_script(
         )
 
 
+@pytest.mark.parametrize(
+    "addition",
+    [
+        "\ntransform = lambda value: value\n",
+        "\nORCHESTRATION_STATE = {}\n",
+        "\nfrom runtime.registry import parse_registry\n",
+        "\nfrom runtime.bootstrap import bootstrap\n",
+        "\nfrom runtime.client_adapters.claude import ClaudeBackend\n",
+    ],
+)
+def test_validator_positive_script_contract_rejects_policy_and_logic_drift(
+    tmp_path: Path, addition: str
+) -> None:
+    plugin = tmp_path / "raptor"
+    shutil.copytree(
+        ROOT, plugin, ignore=shutil.ignore_patterns("tests", "__pycache__", "*.pyc")
+    )
+    path = plugin / "scripts/vendor_schema.py"
+    path.write_text(path.read_text() + addition)
+    with pytest.raises(PluginValidationError, match="thin runtime wrappers"):
+        validate_plugin(
+            plugin,
+            REPO
+            / "docs/plans/phase-a/references/claude-code-skills-agents-guidelines-v0.7.md",
+        )
+
+
 @pytest.mark.parametrize("relative", ["runtime/attacker.pyc", "runtime/__pycache__/x"])
 def test_validator_rejects_unexpected_bytecode_inventory(
     tmp_path: Path, relative: str
