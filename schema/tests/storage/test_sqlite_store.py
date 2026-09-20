@@ -12,7 +12,6 @@ from pydantic import ValidationError
 from raptor_schema import (
     ArtifactKey,
     ArtifactStore,
-    DocumentKey,
     ReferenceValidationError,
     SQLiteArtifactStore,
     SourceDocument,
@@ -20,18 +19,12 @@ from raptor_schema import (
     StoreConformanceCorpus,
     assert_store_conformance,
     assert_store_factory_conformance,
+    document_key as key,
     dump_canonical_json,
 )
 
 ROOT = Path(__file__).parents[3]
 DDL = ROOT / "schema/sql/sqlite/0001_initial.sql"
-
-
-def key(document: SourceDocument) -> DocumentKey:
-    origin = document.provenance.origin
-    return DocumentKey(
-        repository_id=origin.repository_id, document_id=origin.document_id
-    )
 
 
 @pytest.fixture
@@ -336,6 +329,7 @@ def test_foreign_keys_are_enabled_and_ddl_is_authoritative(tmp_path: Path) -> No
     assert "FOREIGN KEY" in ddl and "UNIQUE" in ddl
     assert "artifact_count INTEGER NOT NULL" in ddl
     assert "membership_sha256 TEXT NOT NULL" in ddl
+    assert "canonical_sha256 TEXT NOT NULL" in ddl
     assert "('database_schema_version', '1')" in ddl
     assert "('canonical_model_schema_version', '1.0.0')" in ddl
 
@@ -426,7 +420,16 @@ def test_projection_corruption_is_detected(
 
 @pytest.mark.parametrize(
     "mutation",
-    ["repository", "document", "artifact", "membership", "typed-target"],
+    [
+        "source-repository",
+        "source-document",
+        "source-artifact",
+        "source-membership",
+        "target-repository",
+        "target-document",
+        "target-artifact",
+        "target-membership",
+    ],
 )
 def test_read_fails_closed_on_latent_foreign_key_violation(
     tmp_path: Path, mutation: str
@@ -445,28 +448,43 @@ def test_read_fails_closed_on_latent_foreign_key_violation(
     store.put_documents((target, source))
     connection = sqlite3.connect(path)
     connection.execute("PRAGMA foreign_keys = OFF")
-    if mutation == "repository":
+    if mutation == "source-repository":
         connection.execute(
             "DELETE FROM repositories WHERE repository_id = ?",
             ("urn:raptor:repo:beta",),
         )
-    elif mutation == "document":
+    elif mutation == "source-document":
         connection.execute(
             "DELETE FROM source_documents WHERE repository_id = ?",
             ("urn:raptor:repo:beta",),
         )
-    elif mutation == "artifact":
+    elif mutation == "source-artifact":
         connection.execute(
             "DELETE FROM artifacts WHERE repository_id = ?", ("urn:raptor:repo:beta",)
         )
-    elif mutation == "membership":
+    elif mutation == "source-membership":
         connection.execute(
             "DELETE FROM document_artifacts WHERE repository_id = ?",
             ("urn:raptor:repo:beta",),
         )
-    else:
+    elif mutation == "target-repository":
+        connection.execute(
+            "DELETE FROM repositories WHERE repository_id = ?",
+            ("urn:raptor:repo:alpha",),
+        )
+    elif mutation == "target-document":
+        connection.execute(
+            "DELETE FROM source_documents WHERE repository_id = ?",
+            ("urn:raptor:repo:alpha",),
+        )
+    elif mutation == "target-artifact":
         connection.execute(
             "DELETE FROM artifacts WHERE repository_id = ? AND artifact_id = ?",
+            ("urn:raptor:repo:alpha", "REQ-ALPHA-001"),
+        )
+    else:
+        connection.execute(
+            "DELETE FROM document_artifacts WHERE repository_id = ? AND artifact_id = ?",
             ("urn:raptor:repo:alpha", "REQ-ALPHA-001"),
         )
     connection.commit()
@@ -475,39 +493,76 @@ def test_read_fails_closed_on_latent_foreign_key_violation(
         store.get_document(key(source))
 
 
+def collision_document(
+    document: SourceDocument, *, descriptions: bool
+) -> SourceDocument:
+    payload = document.model_dump(mode="python")
+    design_relationship: dict[str, object] = {
+        "relation": "depends_on",
+        "target": {
+            "target_kind": "artifact",
+            "repository_id": "urn:raptor:repo:raptor",
+            "artifact_id": "ADR-RAP-001",
+        },
+    }
+    test_relationship: dict[str, object] = {
+        "relation": "verifies",
+        "target": {
+            "target_kind": "artifact",
+            "repository_id": "urn:raptor:repo:raptor",
+            "artifact_id": "REQ-RAP-001",
+        },
+    }
+    if descriptions:
+        design_relationship["description"] = "Explicit design rationale"
+        test_relationship["description"] = "Explicit verification rationale"
+    payload["artifacts"][3]["relationships"].append(design_relationship)  # type: ignore[index,union-attr]
+    payload["artifacts"][4]["relationships"].append(test_relationship)  # type: ignore[index,union-attr]
+    return SourceDocument.model_validate(payload)
+
+
 def test_explicit_relationship_description_wins_derived_edge_collisions(
     document: SourceDocument, store_factory: Callable[[], ArtifactStore]
 ) -> None:
-    payload = document.model_dump(mode="python")
-    payload["artifacts"][3]["relationships"].append(  # type: ignore[index,union-attr]
-        {
-            "relation": "depends_on",
-            "target": {
-                "target_kind": "artifact",
-                "repository_id": "urn:raptor:repo:raptor",
-                "artifact_id": "ADR-RAP-001",
-            },
-            "description": "Explicit design rationale",
-        }
-    )
-    payload["artifacts"][4]["relationships"].append(  # type: ignore[index,union-attr]
-        {
-            "relation": "verifies",
-            "target": {
-                "target_kind": "artifact",
-                "repository_id": "urn:raptor:repo:raptor",
-                "artifact_id": "REQ-RAP-001",
-            },
-            "description": "Explicit verification rationale",
-        }
-    )
-    changed = SourceDocument.model_validate(payload)
+    changed = collision_document(document, descriptions=True)
     store = store_factory()
     store.initialize()
     store.put_document(changed)
     assert dump_canonical_json(store.get_document(key(changed))) == dump_canonical_json(
         changed
     )
+
+
+@pytest.mark.parametrize(
+    ("artifact_id", "json_path"),
+    [
+        ("DES-RAP-001", "$.relationships[0]"),
+        ("DES-RAP-001", "$.components[0].dependencies[0]"),
+        ("TST-RAP-001", "$.relationships[0]"),
+        ("TST-RAP-001", "$.test_cases[0].verifies[1]"),
+    ],
+    ids=["design-explicit", "design-derived", "test-explicit", "test-derived"],
+)
+def test_canonical_digest_detects_colliding_reference_occurrence_removal(
+    tmp_path: Path,
+    document: SourceDocument,
+    artifact_id: str,
+    json_path: str,
+) -> None:
+    path = tmp_path / f"occurrence-{artifact_id}-{json_path.count('[')}.db"
+    changed = collision_document(document, descriptions=False)
+    store = SQLiteArtifactStore(path)
+    store.initialize()
+    store.put_document(changed)
+    connection = sqlite3.connect(path)
+    connection.execute(
+        "UPDATE artifacts SET artifact_json = json_remove(artifact_json, ?) WHERE artifact_id = ?",
+        (json_path, artifact_id),
+    )
+    connection.commit()
+    connection.close()
+    with pytest.raises(StorageError, match="canonical document digest"):
+        store.get_document(key(changed))
 
 
 def test_canonical_fragment_numeric_policy_matches_document_dump(

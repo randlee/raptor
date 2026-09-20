@@ -5,6 +5,7 @@ contract. SQL files are dialect projections, not alternate domain models.
 
 | Model value | SQLite ownership and projection |
 |---|---|
+| complete ordered `SourceDocument` | `source_documents.canonical_sha256`; independently verifies every canonical reference occurrence and all ordered artifact payloads before return |
 | `SourceDocument.schema_version` | `source_documents.schema_version`; verified against reconstructed JSON |
 | `SourceProvenance.origin` | complete canonical `origin_json`; repository/document identity is also projected into the composite key |
 | `SourceProvenance.materialization` | complete canonical `materialization_json`; current path is projected into `current_path` |
@@ -17,6 +18,9 @@ Canonical JSON owns all optional values, extensions, source locations, and
 family-specific payloads. SQL `NULL` is used only for an optional relationship
 description. On load, the adapter structurally validates the JSON and rejects
 any disagreement with scalar, membership, ordinal, or relationship projections.
+The canonical document digest is independent of the deduplicated semantic-edge
+index, so changing or removing any explicit or family-derived reference
+occurrence is detected even when another occurrence projects to the same edge.
 Reads also fail closed when a repository, document, artifact, membership, or
 typed relationship endpoint has been corrupted behind foreign-key enforcement.
 Document and fragment JSON use the same canonical encoder, including key order,

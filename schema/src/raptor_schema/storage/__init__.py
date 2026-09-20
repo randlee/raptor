@@ -4,6 +4,7 @@ from .base import (
     StoreConformanceCorpus,
     assert_store_conformance,
     assert_store_factory_conformance,
+    document_key,
 )
 from .sqlite import SQLiteArtifactStore
 
@@ -14,4 +15,5 @@ __all__ = [
     "StoreConformanceCorpus",
     "assert_store_conformance",
     "assert_store_factory_conformance",
+    "document_key",
 ]

@@ -78,10 +78,7 @@ def assert_store_conformance(
     expected_keys: list[ArtifactKey] = []
     for document in expected:
         origin = document.provenance.origin
-        key = DocumentKey(
-            repository_id=origin.repository_id, document_id=origin.document_id
-        )
-        recovered = store.get_document(key)
+        recovered = store.get_document(document_key(document))
         if dump_canonical_json(recovered) != dump_canonical_json(document):
             raise AssertionError(f"document did not round-trip: {origin.document_id}")
         expected_keys.extend(
@@ -98,12 +95,12 @@ def assert_store_conformance(
     for document in expected:
         replacement = _rendered_replacement(document)
         store.put_document(replacement)
-        recovered = store.get_document(key_for(replacement))
+        recovered = store.get_document(document_key(replacement))
         if dump_canonical_json(recovered) != dump_canonical_json(replacement):
             raise AssertionError("valid rendered replacement did not round-trip")
-        store.delete_document(key_for(replacement))
+        store.delete_document(document_key(replacement))
         try:
-            store.get_document(key_for(replacement))
+            store.get_document(document_key(replacement))
         except KeyError:
             pass
         else:
@@ -123,7 +120,7 @@ def assert_store_factory_conformance(
         store.put_documents(documents)
         for document in documents:
             if dump_canonical_json(
-                store.get_document(key_for(document))
+                store.get_document(document_key(document))
             ) != dump_canonical_json(document):
                 raise AssertionError("batch document did not round-trip")
 
@@ -148,7 +145,7 @@ def assert_store_factory_conformance(
     store.put_document(corpus.replacement_initial)
     store.put_document(corpus.replacement)
     if dump_canonical_json(
-        store.get_document(key_for(corpus.replacement))
+        store.get_document(document_key(corpus.replacement))
     ) != dump_canonical_json(corpus.replacement):
         raise AssertionError("replacement did not round-trip")
 
@@ -157,7 +154,7 @@ def assert_store_factory_conformance(
     store.put_documents((corpus.inbound_target, corpus.inbound_source))
     inbound_conflicts: tuple[Callable[[], None], ...] = (
         lambda: store.put_document(corpus.inbound_replacement),
-        lambda: store.delete_document(key_for(corpus.inbound_target)),
+        lambda: store.delete_document(document_key(corpus.inbound_target)),
     )
     for operation in inbound_conflicts:
         try:
@@ -166,8 +163,8 @@ def assert_store_factory_conformance(
             pass
         else:
             raise AssertionError("inbound reference conflict was accepted")
-    store.delete_document(key_for(corpus.inbound_source))
-    store.delete_document(key_for(corpus.inbound_target))
+    store.delete_document(document_key(corpus.inbound_source))
+    store.delete_document(document_key(corpus.inbound_target))
 
     store = factory()
     store.initialize()
@@ -200,7 +197,7 @@ def assert_store_factory_conformance(
     else:
         raise AssertionError("artifact ownership conflict was accepted")
     if dump_canonical_json(
-        store.get_document(key_for(corpus.artifact_conflict[0]))
+        store.get_document(document_key(corpus.artifact_conflict[0]))
     ) != dump_canonical_json(corpus.artifact_conflict[0]):
         raise AssertionError("artifact conflict did not roll back")
 
@@ -213,7 +210,7 @@ def _first_key(document: SourceDocument) -> ArtifactKey:
     )
 
 
-def key_for(document: SourceDocument) -> DocumentKey:
+def document_key(document: SourceDocument) -> DocumentKey:
     origin = document.provenance.origin
     return DocumentKey(
         repository_id=origin.repository_id, document_id=origin.document_id
@@ -226,4 +223,5 @@ __all__ = [
     "StoreConformanceCorpus",
     "assert_store_conformance",
     "assert_store_factory_conformance",
+    "document_key",
 ]

@@ -26,7 +26,7 @@ from ..models import (
     SourceDocument,
     validate_provenance_transition,
 )
-from .base import StorageError
+from .base import StorageError, document_key
 
 DATABASE_SCHEMA_VERSION = "1"
 MODEL_SCHEMA_VERSION = "1.0.0"
@@ -40,13 +40,6 @@ def _membership(document: SourceDocument) -> tuple[int, str]:
     artifact_ids = [artifact.id for artifact in document.artifacts]
     encoded = _encode_canonical_value(cast(JsonValue, artifact_ids))
     return len(artifact_ids), hashlib.sha256(encoded.encode()).hexdigest()
-
-
-def _document_key(document: SourceDocument) -> DocumentKey:
-    origin = document.provenance.origin
-    return DocumentKey(
-        repository_id=origin.repository_id, document_id=origin.document_id
-    )
 
 
 def _artifact_keys(document: SourceDocument) -> set[tuple[str, str]]:
@@ -270,7 +263,7 @@ class SQLiteArtifactStore:
             raise
 
     def _validate_replacement(self, document: SourceDocument) -> None:
-        key = _document_key(document)
+        key = document_key(document)
         row = self._connection.execute(
             "SELECT 1 FROM source_documents WHERE repository_id = ? AND document_id = ?",
             (key.repository_id, key.document_id),
@@ -324,6 +317,9 @@ class SQLiteArtifactStore:
         origin = document.provenance.origin
         materialization = document.provenance.materialization
         artifact_count, membership_sha256 = _membership(document)
+        canonical_sha256 = hashlib.sha256(
+            dump_canonical_json(document).encode()
+        ).hexdigest()
         self._connection.execute(
             "INSERT OR IGNORE INTO repositories(repository_id) VALUES (?)",
             (origin.repository_id,),
@@ -332,13 +328,15 @@ class SQLiteArtifactStore:
             """
             INSERT INTO source_documents(
               repository_id, document_id, current_path, schema_version,
-              artifact_count, membership_sha256, origin_json, materialization_json
-            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+              artifact_count, membership_sha256, canonical_sha256,
+              origin_json, materialization_json
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
             ON CONFLICT(repository_id, document_id) DO UPDATE SET
               current_path = excluded.current_path,
               schema_version = excluded.schema_version,
               artifact_count = excluded.artifact_count,
               membership_sha256 = excluded.membership_sha256,
+              canonical_sha256 = excluded.canonical_sha256,
               origin_json = excluded.origin_json,
               materialization_json = excluded.materialization_json
             """,
@@ -349,6 +347,7 @@ class SQLiteArtifactStore:
                 document.schema_version,
                 artifact_count,
                 membership_sha256,
+                canonical_sha256,
                 dump_canonical_fragment(origin),
                 dump_canonical_fragment(materialization),
             ),
@@ -410,7 +409,7 @@ class SQLiteArtifactStore:
         row = self._connection.execute(
             """
             SELECT current_path, schema_version, artifact_count, membership_sha256,
-                   origin_json, materialization_json
+                   canonical_sha256, origin_json, materialization_json
             FROM source_documents WHERE repository_id = ? AND document_id = ?
             """,
             (key.repository_id, key.document_id),
@@ -442,9 +441,10 @@ class SQLiteArtifactStore:
             schema_version,
             expected_count,
             expected_membership,
+            expected_canonical_sha256,
             origin_json,
             materialization_json,
-        ) = cast(tuple[str, str, int, str, str, str], row)
+        ) = cast(tuple[str, str, int, str, str, str, str], row)
         if (
             self._connection.execute(
                 """
@@ -518,6 +518,13 @@ class SQLiteArtifactStore:
             raise StorageError(
                 "RAPTOR.STORAGE.PROJECTION_MISMATCH: invalid canonical JSON"
             ) from error
+        if (
+            hashlib.sha256(dump_canonical_json(document).encode()).hexdigest()
+            != expected_canonical_sha256
+        ):
+            raise StorageError(
+                "RAPTOR.STORAGE.PROJECTION_MISMATCH: canonical document digest"
+            )
         origin = document.provenance.origin
         materialization = document.provenance.materialization
         if (
@@ -567,9 +574,22 @@ class SQLiteArtifactStore:
             LEFT JOIN artifacts AS target
               ON target.repository_id = relationship.target_repository_id
              AND target.artifact_id = relationship.target_artifact_id
+            LEFT JOIN document_artifacts AS target_membership
+              ON target_membership.repository_id = relationship.target_repository_id
+             AND target_membership.artifact_id = relationship.target_artifact_id
+            LEFT JOIN source_documents AS target_document
+              ON target_document.repository_id = target_membership.repository_id
+             AND target_document.document_id = target_membership.document_id
+            LEFT JOIN repositories AS target_repository
+              ON target_repository.repository_id = relationship.target_repository_id
             WHERE relationship.source_repository_id = ?
               AND relationship.source_artifact_id IN ({placeholders})
-              AND (source.artifact_id IS NULL OR target.artifact_id IS NULL)
+              AND (
+                source.artifact_id IS NULL OR target.artifact_id IS NULL
+                OR target_membership.artifact_id IS NULL
+                OR target_document.document_id IS NULL
+                OR target_repository.repository_id IS NULL
+              )
             LIMIT 1
             """,
             (repository_id, *source_ids),

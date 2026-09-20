@@ -92,6 +92,7 @@ from .storage import (
     StoreConformanceCorpus,
     assert_store_conformance,
     assert_store_factory_conformance,
+    document_key,
 )
 
 
@@ -181,6 +182,7 @@ __all__ = [
     "StoreConformanceCorpus",
     "assert_store_conformance",
     "assert_store_factory_conformance",
+    "document_key",
     "dump_canonical_json",
     "generate_json_schemas",
     "load_canonical_json",
