@@ -24,12 +24,43 @@ def test_dual_manifests_expose_exact_commands() -> None:
     assert discovered == COMMANDS
 
 
-def test_all_a3_routes_are_structured_unsupported() -> None:
-    for command in ("import", "export", "validate", "round-trip"):
-        result = route(command, "json", "sqlite")
+def test_all_twelve_a3_routes_are_structured_unsupported_without_invocation(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    import runtime.agent_runner as runner
+
+    invoked = False
+
+    def forbidden(**values: object) -> object:
+        nonlocal invoked
+        invoked = True
+        raise AssertionError(values)
+
+    monkeypatch.setattr(runner, "run_agent", forbidden)
+    cases = [
+        ("import", "markdown", "json"),
+        ("import", "json", "sqlite"),
+        ("import", "json", "dolt"),
+        ("export", "sqlite", "json"),
+        ("export", "json", "markdown"),
+        ("export", "dolt", "json"),
+        ("validate", "markdown", None),
+        ("validate", "json", None),
+        ("validate", "sqlite", None),
+        ("validate", "dolt", None),
+        ("round-trip", "migration", None),
+        ("round-trip", "dolt", None),
+    ]
+    for command, source, target in cases:
+        result = route(command, source, target)
         assert result["success"] is False
-        assert result["error"]["code"] == "RAPTOR.UNSUPPORTED.PHASE"
-    assert route("import", "json", "dolt")["error"]["code"] == "RAPTOR.UNSUPPORTED.DOLT"
+        expected = (
+            "RAPTOR.UNSUPPORTED.DOLT"
+            if "dolt" in {source, target}
+            else "RAPTOR.UNSUPPORTED.PHASE"
+        )
+        assert result["error"]["code"] == expected
+    assert not invoked
 
 
 def test_dependency_failure_stops_before_route(

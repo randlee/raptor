@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import json
 import shutil
-import time
+import hashlib
 from pathlib import Path
 
 import pytest
@@ -44,7 +44,8 @@ class Backend:
 
     def invoke(self, *, agent_path: Path, prompt: str, timeout_s: int) -> str:
         self.calls += 1
-        time.sleep(self.delay)
+        if self.delay:
+            raise TimeoutError("backend-owned timeout")
         return self.responses[min(self.calls - 1, len(self.responses) - 1)]
 
 
@@ -52,6 +53,7 @@ def run(
     monkeypatch: pytest.MonkeyPatch, tmp_path: Path, backend: Backend, **values: object
 ) -> dict[str, object]:
     monkeypatch.chdir(tmp_path)
+    (tmp_path / ".raptor").mkdir(exist_ok=True)
     return agent_runner.run_agent(
         agent=str(values.get("agent", "json-validate")),
         params={},
@@ -59,6 +61,7 @@ def run(
         timeout_s=int(values.get("timeout_s", 1)),
         correlation_id="test",
         backend=backend,
+        repository_root=tmp_path,
     )
 
 
@@ -68,7 +71,9 @@ def test_success_redaction_and_atomic_audit(
     result = run(monkeypatch, tmp_path, Backend([envelope()]))
     assert result["success"] is True
     assert result["data"] == {"token": "[REDACTED]"}
-    audit = json.loads((tmp_path / ".raptor/state/logs/test.json").read_text())
+    key = hashlib.sha256(b"test").hexdigest()
+    audit = json.loads((tmp_path / f".raptor/state/logs/{key}.json").read_text())
+    assert audit["correlation_id"] == key
     assert set(audit) == {
         "timestamp",
         "agent",
@@ -79,6 +84,64 @@ def test_success_redaction_and_atomic_audit(
         "duration_ms",
         "correlation_id",
     }
+
+
+def test_repository_root_is_explicit_and_valid(tmp_path: Path) -> None:
+    with pytest.raises(ValueError, match="repository_root"):
+        agent_runner.run_agent(
+            agent="json-validate",
+            params={},
+            backend=Backend([envelope()]),
+            repository_root=tmp_path / "missing",
+        )
+
+
+@pytest.mark.parametrize(
+    "field,value", [("duration_ms", True), ("tool_calls", -1), ("retry_count", 1.5)]
+)
+def test_telemetry_requires_non_bool_nonnegative_integers(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path, field: str, value: object
+) -> None:
+    body = json.loads(envelope().split("\n", 1)[1].rsplit("\n", 1)[0])
+    body["metadata"][field] = value
+    result = run(monkeypatch, tmp_path, Backend([f"```json\n{json.dumps(body)}\n```"]))
+    assert result["error"]["code"] == "EXECUTION.RESPONSE"  # type: ignore[index]
+
+
+def test_malformed_recoverable_never_retries(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    body = json.loads(envelope(success=False).split("\n", 1)[1].rsplit("\n", 1)[0])
+    body["error"]["recoverable"] = "true"
+    backend = Backend([f"```json\n{json.dumps(body)}\n```"])
+    result = run(monkeypatch, tmp_path, backend)
+    assert result["error"]["code"] == "EXECUTION.RESPONSE" and backend.calls == 1  # type: ignore[index]
+
+
+@pytest.mark.parametrize(
+    "updates",
+    [
+        {"aborted_by": "host"},
+        {"data": []},
+        {"success": True, "canceled": True, "aborted_by": "user"},
+        {"success": False, "canceled": False, "aborted_by": "user"},
+        {"success": False, "canceled": True, "aborted_by": None},
+    ],
+)
+def test_envelope_cross_field_invariants(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path, updates: dict[str, object]
+) -> None:
+    body = json.loads(envelope().split("\n", 1)[1].rsplit("\n", 1)[0])
+    body.update(updates)
+    if body["success"] is False:
+        body["error"] = {
+            "code": "X",
+            "message": "x",
+            "recoverable": False,
+            "suggested_action": "x",
+        }
+    result = run(monkeypatch, tmp_path, Backend([f"```json\n{json.dumps(body)}\n```"]))
+    assert result["error"]["code"] == "EXECUTION.RESPONSE"  # type: ignore[index]
 
 
 @pytest.mark.parametrize(

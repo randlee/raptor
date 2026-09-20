@@ -1,3 +1,3 @@
 # Migration round trip
 
-Owned by Sprint A5. Return `RAPTOR.UNSUPPORTED.PHASE` naming Sprint A5 in the standard fenced envelope. Do not read, render, or mutate artifacts.
+Return exactly the fenced envelope under **Sprint A5** in `../../unsupported-responses.md`. Do not read, render, or mutate artifacts.

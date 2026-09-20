@@ -3,6 +3,8 @@ from __future__ import annotations
 import subprocess
 from pathlib import Path
 
+from .environment import allowed_environment
+
 
 class ClaudeBackend:
     def __init__(self, executable: str = "claude") -> None:
@@ -21,6 +23,7 @@ class ClaudeBackend:
             capture_output=True,
             text=True,
             timeout=timeout_s,
+            env=allowed_environment(),
         )
         return result.stdout
 

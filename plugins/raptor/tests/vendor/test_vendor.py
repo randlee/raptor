@@ -84,14 +84,16 @@ def test_promotion_verification_failure_restores_verified_backup(
     before = vendor.tree_hash(plugin / "_vendor/raptor_schema")[0]
     original = vendor._write_marker
 
-    def corrupt(marker: Path, value: dict[str, object], state: str) -> None:
-        original(marker, value, state)
+    def corrupt(
+        marker: Path, value: dict[str, object], state: str, outcome: str = "pending"
+    ) -> None:
+        original(marker, value, state, outcome)
         if state == "staged_promoted":
             live = Path(value["live_path"])
             (live / "canonical.py").write_text("corrupt", encoding="utf-8")
 
     monkeypatch.setattr(vendor, "_write_marker", corrupt)
-    with pytest.raises(VendorError, match="VERIFY"):
+    with pytest.raises(VendorError, match="RECOVERY"):
         refresh(plugin)
     assert vendor.tree_hash(plugin / "_vendor/raptor_schema")[0] == before
 
@@ -109,3 +111,18 @@ def test_failure_before_marker_cleans_stage_and_lock(
         refresh(plugin)
     assert not (plugin / "_vendor/.raptor_schema-refresh.lock").exists()
     assert not list((plugin / "_vendor").glob("*.stage.*"))
+
+
+@pytest.mark.parametrize("contents", ["not-json", "{}", '{"state":"unknown"}'])
+def test_malformed_or_unknown_recovery_marker_fails_closed(
+    tmp_path: Path, contents: str
+) -> None:
+    plugin = sandbox(tmp_path)
+    lock = plugin / "_vendor/.raptor_schema-refresh.lock"
+    marker = plugin / "_vendor/raptor_schema-refresh.json"
+    lock.parent.mkdir(exist_ok=True)
+    lock.write_text(json.dumps({"pid": 99999999, "transaction_id": "0" * 32}))
+    marker.write_text(contents)
+    with pytest.raises(VendorError, match="RECOVERY"):
+        vendor._recover(plugin, marker, lock)
+    assert lock.exists() and marker.exists()

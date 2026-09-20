@@ -9,7 +9,7 @@ metadata:
 
 ## Step 1 — Verify the runtime
 
-Run `which python3 && python3 --version` and `python3 -c 'import pydantic; print(pydantic.__version__)'`. Require Python 3.11+ and Pydantic `>=2.10,<3`. If either check fails, read `references/installation-and-troubleshooting.md` and stop.
+Read and execute `../runtime-preflight.md`. If either check fails, read `references/installation-and-troubleshooting.md` and stop.
 
 Select only the reference matching the requested source and target:
 

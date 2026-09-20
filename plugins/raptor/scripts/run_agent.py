@@ -21,6 +21,7 @@ def main() -> int:
     parser.add_argument("--version")
     parser.add_argument("--timeout", type=int, default=120)
     parser.add_argument("--correlation-id")
+    parser.add_argument("--repository-root", type=Path, required=True)
     arguments = parser.parse_args()
     try:
         backend = ClaudeBackend() if arguments.client == "claude" else CodexBackend()
@@ -31,6 +32,7 @@ def main() -> int:
             timeout_s=arguments.timeout,
             correlation_id=arguments.correlation_id,
             backend=backend,
+            repository_root=arguments.repository_root,
         )
     except Exception as error:
         result = failure(error)

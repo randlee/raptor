@@ -1,3 +1,3 @@
 # JSON → Markdown
 
-Owned by Sprint A5. Return `RAPTOR.UNSUPPORTED.PHASE` naming Sprint A5 in the standard fenced envelope.
+Return exactly the fenced envelope under **Sprint A5** in `../../unsupported-responses.md`.

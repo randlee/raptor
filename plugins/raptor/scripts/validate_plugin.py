@@ -20,12 +20,10 @@ def main() -> int:
     parser.add_argument("--check-vendor", action="store_true")
     arguments = parser.parse_args()
     return invoke(
-        lambda: _validate(Path(__file__).resolve().parents[1], arguments.guideline)
+        lambda: validate_plugin(
+            Path(__file__).resolve().parents[1], arguments.guideline
+        )
     )
-
-
-def _validate(root: Path, guideline: Path) -> None:
-    validate_plugin(root, guideline)
 
 
 if __name__ == "__main__":

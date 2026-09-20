@@ -10,6 +10,7 @@ import pytest
 from runtime.bootstrap import BootstrapError, bootstrap
 from runtime.client_adapters.claude import ClaudeBackend
 from runtime.client_adapters.codex import CodexBackend
+from runtime.client_adapters.environment import allowed_environment
 
 ROOT = Path(__file__).parents[2]
 
@@ -70,10 +71,10 @@ def test_client_adapters_only_own_host_invocation() -> None:
 def test_client_adapters_satisfy_same_invocation_contract(
     monkeypatch: pytest.MonkeyPatch, backend: object, tmp_path: Path
 ) -> None:
-    calls: list[tuple[list[str], int]] = []
+    calls: list[tuple[list[str], int, dict[str, str]]] = []
 
     def invoke(command: list[str], **values: object) -> CompletedProcess[str]:
-        calls.append((command, int(values["timeout"])))
+        calls.append((command, int(values["timeout"]), values["env"]))  # type: ignore[arg-type]
         return CompletedProcess(command, 0, "response", "")
 
     monkeypatch.setattr("subprocess.run", invoke)
@@ -81,3 +82,16 @@ def test_client_adapters_satisfy_same_invocation_contract(
         agent_path=tmp_path / "agent.md", prompt="prompt", timeout_s=9
     )  # type: ignore[attr-defined]
     assert result == "response" and calls[0][1] == 9
+    assert calls[0][2] == allowed_environment()
+
+
+def test_adapter_environment_excludes_ambient_credentials() -> None:
+    values = allowed_environment(
+        {
+            "PATH": "/bin",
+            "HOME": "/home/test",
+            "AWS_SECRET_ACCESS_KEY": "secret",
+            "RAPTOR_TOKEN": "token",
+        }
+    )
+    assert values == {"PATH": "/bin", "HOME": "/home/test"}

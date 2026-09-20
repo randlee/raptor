@@ -1,3 +1,3 @@
 # Dolt round trip
 
-Return `RAPTOR.UNSUPPORTED.DOLT` in the standard fenced envelope. Do not connect to a database.
+Return exactly the fenced envelope under **Dolt** in `../../unsupported-responses.md`. Do not connect to a database.

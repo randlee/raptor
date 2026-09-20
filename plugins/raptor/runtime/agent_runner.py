@@ -2,16 +2,15 @@ from __future__ import annotations
 
 import hashlib
 import json
-import os
 import re
 import subprocess
-import tempfile
 import time
 import uuid
 from collections.abc import Mapping
-from concurrent.futures import ThreadPoolExecutor, TimeoutError as FutureTimeout
 from pathlib import Path
 from typing import Any, Protocol, cast
+
+from .io import atomic_json
 
 JsonValue = None | bool | int | float | str | list["JsonValue"] | dict[str, "JsonValue"]
 _FENCE = re.compile(r"\A\s*```json\s*(\{.*\})\s*```\s*\Z", re.DOTALL)
@@ -78,46 +77,52 @@ def _parse_envelope(response: str) -> dict[str, Any]:
     required = {"success", "canceled", "aborted_by", "data", "error", "metadata"}
     if (
         set(value) != required
-        or not isinstance(value["success"], bool)
-        or not isinstance(value["canceled"], bool)
+        or type(value["success"]) is not bool
+        or type(value["canceled"]) is not bool
     ):
         raise ValueError("response does not match the standard envelope")
+    if value["aborted_by"] is not None and value["aborted_by"] not in (
+        "user",
+        "policy",
+        "timeout",
+    ):
+        raise ValueError("response aborted_by is invalid")
+    if value["data"] is not None and not isinstance(value["data"], dict):
+        raise ValueError("response data must be an object or null")
     metadata = value["metadata"]
-    if not isinstance(metadata, dict) or not all(
-        isinstance(metadata.get(key), int)
-        for key in ("duration_ms", "tool_calls", "retry_count")
+    if (
+        not isinstance(metadata, dict)
+        or set(metadata)
+        - {"duration_ms", "tool_calls", "retry_count", "correlation_id"}
+        or not {"duration_ms", "tool_calls", "retry_count"}.issubset(metadata)
     ):
         raise ValueError("response metadata is invalid")
+    if any(
+        type(metadata[key]) is not int or metadata[key] < 0
+        for key in ("duration_ms", "tool_calls", "retry_count")
+    ):
+        raise ValueError("response telemetry is invalid")
+    if "correlation_id" in metadata and not isinstance(metadata["correlation_id"], str):
+        raise ValueError("response correlation_id is invalid")
     error = value["error"]
     if value["success"]:
-        if error is not None or value["canceled"]:
+        if error is not None or value["canceled"] or value["aborted_by"] is not None:
             raise ValueError("successful response has contradictory fields")
-    elif not isinstance(error, dict) or not all(
-        key in error for key in ("code", "message", "recoverable", "suggested_action")
-    ):
-        raise ValueError("failure response has no standard error")
+    else:
+        error_keys = {"code", "message", "recoverable", "suggested_action"}
+        if not isinstance(error, dict) or set(error) != error_keys:
+            raise ValueError("failure response has no standard error")
+        if (
+            any(
+                not isinstance(error[key], str) or not error[key]
+                for key in ("code", "message", "suggested_action")
+            )
+            or type(error["recoverable"]) is not bool
+        ):
+            raise ValueError("failure response error is invalid")
+        if value["canceled"] != (value["aborted_by"] is not None):
+            raise ValueError("failure cancellation fields are contradictory")
     return cast(dict[str, Any], _redact(value))
-
-
-def _atomic_json(path: Path, value: Mapping[str, Any]) -> None:
-    path.parent.mkdir(parents=True, exist_ok=True)
-    descriptor, temporary = tempfile.mkstemp(prefix=f".{path.name}.", dir=path.parent)
-    try:
-        with os.fdopen(descriptor, "w", encoding="utf-8") as stream:
-            json.dump(value, stream, sort_keys=True, separators=(",", ":"))
-            stream.write("\n")
-            stream.flush()
-            os.fsync(stream.fileno())
-        os.replace(temporary, path)
-        if os.name != "nt":
-            directory = os.open(path.parent, os.O_RDONLY)
-            try:
-                os.fsync(directory)
-            finally:
-                os.close(directory)
-    finally:
-        if os.path.exists(temporary):
-            os.unlink(temporary)
 
 
 def _audit(
@@ -128,8 +133,11 @@ def _audit(
     outcome: str,
     duration_ms: int,
     correlation_id: str | None,
+    repository_root: Path,
 ) -> None:
-    identifier = re.sub(r"[^A-Za-z0-9_.-]", "_", correlation_id or uuid.uuid4().hex)
+    identifier = hashlib.sha256(
+        (correlation_id or uuid.uuid4().hex).encode()
+    ).hexdigest()
     record = {
         "timestamp": time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime()),
         "agent": agent,
@@ -140,19 +148,11 @@ def _audit(
         "duration_ms": duration_ms,
     }
     if correlation_id is not None:
-        record["correlation_id"] = correlation_id
-    _atomic_json(
-        _repository_root(Path.cwd()) / ".raptor/state/logs" / f"{identifier}.json",
+        record["correlation_id"] = identifier
+    atomic_json(
+        repository_root / ".raptor/state/logs" / f"{identifier}.json",
         record,
     )
-
-
-def _repository_root(start: Path) -> Path:
-    current = start.resolve()
-    for candidate in (current, *current.parents):
-        if (candidate / ".git").exists() or (candidate / ".raptor").is_dir():
-            return candidate
-    return current
 
 
 def run_agent(
@@ -163,12 +163,18 @@ def run_agent(
     timeout_s: int = 120,
     correlation_id: str | None = None,
     backend: AgentBackend,
+    repository_root: Path,
 ) -> dict[str, Any]:
     started = time.monotonic()
     plugin_root = _plugin_root()
     version = "unknown"
     digest = "unknown"
     result: dict[str, Any] | None = None
+    repository_root = repository_root.resolve()
+    if not repository_root.is_dir() or not (
+        (repository_root / ".git").exists() or (repository_root / ".raptor").is_dir()
+    ):
+        raise ValueError("repository_root must identify a repository")
     try:
         registry = json.loads(
             (plugin_root / "agents/registry.yaml").read_text(encoding="utf-8")
@@ -210,19 +216,13 @@ def run_agent(
             return _error("EXECUTION.RESPONSE", "Agent parameters are not valid JSON.")
         for attempt in range(2):
             try:
-                executor = ThreadPoolExecutor(max_workers=1)
-                future = executor.submit(
-                    backend.invoke,
+                response = backend.invoke(
                     agent_path=agent_path,
                     prompt=prompt,
                     timeout_s=timeout_s,
                 )
-                try:
-                    response = future.result(timeout=timeout_s)
-                finally:
-                    executor.shutdown(wait=False, cancel_futures=True)
                 result = _parse_envelope(response)
-            except (FutureTimeout, TimeoutError, subprocess.TimeoutExpired):
+            except (TimeoutError, subprocess.TimeoutExpired):
                 result = _error(
                     "EXECUTION.TIMEOUT", "Agent exceeded its timeout.", canceled=True
                 )
@@ -258,6 +258,7 @@ def run_agent(
             outcome=outcome,
             duration_ms=duration,
             correlation_id=correlation_id,
+            repository_root=repository_root,
         )
 
 

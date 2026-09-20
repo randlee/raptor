@@ -10,6 +10,8 @@ jobs:
   schema:
     name: Python schema contract
     runs-on: ubuntu-latest
+    env:
+      PYTHONDONTWRITEBYTECODE: "1"
     steps:
       - uses: actions/checkout@v4
 
@@ -52,6 +54,15 @@ jobs:
           python plugins/raptor/scripts/validate_plugin.py \
             --guideline docs/plans/phase-a/references/claude-code-skills-agents-guidelines-v0.7.md \
             --check-frontmatter --check-registry --check-manifests --check-inventory --check-vendor
+
+      - name: Verify clean plugin environment
+        run: python -m pytest plugins/raptor/tests/vendor/test_clean_environment.py
+
+      - name: Enforce Phase A3 exclusions
+        run: |
+          ! find plugins/raptor -type f \( -name '*.pyc' -o -name '*.pyo' \) -print | grep .
+          ! find plugins/raptor -type d -name '__pycache__' -print | grep .
+          ! rg -n 'SQLx|sqlalchemy|p3-documentation|NFT|sc-compose' plugins/raptor
 
       - name: Verify deterministic schema vendor
         run: |

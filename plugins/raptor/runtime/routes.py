@@ -19,6 +19,7 @@ def route(
         return _unsupported(
             "RAPTOR.UNSUPPORTED.DOLT",
             "Dolt support is reserved for a later phase.",
+            "Use a supported route until Dolt support is available.",
         )
     owner = (
         "A5"
@@ -28,11 +29,12 @@ def route(
     )
     return _unsupported(
         "RAPTOR.UNSUPPORTED.PHASE",
-        f"The {command} route is activated in Sprint {owner}.",
+        f"This route is activated in Sprint {owner}.",
+        f"Use the Sprint {owner} implementation when available.",
     )
 
 
-def _unsupported(code: str, message: str) -> dict[str, Any]:
+def _unsupported(code: str, message: str, suggested_action: str) -> dict[str, Any]:
     return {
         "success": False,
         "canceled": False,
@@ -42,7 +44,7 @@ def _unsupported(code: str, message: str) -> dict[str, Any]:
             "code": code,
             "message": message,
             "recoverable": False,
-            "suggested_action": "Use the owning sprint implementation when available.",
+            "suggested_action": suggested_action,
         },
         "metadata": {"duration_ms": 0, "tool_calls": 0, "retry_count": 0},
     }

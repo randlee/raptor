@@ -142,6 +142,8 @@ def validate_plugin(plugin_root: Path, guideline: Path) -> None:
         ):
             raise PluginValidationError(f"skill frontmatter mismatch: {name}")
         text = path.read_text(encoding="utf-8")
+        if "`../runtime-preflight.md`" not in text:
+            raise PluginValidationError(f"skill omits shared runtime preflight: {name}")
         for reference in re.findall(r"`(references/[^`]+\.md)`", text):
             if not (path.parent / reference).is_file():
                 raise PluginValidationError(
@@ -152,6 +154,29 @@ def validate_plugin(plugin_root: Path, guideline: Path) -> None:
             and "without invoking an agent" not in text
         ):
             raise PluginValidationError(f"A3 skill can delegate unexpectedly: {name}")
+    preflight = (root / "skills/runtime-preflight.md").read_text(encoding="utf-8")
+    for location in (
+        "$HOME/.local/bin/python3",
+        "$HOME/.venvs/python3/bin/python3",
+        "$(python3 -m site --user-base 2>/dev/null)/bin/python3",
+        "/opt/homebrew/bin/python3",
+    ):
+        if location not in preflight:
+            raise PluginValidationError(
+                f"runtime preflight omits common location: {location}"
+            )
+    route_references = [
+        path
+        for path in root.glob("skills/*/references/*.md")
+        if path.name != "installation-and-troubleshooting.md"
+    ]
+    if len(route_references) != 12 or any(
+        "../../unsupported-responses.md" not in path.read_text(encoding="utf-8")
+        for path in route_references
+    ):
+        raise PluginValidationError(
+            "route references do not share the deterministic unsupported contract"
+        )
     inventory = manifest.get("inventory")
     if not isinstance(inventory, list) or len(inventory) != len(set(inventory)):
         raise PluginValidationError("plugin inventory is invalid")
