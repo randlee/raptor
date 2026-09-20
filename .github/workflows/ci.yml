@@ -60,9 +60,12 @@ jobs:
 
       - name: Enforce Phase A3 exclusions
         run: |
+          test ! -e schema/sql/dolt
+          test ! -e plugins/raptor/templates
+          ! find plugins/raptor/scripts -type f | grep -Ei '/(import|export|render|round[-_]?trip|transform|convert).*\.py$'
           ! find plugins/raptor -type f \( -name '*.pyc' -o -name '*.pyo' \) -print | grep .
           ! find plugins/raptor -type d -name '__pycache__' -print | grep .
-          ! rg -n 'SQLx|sqlalchemy|p3-documentation|NFT|sc-compose' plugins/raptor
+          ! rg -ni 'p3-documentation|req-p3-|nfr-p3-|adr-p3-|\bnft\b|sqlx|sqlalchemy|sc-compose' plugins/raptor
 
       - name: Verify deterministic schema vendor
         run: |

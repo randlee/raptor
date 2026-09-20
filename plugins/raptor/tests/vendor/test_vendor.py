@@ -54,6 +54,9 @@ def test_live_lock_and_unmatched_stale_lock_fail(tmp_path: Path) -> None:
         "after_live_backed_up",
         "after_stage_rename",
         "after_staged_promoted",
+        "after_registry_promoted",
+        "after_manifest_promoted",
+        "after_final_check",
         "after_complete",
     ],
 )
@@ -126,3 +129,105 @@ def test_malformed_or_unknown_recovery_marker_fails_closed(
     with pytest.raises(VendorError, match="RECOVERY"):
         vendor._recover(plugin, marker, lock)
     assert lock.exists() and marker.exists()
+
+
+@pytest.mark.parametrize(
+    "boundary",
+    [
+        "after_registry_stage",
+        "after_manifest_stage",
+        "after_registry_backup",
+        "after_manifest_backup",
+    ],
+)
+def test_restart_discards_unpublished_sidecars(tmp_path: Path, boundary: str) -> None:
+    plugin = sandbox(tmp_path)
+    with pytest.raises(RuntimeError, match="injected failure"):
+        refresh(plugin, fail_at=boundary)
+    lock = plugin / "_vendor/.raptor_schema-refresh.lock"
+    value = json.loads(lock.read_text())
+    value["pid"] = 99999999
+    lock.write_text(json.dumps(value))
+    refresh(plugin)
+    check(plugin)
+    assert not list(plugin.rglob("*.stage.*")) and not list(plugin.rglob("*.backup.*"))
+
+
+def test_sidecars_restore_all_publication_files_before_complete(tmp_path: Path) -> None:
+    plugin = sandbox(tmp_path)
+    prior = {
+        "vendor": vendor.tree_hash(plugin / "_vendor/raptor_schema")[0],
+        "registry": (plugin / "agents/registry.yaml").read_bytes(),
+        "manifest": (plugin / "plugin-manifest.json").read_bytes(),
+    }
+    with pytest.raises(RuntimeError):
+        refresh(plugin, fail_at="after_manifest_promoted")
+    lock = plugin / "_vendor/.raptor_schema-refresh.lock"
+    owner = json.loads(lock.read_text())
+    lock.write_text(json.dumps({**owner, "pid": 99999999}))
+    vendor._recover(plugin, plugin / "_vendor/raptor_schema-refresh.json", lock)
+    assert vendor.tree_hash(plugin / "_vendor/raptor_schema")[0] == prior["vendor"]
+    assert (plugin / "agents/registry.yaml").read_bytes() == prior["registry"]
+    assert (plugin / "plugin-manifest.json").read_bytes() == prior["manifest"]
+
+
+def test_final_check_failure_rolls_back_all_publication_files(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    plugin = sandbox(tmp_path)
+    prior = (
+        vendor.tree_hash(plugin / "_vendor/raptor_schema")[0],
+        (plugin / "agents/registry.yaml").read_bytes(),
+        (plugin / "plugin-manifest.json").read_bytes(),
+    )
+    monkeypatch.setattr(
+        vendor,
+        "check",
+        lambda root: (_ for _ in ()).throw(OSError("final check failed")),
+    )
+    with pytest.raises(VendorError, match="reconciled"):
+        refresh(plugin)
+    assert vendor.tree_hash(plugin / "_vendor/raptor_schema")[0] == prior[0]
+    assert (plugin / "agents/registry.yaml").read_bytes() == prior[1]
+    assert (plugin / "plugin-manifest.json").read_bytes() == prior[2]
+    assert not list(plugin.rglob("*.stage.*")) and not list(plugin.rglob("*.backup.*"))
+
+
+def test_fsync_precedes_completion_and_backup_cleanup(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    plugin = sandbox(tmp_path)
+    events: list[str] = []
+    original_sync, original_marker, original_remove = (
+        vendor.fsync_tree,
+        vendor._write_marker,
+        vendor._remove,
+    )
+
+    def sync(path: Path) -> None:
+        events.append(f"sync:{path.name}")
+        original_sync(path)
+
+    def mark(
+        path: Path, value: dict[str, object], state: str, outcome: str = "pending"
+    ) -> None:
+        events.append(f"mark:{state}")
+        original_marker(path, value, state, outcome)
+
+    def remove(path: Path) -> None:
+        if ".backup." in path.name:
+            events.append("remove:backup")
+        original_remove(path)
+
+    monkeypatch.setattr(vendor, "fsync_tree", sync)
+    monkeypatch.setattr(vendor, "_write_marker", mark)
+    monkeypatch.setattr(vendor, "_remove", remove)
+    refresh(plugin)
+    stage_sync = next(
+        index
+        for index, event in enumerate(events)
+        if event.startswith("sync:raptor_schema.stage.")
+    )
+    assert stage_sync < events.index("mark:prepared")
+    assert events.index("sync:raptor_schema") < events.index("mark:complete")
+    assert events.index("mark:complete") < events.index("remove:backup")

@@ -1,13 +1,16 @@
 from __future__ import annotations
 
 import importlib
-import json
+import re
 import sys
 from importlib.metadata import PackageNotFoundError, version
-from pathlib import Path
+from pathlib import Path, PurePosixPath
 from types import ModuleType
+from typing import Any, cast
 
-from .vendor import PACKAGE_VERSION, PYDANTIC_CONSTRAINT, SCHEMA_VERSION, tree_hash
+from .registry import AGENTS
+from .strict_json import loads
+from .vendor import PYDANTIC_CONSTRAINT, SCHEMA_VERSION, TREE_ALGORITHM, tree_hash
 
 
 class BootstrapError(RuntimeError):
@@ -19,9 +22,67 @@ def _pydantic_compatible(actual: str) -> bool:
     return major == 2 and minor >= 10
 
 
+def _manifest(text: str) -> dict[str, Any]:
+    try:
+        value = loads(text)
+    except ValueError as error:
+        raise BootstrapError("RAPTOR.BOOTSTRAP.MANIFEST: malformed JSON") from error
+    required = {"name", "version", "requires", "vendor", "agents", "inventory"}
+    if not isinstance(value, dict) or set(value) != required:
+        raise BootstrapError("RAPTOR.BOOTSTRAP.MANIFEST: invalid manifest root")
+    requires, vendor, agents, inventory = (
+        value["requires"],
+        value["vendor"],
+        value["agents"],
+        value["inventory"],
+    )
+    if value["name"] != "raptor" or value["version"] != "1.0.0":
+        raise BootstrapError("RAPTOR.BOOTSTRAP.MANIFEST: invalid identity")
+    if requires != {"python": ">=3.11", "pydantic": PYDANTIC_CONSTRAINT}:
+        raise BootstrapError("RAPTOR.BOOTSTRAP.MANIFEST: invalid requirements")
+    vendor_keys = {
+        "algorithm",
+        "tree_sha256",
+        "canonical_schema_version",
+        "package_version",
+        "inventory",
+    }
+    if not isinstance(vendor, dict) or set(vendor) != vendor_keys:
+        raise BootstrapError("RAPTOR.BOOTSTRAP.MANIFEST: invalid vendor metadata")
+    if (
+        vendor["algorithm"] != TREE_ALGORITHM
+        or vendor["canonical_schema_version"] != SCHEMA_VERSION
+        or vendor["package_version"] != SCHEMA_VERSION
+    ):
+        raise BootstrapError("RAPTOR.BOOTSTRAP.MANIFEST: unsupported vendor authority")
+    if (
+        not isinstance(vendor["tree_sha256"], str)
+        or re.fullmatch(r"[0-9a-f]{64}", vendor["tree_sha256"]) is None
+    ):
+        raise BootstrapError("RAPTOR.BOOTSTRAP.MANIFEST: invalid vendor hash")
+    if (
+        not isinstance(agents, dict)
+        or set(agents) != AGENTS
+        or any(
+            type(item) is not str or re.fullmatch(r"[0-9a-f]{64}", item) is None
+            for item in agents.values()
+        )
+    ):
+        raise BootstrapError("RAPTOR.BOOTSTRAP.MANIFEST: invalid agent inventory")
+    for items in (inventory, vendor["inventory"]):
+        if not isinstance(items, list) or any(type(item) is not str for item in items):
+            raise BootstrapError("RAPTOR.BOOTSTRAP.MANIFEST: invalid file inventory")
+        if items != sorted(set(items)) or any(
+            PurePosixPath(item).is_absolute() or ".." in PurePosixPath(item).parts
+            for item in items
+        ):
+            raise BootstrapError("RAPTOR.BOOTSTRAP.MANIFEST: invalid file inventory")
+    return cast(dict[str, Any], value)
+
+
 def bootstrap(plugin_root: Path | None = None) -> ModuleType:
     root = (plugin_root or Path(__file__).resolve().parents[1]).resolve()
-    manifest = json.loads((root / "plugin-manifest.json").read_text(encoding="utf-8"))
+    manifest = _manifest((root / "plugin-manifest.json").read_text(encoding="utf-8"))
     live = (root / "_vendor/raptor_schema").resolve()
     digest, inventory = tree_hash(live)
     vendor = manifest.get("vendor", {})
@@ -61,10 +122,9 @@ def bootstrap(plugin_root: Path | None = None) -> ModuleType:
             "RAPTOR.BOOTSTRAP.PRECEDENCE: vendored runtime did not win import resolution"
         )
     storage = importlib.import_module("raptor_schema.storage.sqlite")
-    if (
-        getattr(storage, "MODEL_SCHEMA_VERSION", None) != SCHEMA_VERSION
-        or vendor.get("package_version") != PACKAGE_VERSION
-    ):
+    if getattr(storage, "MODEL_SCHEMA_VERSION", None) != SCHEMA_VERSION or vendor.get(
+        "package_version"
+    ) != getattr(storage, "MODEL_SCHEMA_VERSION", None):
         raise BootstrapError(
             "RAPTOR.BOOTSTRAP.VERSION: schema or package version mismatch"
         )

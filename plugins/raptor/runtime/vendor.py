@@ -11,12 +11,12 @@ import uuid
 from pathlib import Path
 from typing import Any
 
-from .io import atomic_json, fsync_directory
+from .io import atomic_json, fsync_directory, fsync_tree
+from .registry import parse_registry
 
 TREE_ALGORITHM = "sha256:path-nul-bytes-nul:v1"
 PYTHON_CONSTRAINT = ">=3.11"
 PYDANTIC_CONSTRAINT = ">=2.10,<3"
-PACKAGE_VERSION = "1.0.0"
 SCHEMA_VERSION = "1.0.0"
 
 
@@ -67,6 +67,19 @@ def _expected_paths(
     )
 
 
+def _sidecars(plugin_root: Path, transaction_id: str) -> tuple[Path, Path, Path, Path]:
+    return (
+        plugin_root / f"agents/registry.yaml.stage.{transaction_id}",
+        plugin_root / f"agents/registry.yaml.backup.{transaction_id}",
+        plugin_root / f"plugin-manifest.json.stage.{transaction_id}",
+        plugin_root / f"plugin-manifest.json.backup.{transaction_id}",
+    )
+
+
+def _file_hash(path: Path) -> str:
+    return hashlib.sha256(path.read_bytes()).hexdigest()
+
+
 def _remove(path: Path) -> None:
     if path.is_dir():
         shutil.rmtree(path)
@@ -104,6 +117,10 @@ def _validated_marker(
         "backup_path",
         "state",
         "outcome",
+        "pre_registry_sha256",
+        "post_registry_sha256",
+        "pre_manifest_sha256",
+        "post_manifest_sha256",
     }
     if not isinstance(value, dict) or set(value) != required:
         raise VendorError("RAPTOR.VENDOR.RECOVERY", "invalid transaction marker schema")
@@ -112,7 +129,15 @@ def _validated_marker(
         r"[0-9a-f]{32}", transaction_id
     ):
         raise VendorError("RAPTOR.VENDOR.RECOVERY", "invalid transaction identifier")
-    states = {"prepared", "live_backed_up", "staged_promoted", "complete"}
+    states = {
+        "prepared",
+        "live_backed_up",
+        "staged_promoted",
+        "registry_promoted",
+        "manifest_promoted",
+        "verified",
+        "complete",
+    }
     outcomes = {"pending", "promoted", "preserved", "restored"}
     if value["state"] not in states or value["outcome"] not in outcomes:
         raise VendorError("RAPTOR.VENDOR.RECOVERY", "unknown transaction state")
@@ -126,6 +151,15 @@ def _validated_marker(
         not isinstance(pre, str) or not re.fullmatch(r"[0-9a-f]{64}", pre)
     ):
         raise VendorError("RAPTOR.VENDOR.RECOVERY", "invalid transaction hash")
+    for key in (
+        "pre_registry_sha256",
+        "post_registry_sha256",
+        "pre_manifest_sha256",
+        "post_manifest_sha256",
+    ):
+        item = value[key]
+        if not isinstance(item, str) or not re.fullmatch(r"[0-9a-f]{64}", item):
+            raise VendorError("RAPTOR.VENDOR.RECOVERY", "invalid sidecar hash")
     live, stage, backup, expected_marker, expected_lock = _expected_paths(
         plugin_root, transaction_id
     )
@@ -138,52 +172,75 @@ def _validated_marker(
 
 def _recover_impl(plugin_root: Path, marker: Path, lock: Path) -> None:
     value, live, stage, backup = _validated_marker(plugin_root, marker, lock)
+    registry_stage, registry_backup, manifest_stage, manifest_backup = _sidecars(
+        plugin_root, value["transaction_id"]
+    )
+    registry = plugin_root / "agents/registry.yaml"
+    manifest = plugin_root / "plugin-manifest.json"
     pre_hash = value.get("pre_tree_sha256")
     post_hash = value.get("post_tree_sha256")
     state = value.get("state")
-    live_hash, stage_hash, backup_hash = map(_hash_or_none, (live, stage, backup))
-    if state == "complete":
-        expected = post_hash if value["outcome"] == "promoted" else pre_hash
-        if live_hash != expected:
+    live_hash, backup_hash = map(_hash_or_none, (live, backup))
+    if state == "complete" and value["outcome"] == "promoted":
+        if (
+            live_hash != post_hash
+            or _file_hash(registry) != value["post_registry_sha256"]
+            or _file_hash(manifest) != value["post_manifest_sha256"]
+        ):
             raise VendorError(
-                "RAPTOR.VENDOR.RECOVERY", "terminal marker does not match live tree"
+                "RAPTOR.VENDOR.RECOVERY", "terminal marker does not match publication"
             )
-    elif live_hash == post_hash:
-        _write_marker(marker, value, "complete", "promoted")
-    elif state == "prepared" and (
-        live_hash == pre_hash or (pre_hash is None and live_hash is None)
-    ):
-        _write_marker(marker, value, "complete", "preserved")
-    elif state == "prepared" and backup_hash == pre_hash and live_hash is None:
-        backup.rename(live)
-        fsync_directory(live.parent)
-        _write_marker(marker, value, "complete", "restored")
-    elif stage_hash == post_hash and state in {"live_backed_up", "staged_promoted"}:
-        if live.exists():
+    elif state == "complete" and value["outcome"] == "restored":
+        if (
+            live_hash != pre_hash
+            or _file_hash(registry) != value["pre_registry_sha256"]
+            or _file_hash(manifest) != value["pre_manifest_sha256"]
+        ):
             raise VendorError(
-                "RAPTOR.VENDOR.RECOVERY", "ambiguous live and staged trees"
+                "RAPTOR.VENDOR.RECOVERY", "restored marker is inconsistent"
             )
-        stage.rename(live)
-        fsync_directory(live.parent)
-        _write_marker(marker, value, "complete", "promoted")
-    elif backup_hash == pre_hash and state in {
-        "live_backed_up",
-        "staged_promoted",
-        "complete",
-    }:
-        _remove(live)
-        backup.rename(live)
-        fsync_directory(live.parent)
-        _write_marker(marker, value, "complete", "restored")
     else:
-        raise VendorError("RAPTOR.VENDOR.RECOVERY", "hash/state disagreement")
-    final_hash = _hash_or_none(live)
-    if final_hash not in {pre_hash, post_hash}:
-        raise VendorError(
-            "RAPTOR.VENDOR.RECOVERY", "recovery did not produce a verified live tree"
-        )
+        if pre_hash is None:
+            _remove(live)
+        elif backup_hash == pre_hash:
+            _remove(live)
+            shutil.copytree(backup, live)
+        elif live_hash != pre_hash:
+            raise VendorError(
+                "RAPTOR.VENDOR.RECOVERY", "vendor rollback is unavailable"
+            )
+        if (
+            not registry_backup.is_file()
+            or _file_hash(registry_backup) != value["pre_registry_sha256"]
+        ):
+            raise VendorError(
+                "RAPTOR.VENDOR.RECOVERY", "registry rollback is unavailable"
+            )
+        if (
+            not manifest_backup.is_file()
+            or _file_hash(manifest_backup) != value["pre_manifest_sha256"]
+        ):
+            raise VendorError(
+                "RAPTOR.VENDOR.RECOVERY", "manifest rollback is unavailable"
+            )
+        shutil.copy2(registry_backup, registry)
+        shutil.copy2(manifest_backup, manifest)
+        fsync_directory(registry.parent)
+        fsync_directory(manifest.parent)
+        if live.is_dir():
+            fsync_tree(live)
+        fsync_directory(live.parent)
+        _write_marker(marker, value, "complete", "restored")
+        live_hash = _hash_or_none(live)
+    if value["outcome"] == "restored" and live_hash != pre_hash:
+        _remove(live)
+        raise VendorError("RAPTOR.VENDOR.RECOVERY", "rollback verification failed")
     _remove(stage)
     _remove(backup)
+    _remove(registry_stage)
+    _remove(registry_backup)
+    _remove(manifest_stage)
+    _remove(manifest_backup)
     _remove(marker)
     _remove(lock)
 
@@ -211,9 +268,27 @@ def _acquire(plugin_root: Path, transaction_id: str) -> Path:
             os.kill(owner_pid, 0)
         except ProcessLookupError:
             if not marker.exists():
-                raise VendorError(
-                    "RAPTOR.VENDOR.LOCKED", "stale lock has no matching marker"
-                ) from error
+                stale_id = owner.get("transaction_id")
+                if (
+                    not isinstance(stale_id, str)
+                    or re.fullmatch(r"[0-9a-f]{32}", stale_id) is None
+                ):
+                    raise VendorError(
+                        "RAPTOR.VENDOR.LOCKED", "stale lock has no valid transaction"
+                    ) from error
+                stale_live, stale_stage, stale_backup, _, stale_lock = _expected_paths(
+                    plugin_root, stale_id
+                )
+                if stale_backup.exists() or not stale_live.exists():
+                    raise VendorError(
+                        "RAPTOR.VENDOR.RECOVERY",
+                        "unmarked publication may have started",
+                    ) from error
+                _remove(stale_stage)
+                for sidecar in _sidecars(plugin_root, stale_id):
+                    _remove(sidecar)
+                _remove(stale_lock)
+                return _acquire(plugin_root, transaction_id)
             try:
                 marker_value = json.loads(marker.read_text(encoding="utf-8"))
                 matches = owner.get("transaction_id") == marker_value["transaction_id"]
@@ -268,19 +343,25 @@ def _schema_metadata(repo_root: Path) -> tuple[str, str, str]:
     return project["version"], project["requires-python"], pydantic
 
 
-def _agent_hashes(plugin_root: Path, *, update: bool = False) -> dict[str, str]:
+def _registry_with_hashes(plugin_root: Path) -> tuple[dict[str, Any], dict[str, str]]:
     registry_path = plugin_root / "agents/registry.yaml"
-    registry = json.loads(registry_path.read_text(encoding="utf-8"))
+    registry = parse_registry(registry_path.read_text(encoding="utf-8"))
     hashes: dict[str, str] = {}
     for name, entry in sorted(registry["agents"].items()):
         path = (plugin_root / entry["path"]).resolve()
         digest = hashlib.sha256(path.read_bytes()).hexdigest()
-        if not update and entry.get("sha256") != digest:
-            raise VendorError("RAPTOR.VENDOR.DRIFT", "registry agent hash differs")
         entry["sha256"] = digest
         hashes[name] = digest
-    if update:
-        atomic_json(registry_path, registry, indent=2)
+    return registry, hashes
+
+
+def _agent_hashes(plugin_root: Path) -> dict[str, str]:
+    registry, hashes = _registry_with_hashes(plugin_root)
+    current = parse_registry(
+        (plugin_root / "agents/registry.yaml").read_text(encoding="utf-8")
+    )
+    if current != registry:
+        raise VendorError("RAPTOR.VENDOR.DRIFT", "registry agent hash differs")
     return hashes
 
 
@@ -302,6 +383,11 @@ def refresh(plugin_root: Path, *, fail_at: str | None = None) -> dict[str, Any]:
     repo_root = plugin_root.parents[1]
     transaction_id = uuid.uuid4().hex
     live, stage, backup, marker, lock = _expected_paths(plugin_root, transaction_id)
+    registry_stage, registry_backup, manifest_stage, manifest_backup = _sidecars(
+        plugin_root, transaction_id
+    )
+    registry_path = plugin_root / "agents/registry.yaml"
+    manifest_path = plugin_root / "plugin-manifest.json"
     lock = _acquire(plugin_root, transaction_id)
 
     def checkpoint(name: str) -> None:
@@ -310,6 +396,8 @@ def refresh(plugin_root: Path, *, fail_at: str | None = None) -> dict[str, Any]:
 
     try:
         _copy_source(repo_root, stage)
+        fsync_tree(stage)
+        fsync_directory(stage.parent)
         post_hash, inventory = tree_hash(stage)
         with tempfile.TemporaryDirectory(dir=live.parent) as verification_directory:
             verification = Path(verification_directory) / "raptor_schema"
@@ -319,36 +407,13 @@ def refresh(plugin_root: Path, *, fail_at: str | None = None) -> dict[str, Any]:
                     "RAPTOR.VENDOR.RECOVERY", "staged tree differs from source"
                 )
         pre_hash = _hash_or_none(live)
-        value: dict[str, Any] = {
-            "transaction_id": transaction_id,
-            "pre_tree_sha256": pre_hash,
-            "post_tree_sha256": post_hash,
-            "live_path": str(live.resolve()),
-            "stage_path": str(stage.resolve()),
-            "backup_path": str(backup.resolve()),
-            "outcome": "pending",
-        }
-        _write_marker(marker, value, "prepared")
-        checkpoint("after_prepared")
-        if live.exists():
-            live.rename(backup)
-            fsync_directory(live.parent)
-        checkpoint("after_live_rename")
-        _write_marker(marker, value, "live_backed_up")
-        checkpoint("after_live_backed_up")
-        stage.rename(live)
-        fsync_directory(live.parent)
-        checkpoint("after_stage_rename")
-        _write_marker(marker, value, "staged_promoted")
-        checkpoint("after_staged_promoted")
-        if tree_hash(live)[0] != post_hash:
-            raise VendorError("RAPTOR.VENDOR.RECOVERY", "promoted tree hash mismatch")
-        _write_marker(marker, value, "complete", "promoted")
-        checkpoint("after_complete")
+        registry, hashes = _registry_with_hashes(plugin_root)
+        atomic_json(registry_stage, registry, indent=2)
+        checkpoint("after_registry_stage")
         package_version, python_constraint, pydantic_constraint = _schema_metadata(
             repo_root
         )
-        manifest = {
+        publication = {
             "name": "raptor",
             "version": "1.0.0",
             "requires": {"python": python_constraint, "pydantic": pydantic_constraint},
@@ -359,15 +424,71 @@ def refresh(plugin_root: Path, *, fail_at: str | None = None) -> dict[str, Any]:
                 "package_version": package_version,
                 "inventory": inventory,
             },
-            "agents": _agent_hashes(plugin_root, update=True),
+            "agents": hashes,
+            "inventory": _plugin_inventory(plugin_root),
         }
-        manifest["inventory"] = _plugin_inventory(plugin_root)
-        atomic_json(plugin_root / "plugin-manifest.json", manifest, indent=2)
+        atomic_json(manifest_stage, publication, indent=2)
+        checkpoint("after_manifest_stage")
+        shutil.copy2(registry_path, registry_backup)
+        with registry_backup.open("rb") as stream:
+            os.fsync(stream.fileno())
+        fsync_directory(registry_backup.parent)
+        checkpoint("after_registry_backup")
+        shutil.copy2(manifest_path, manifest_backup)
+        with manifest_backup.open("rb") as stream:
+            os.fsync(stream.fileno())
+        fsync_directory(manifest_backup.parent)
+        checkpoint("after_manifest_backup")
+        value: dict[str, Any] = {
+            "transaction_id": transaction_id,
+            "pre_tree_sha256": pre_hash,
+            "post_tree_sha256": post_hash,
+            "live_path": str(live.resolve()),
+            "stage_path": str(stage.resolve()),
+            "backup_path": str(backup.resolve()),
+            "outcome": "pending",
+            "pre_registry_sha256": _file_hash(registry_backup),
+            "post_registry_sha256": _file_hash(registry_stage),
+            "pre_manifest_sha256": _file_hash(manifest_backup),
+            "post_manifest_sha256": _file_hash(manifest_stage),
+        }
+        _write_marker(marker, value, "prepared")
+        checkpoint("after_prepared")
+        if live.exists():
+            live.rename(backup)
+            fsync_directory(live.parent)
+        checkpoint("after_live_rename")
+        _write_marker(marker, value, "live_backed_up")
+        checkpoint("after_live_backed_up")
+        stage.rename(live)
+        fsync_tree(live)
+        fsync_directory(live.parent)
+        checkpoint("after_stage_rename")
+        _write_marker(marker, value, "staged_promoted")
+        checkpoint("after_staged_promoted")
+        if tree_hash(live)[0] != post_hash:
+            raise VendorError("RAPTOR.VENDOR.RECOVERY", "promoted tree hash mismatch")
+        os.replace(registry_stage, registry_path)
+        fsync_directory(registry_path.parent)
+        _write_marker(marker, value, "registry_promoted")
+        checkpoint("after_registry_promoted")
+        os.replace(manifest_stage, manifest_path)
+        fsync_directory(manifest_path.parent)
+        _write_marker(marker, value, "manifest_promoted")
+        checkpoint("after_manifest_promoted")
         check(plugin_root)
+        _write_marker(marker, value, "verified")
+        checkpoint("after_final_check")
+        fsync_tree(live)
+        fsync_directory(live.parent)
+        _write_marker(marker, value, "complete", "promoted")
+        checkpoint("after_complete")
         _remove(backup)
+        _remove(registry_backup)
+        _remove(manifest_backup)
         _remove(marker)
         _remove(lock)
-        return manifest
+        return publication
     except Exception as error:
         if fail_at is None and marker.exists():
             try:
@@ -376,6 +497,10 @@ def refresh(plugin_root: Path, *, fail_at: str | None = None) -> dict[str, Any]:
                 raise recovery_error from error
         elif fail_at is None:
             _remove(stage)
+            _remove(registry_stage)
+            _remove(registry_backup)
+            _remove(manifest_stage)
+            _remove(manifest_backup)
             _remove(lock)
         if fail_at is not None or isinstance(error, VendorError):
             raise

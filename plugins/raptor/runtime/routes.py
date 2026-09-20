@@ -16,17 +16,26 @@ def route(
     normalized_target = target.lower() if target else None
     values = {value.lower() for value in (source, target) if value}
     if "dolt" in values:
-        return _unsupported(
-            "RAPTOR.UNSUPPORTED.DOLT",
-            "Dolt support is reserved for a later phase.",
-            "Use a supported route until Dolt support is available.",
-        )
+        return unsupported_envelope("Dolt")
     owner = (
         "A5"
         if command == "round-trip"
         or (command == "export" and normalized_target == "markdown")
         else "A4"
     )
+    return unsupported_envelope(f"Sprint {owner}")
+
+
+def unsupported_envelope(policy: str) -> dict[str, Any]:
+    if policy == "Dolt":
+        return _unsupported(
+            "RAPTOR.UNSUPPORTED.DOLT",
+            "Dolt support is reserved for a later phase.",
+            "Use a supported route until Dolt support is available.",
+        )
+    if policy not in {"Sprint A4", "Sprint A5"}:
+        raise ValueError("unknown unsupported policy")
+    owner = policy.removeprefix("Sprint ")
     return _unsupported(
         "RAPTOR.UNSUPPORTED.PHASE",
         f"This route is activated in Sprint {owner}.",
@@ -50,4 +59,4 @@ def _unsupported(code: str, message: str, suggested_action: str) -> dict[str, An
     }
 
 
-__all__ = ["route"]
+__all__ = ["route", "unsupported_envelope"]

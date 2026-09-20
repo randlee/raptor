@@ -3,6 +3,7 @@ from __future__ import annotations
 import json
 import shutil
 import hashlib
+import math
 from pathlib import Path
 
 import pytest
@@ -219,3 +220,138 @@ def test_registered_path_escape_is_rejected(
         run(monkeypatch, tmp_path, Backend([envelope()]))["error"]["code"]
         == "REGISTRY.RESOLUTION"
     )  # type: ignore[index]
+
+
+@pytest.mark.parametrize(
+    "mutation",
+    [
+        lambda value: value.update(extra=True),
+        lambda value: value["agents"]["json-validate"].update(extra=True),
+        lambda value: value["agents"]["json-validate"].pop("version"),
+        lambda value: value["agents"]["json-validate"].update(path="/tmp/agent.md"),
+        lambda value: value["agents"]["json-validate"].update(path=1),
+        lambda value: value["agents"]["json-validate"].update(version="v1"),
+        lambda value: value["agents"]["json-validate"].update(sha256="ABC"),
+        lambda value: value["skills"]["validate"].update(extra=True),
+        lambda value: value["skills"]["validate"].update(depends_on=[]),
+    ],
+)
+def test_every_malformed_registry_shape_is_resolution_error(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path, mutation: object
+) -> None:
+    plugin = tmp_path / "plugin"
+    shutil.copytree(ROOT / "agents", plugin / "agents")
+    shutil.copy2(ROOT / "plugin-manifest.json", plugin / "plugin-manifest.json")
+    path = plugin / "agents/registry.yaml"
+    value = json.loads(path.read_text())
+    mutation(value)  # type: ignore[operator]
+    path.write_text(json.dumps(value))
+    monkeypatch.setattr(agent_runner, "_plugin_root", lambda: plugin)
+    result = run(monkeypatch, tmp_path, Backend([envelope()]))
+    assert result["error"]["code"] == "REGISTRY.RESOLUTION"  # type: ignore[index]
+
+
+@pytest.mark.parametrize(
+    "response",
+    [
+        '```json\n{"success":true,"success":false}\n```',
+        envelope().replace('"duration_ms": 1', '"duration_ms": NaN'),
+        envelope().replace('"duration_ms": 1', '"duration_ms": Infinity'),
+    ],
+)
+def test_duplicate_keys_and_nonfinite_constants_never_retry(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path, response: str
+) -> None:
+    backend = Backend([response])
+    result = run(monkeypatch, tmp_path, backend)
+    assert result["error"]["code"] == "EXECUTION.RESPONSE" and backend.calls == 1  # type: ignore[index]
+
+
+def test_nonfinite_nested_params_never_invoke_backend(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    (tmp_path / ".raptor").mkdir()
+    backend = Backend([envelope()])
+    result = agent_runner.run_agent(
+        agent="json-validate",
+        params={"nested": [math.inf]},  # type: ignore[list-item]
+        backend=backend,
+        repository_root=tmp_path,
+    )
+    assert result["error"]["code"] == "EXECUTION.RESPONSE" and backend.calls == 0
+
+
+@pytest.mark.parametrize("params", [{"tuple": (1, 2)}, {"bad-key": {1: "value"}}])
+def test_non_json_recursive_params_never_invoke_backend(
+    tmp_path: Path, params: object
+) -> None:
+    (tmp_path / ".raptor").mkdir()
+    backend = Backend([envelope()])
+    result = agent_runner.run_agent(
+        agent="json-validate",
+        params=params,  # type: ignore[arg-type]
+        backend=backend,
+        repository_root=tmp_path,
+    )
+    assert result["error"]["code"] == "EXECUTION.RESPONSE" and backend.calls == 0
+
+
+def test_duplicate_registry_key_is_resolution_error(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    plugin = tmp_path / "plugin"
+    shutil.copytree(ROOT / "agents", plugin / "agents")
+    shutil.copy2(ROOT / "plugin-manifest.json", plugin / "plugin-manifest.json")
+    path = plugin / "agents/registry.yaml"
+    text = path.read_text()
+    path.write_text(text.replace('"agents": {', '"agents": {}, "agents": {', 1))
+    monkeypatch.setattr(agent_runner, "_plugin_root", lambda: plugin)
+    result = run(monkeypatch, tmp_path, Backend([envelope()]))
+    assert result["error"]["code"] == "REGISTRY.RESOLUTION"  # type: ignore[index]
+
+
+@pytest.mark.parametrize(
+    "component", [".raptor", ".raptor/state", ".raptor/state/logs"]
+)
+def test_audit_rejects_symlinked_path_components(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path, component: str
+) -> None:
+    outside = tmp_path / "outside"
+    outside.mkdir()
+    target = tmp_path / component
+    target.parent.mkdir(parents=True, exist_ok=True)
+    target.symlink_to(outside, target_is_directory=True)
+    with pytest.raises(ValueError, match="symlink"):
+        run(monkeypatch, tmp_path, Backend([envelope()]))
+
+
+def test_audit_rejects_symlinked_destination(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    logs = tmp_path / ".raptor/state/logs"
+    logs.mkdir(parents=True)
+    outside = tmp_path / "outside.json"
+    outside.write_text("safe")
+    identifier = hashlib.sha256(b"test").hexdigest()
+    (logs / f"{identifier}.json").symlink_to(outside)
+    with pytest.raises(ValueError, match="symlink"):
+        run(monkeypatch, tmp_path, Backend([envelope()]))
+    assert outside.read_text() == "safe"
+
+
+def test_redactor_normalizes_trace_and_common_secret_forms() -> None:
+    value = agent_runner._redact(
+        {
+            "Stack-Trace": "hidden",
+            "nested": {
+                "AWS_ACCESS_KEY": "AKIA1234567890ABCDEF",
+                "github_token": "ghp_12345678901234567890",
+                "url": "https://user:password@example.test/x?token=secret",
+                "pem": "-----BEGIN PRIVATE KEY-----\nabc\n-----END PRIVATE KEY-----",
+            },
+        }
+    )
+    assert "Stack-Trace" not in value
+    text = json.dumps(value)
+    assert "AKIA" not in text and "ghp_" not in text and "password@" not in text
+    assert "BEGIN PRIVATE" not in text and "token=secret" not in text

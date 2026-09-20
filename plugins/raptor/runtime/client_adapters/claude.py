@@ -1,9 +1,8 @@
 from __future__ import annotations
 
-import subprocess
 from pathlib import Path
 
-from .environment import allowed_environment
+from .process import invoke_process
 
 
 class ClaudeBackend:
@@ -11,7 +10,7 @@ class ClaudeBackend:
         self.executable = executable
 
     def invoke(self, *, agent_path: Path, prompt: str, timeout_s: int) -> str:
-        result = subprocess.run(
+        return invoke_process(
             [
                 self.executable,
                 "--print",
@@ -19,13 +18,8 @@ class ClaudeBackend:
                 str(agent_path),
                 prompt,
             ],
-            check=True,
-            capture_output=True,
-            text=True,
-            timeout=timeout_s,
-            env=allowed_environment(),
+            timeout_s,
         )
-        return result.stdout
 
 
 __all__ = ["ClaudeBackend"]

@@ -18,6 +18,18 @@ def fsync_directory(path: Path) -> None:
         os.close(descriptor)
 
 
+def fsync_tree(root: Path) -> None:
+    if os.name == "nt":
+        return
+    for path in sorted(root.rglob("*"), key=lambda item: len(item.parts), reverse=True):
+        descriptor = os.open(path, os.O_RDONLY)
+        try:
+            os.fsync(descriptor)
+        finally:
+            os.close(descriptor)
+    fsync_directory(root)
+
+
 def atomic_json(
     path: Path, value: Mapping[str, Any], *, indent: int | None = None
 ) -> None:
@@ -39,4 +51,4 @@ def atomic_json(
             os.unlink(temporary)
 
 
-__all__ = ["atomic_json", "fsync_directory"]
+__all__ = ["atomic_json", "fsync_directory", "fsync_tree"]

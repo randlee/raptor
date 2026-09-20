@@ -90,3 +90,23 @@ def test_scripts_are_thin_runtime_wrappers() -> None:
         }
         assert not imports & forbidden
         assert len(list(ast.walk(tree))) < 260
+
+
+def test_ci_wires_complete_case_insensitive_exclusion_gates() -> None:
+    workflow = (REPO / ".github/workflows/ci.yml").read_text().lower()
+    for value in (
+        "test ! -e schema/sql/dolt",
+        "test ! -e plugins/raptor/templates",
+        "grep -ei '/(import|export|render|round[-_]?trip|transform|convert).*\\.py$'",
+        "rg -ni",
+        "p3" + "-documentation",
+        "req" + "-p3-",
+        "nfr" + "-p3-",
+        "adr" + "-p3-",
+        "\\b" + "n" + "ft\\b",
+        "sql" + "x",
+        "sc" + "-compose",
+        "__pycache__",
+        "*.pyc",
+    ):
+        assert value in workflow

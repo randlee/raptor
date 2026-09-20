@@ -5,6 +5,8 @@ import json
 import re
 from pathlib import Path
 from .vendor import check
+from .routes import unsupported_envelope
+from .strict_json import loads
 
 COMMANDS = {
     "raptor:import": "./skills/import/SKILL.md",
@@ -176,6 +178,16 @@ def validate_plugin(plugin_root: Path, guideline: Path) -> None:
     ):
         raise PluginValidationError(
             "route references do not share the deterministic unsupported contract"
+        )
+    policy_text = (root / "skills/unsupported-responses.md").read_text(encoding="utf-8")
+    sections = re.findall(
+        r"## (Sprint A4|Sprint A5|Dolt)\n\n```json\n([^\n]+)\n```", policy_text
+    )
+    if len(sections) != 3 or any(
+        loads(body) != unsupported_envelope(name) for name, body in sections
+    ):
+        raise PluginValidationError(
+            "unsupported response documentation drifted from runtime policy"
         )
     inventory = manifest.get("inventory")
     if not isinstance(inventory, list) or len(inventory) != len(set(inventory)):

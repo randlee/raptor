@@ -11,12 +11,31 @@ from pathlib import Path
 from typing import Any, Protocol, cast
 
 from .io import atomic_json
+from .registry import parse_registry
+from .strict_json import is_value, loads
 
 JsonValue = None | bool | int | float | str | list["JsonValue"] | dict[str, "JsonValue"]
 _FENCE = re.compile(r"\A\s*```json\s*(\{.*\})\s*```\s*\Z", re.DOTALL)
-_SECRET_KEY = re.compile(r"(?:secret|token|password|api[_-]?key|authorization)", re.I)
-_SECRET_VALUE = re.compile(r"(?:Bearer\s+\S+|sk-[A-Za-z0-9_-]{8,})", re.I)
-_TRACE_KEYS = {"tool_trace", "tool_traces", "raw_output", "transcript"}
+_SECRET_KEY = re.compile(
+    r"(?:secret|token|pass(?:word)?|api.?key|authorization|credential|private.?key|access.?key)",
+    re.I,
+)
+_SECRET_VALUE = re.compile(
+    r"(?:Bearer\s+\S+|sk-[A-Za-z0-9_-]{8,}|AKIA[0-9A-Z]{16}|gh[pousr]_[A-Za-z0-9]{20,}|-----BEGIN [^-]*PRIVATE KEY-----.*?-----END [^-]*PRIVATE KEY-----|https?://[^\s/@:]+:[^\s/@]+@)",
+    re.I | re.DOTALL,
+)
+_URL_SECRET = re.compile(
+    r"([?&](?:token|key|secret|password|signature)=)[^&#\s]+", re.I
+)
+_TRACE_KEYS = {
+    "tooltrace",
+    "tooltraces",
+    "rawoutput",
+    "transcript",
+    "trace",
+    "traces",
+    "stacktrace",
+}
 
 
 class AgentBackend(Protocol):
@@ -55,15 +74,19 @@ def _sha256(path: Path) -> str:
 
 def _redact(value: Any) -> Any:
     if isinstance(value, dict):
-        return {
-            key: "[REDACTED]" if _SECRET_KEY.search(key) else _redact(item)
-            for key, item in value.items()
-            if key not in _TRACE_KEYS
-        }
+        result: dict[str, Any] = {}
+        for key, item in value.items():
+            normalized = re.sub(r"[^a-z0-9]", "", key.lower())
+            if normalized in _TRACE_KEYS:
+                continue
+            result[key] = (
+                "[REDACTED]" if _SECRET_KEY.search(normalized) else _redact(item)
+            )
+        return result
     if isinstance(value, list):
         return [_redact(item) for item in value]
     if isinstance(value, str):
-        return _SECRET_VALUE.sub("[REDACTED]", value)
+        return _URL_SECRET.sub(r"\1[REDACTED]", _SECRET_VALUE.sub("[REDACTED]", value))
     return value
 
 
@@ -71,10 +94,12 @@ def _parse_envelope(response: str) -> dict[str, Any]:
     match = _FENCE.fullmatch(response)
     if match is None:
         raise ValueError("response must contain exactly one fenced JSON object")
-    value = json.loads(match.group(1))
+    value = loads(match.group(1))
     if not isinstance(value, dict):
         raise ValueError("response envelope must be an object")
     required = {"success", "canceled", "aborted_by", "data", "error", "metadata"}
+    if not is_value(value):
+        raise ValueError("response is not finite JSON")
     if (
         set(value) != required
         or type(value["success"]) is not bool
@@ -149,10 +174,20 @@ def _audit(
     }
     if correlation_id is not None:
         record["correlation_id"] = identifier
-    atomic_json(
-        repository_root / ".raptor/state/logs" / f"{identifier}.json",
-        record,
-    )
+    current = repository_root
+    for relative in (".raptor", ".raptor/state", ".raptor/state/logs"):
+        path = repository_root / relative
+        if path.is_symlink():
+            raise ValueError("audit path contains a symlink")
+        path.mkdir(exist_ok=True)
+        resolved = path.resolve()
+        if repository_root not in resolved.parents:
+            raise ValueError("audit path escapes repository root")
+        current = path
+    destination = current / f"{identifier}.json"
+    if destination.is_symlink():
+        raise ValueError("audit destination is a symlink")
+    atomic_json(destination, record)
 
 
 def run_agent(
@@ -176,7 +211,7 @@ def run_agent(
     ):
         raise ValueError("repository_root must identify a repository")
     try:
-        registry = json.loads(
+        registry = parse_registry(
             (plugin_root / "agents/registry.yaml").read_text(encoding="utf-8")
         )
         entry = registry["agents"].get(agent)
@@ -206,8 +241,11 @@ def run_agent(
             )
             return result
         try:
+            parameter_value = dict(params)
+            if not is_value(parameter_value):
+                raise ValueError("parameters are not recursive JSON values")
             prompt = json.dumps(
-                {"agent": agent, "params": params},
+                {"agent": agent, "params": parameter_value},
                 sort_keys=True,
                 separators=(",", ":"),
                 allow_nan=False,
