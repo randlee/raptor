@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import importlib
+import hashlib
 import re
 import sys
 from importlib.metadata import PackageNotFoundError, version
@@ -8,9 +9,15 @@ from pathlib import Path, PurePosixPath
 from types import ModuleType
 from typing import Any, cast
 
-from .registry import AGENTS
+from .registry import AGENTS, parse_registry
 from .strict_json import loads
-from .vendor import PYDANTIC_CONSTRAINT, SCHEMA_VERSION, TREE_ALGORITHM, tree_hash
+from .vendor import (
+    PYDANTIC_CONSTRAINT,
+    SCHEMA_VERSION,
+    TREE_ALGORITHM,
+    _plugin_inventory,
+    tree_hash,
+)
 
 
 class BootstrapError(RuntimeError):
@@ -83,6 +90,27 @@ def _manifest(text: str) -> dict[str, Any]:
 def bootstrap(plugin_root: Path | None = None) -> ModuleType:
     root = (plugin_root or Path(__file__).resolve().parents[1]).resolve()
     manifest = _manifest((root / "plugin-manifest.json").read_text(encoding="utf-8"))
+    if manifest["inventory"] != _plugin_inventory(root):
+        raise BootstrapError("RAPTOR.BOOTSTRAP.MANIFEST: packaged inventory differs")
+    try:
+        registry = parse_registry(
+            (root / "agents/registry.yaml").read_text(encoding="utf-8")
+        )
+        for name, entry in registry["agents"].items():
+            body = (root / entry["path"]).read_bytes()
+            digest = hashlib.sha256(body).hexdigest()
+            frontmatter = body.decode("utf-8").split("---\n", 2)[1]
+            if (
+                digest != entry["sha256"]
+                or digest != manifest["agents"][name]
+                or f"name: {name}\n" not in frontmatter
+                or f"version: {entry['version']}\n" not in frontmatter
+            ):
+                raise ValueError("agent registry differs")
+    except (IndexError, KeyError, OSError, UnicodeError, ValueError) as error:
+        raise BootstrapError(
+            "RAPTOR.BOOTSTRAP.REGISTRY: invalid agent registry"
+        ) from error
     live = (root / "_vendor/raptor_schema").resolve()
     digest, inventory = tree_hash(live)
     vendor = manifest.get("vendor", {})

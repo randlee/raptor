@@ -73,8 +73,11 @@ def test_success_redaction_and_atomic_audit(
     assert result["success"] is True
     assert result["data"] == {"token": "[REDACTED]"}
     key = hashlib.sha256(b"test").hexdigest()
-    audit = json.loads((tmp_path / f".raptor/state/logs/{key}.json").read_text())
+    logs = list((tmp_path / ".raptor/state/logs").glob("*.json"))
+    assert len(logs) == 1 and logs[0].stem != key
+    audit = json.loads(logs[0].read_text())
     assert audit["correlation_id"] == key
+    assert audit["invocation_id"] == logs[0].stem
     assert set(audit) == {
         "timestamp",
         "agent",
@@ -84,6 +87,7 @@ def test_success_redaction_and_atomic_audit(
         "outcome",
         "duration_ms",
         "correlation_id",
+        "invocation_id",
     }
 
 
@@ -332,11 +336,92 @@ def test_audit_rejects_symlinked_destination(
     logs.mkdir(parents=True)
     outside = tmp_path / "outside.json"
     outside.write_text("safe")
-    identifier = hashlib.sha256(b"test").hexdigest()
-    (logs / f"{identifier}.json").symlink_to(outside)
+
+    class Invocation:
+        hex = "fixed-invocation"
+
+    monkeypatch.setattr(agent_runner.uuid, "uuid4", lambda: Invocation())
+    (logs / "fixed-invocation.json").symlink_to(outside)
     with pytest.raises(ValueError, match="symlink"):
         run(monkeypatch, tmp_path, Backend([envelope()]))
     assert outside.read_text() == "safe"
+
+
+def test_each_invocation_has_unique_filename_with_stable_hashed_correlation(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    run(monkeypatch, tmp_path, Backend([envelope()]))
+    run(monkeypatch, tmp_path, Backend([envelope()]))
+    records = [
+        json.loads(path.read_text())
+        for path in (tmp_path / ".raptor/state/logs").glob("*.json")
+    ]
+    assert len(records) == 2
+    assert len({item["invocation_id"] for item in records}) == 2
+    assert {item["correlation_id"] for item in records} == {
+        hashlib.sha256(b"test").hexdigest()
+    }
+
+
+@pytest.mark.parametrize("swap_component", [".raptor", "state", "logs"])
+def test_descriptor_bound_audit_resists_path_swap(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path, swap_component: str
+) -> None:
+    from runtime import io as runtime_io
+
+    logs = tmp_path / ".raptor/state/logs"
+    logs.mkdir(parents=True)
+    captured, attacker = tmp_path / "captured", tmp_path / "attacker"
+    attacker.mkdir()
+    original_open = runtime_io.os.open
+    swapped = False
+
+    def swapping_open(path: object, flags: int, *args: object, **kwargs: object) -> int:
+        nonlocal swapped
+        descriptor = original_open(path, flags, *args, **kwargs)  # type: ignore[arg-type]
+        if path == swap_component and not swapped:
+            swapped = True
+            target = {
+                ".raptor": logs.parents[1],
+                "state": logs.parent,
+                "logs": logs,
+            }[swap_component]
+            target.rename(captured)
+            target.symlink_to(attacker, target_is_directory=True)
+        return descriptor
+
+    monkeypatch.setattr(runtime_io.os, "open", swapping_open)
+    result = run(monkeypatch, tmp_path, Backend([envelope()]))
+    assert result["success"] is True
+    destination = {
+        ".raptor": captured / "state/logs",
+        "state": captured / "logs",
+        "logs": captured,
+    }[swap_component]
+    assert list(destination.glob("*.json")) and not list(attacker.iterdir())
+
+
+def test_agent_executes_verified_private_snapshot_during_original_swap(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    plugin = tmp_path / "plugin"
+    shutil.copytree(ROOT / "agents", plugin / "agents")
+    shutil.copy2(ROOT / "plugin-manifest.json", plugin / "plugin-manifest.json")
+    original = plugin / "agents/json-validate.md"
+    expected = original.read_bytes()
+    monkeypatch.setattr(agent_runner, "_plugin_root", lambda: plugin)
+
+    class SnapshotBackend(Backend):
+        def invoke(self, *, agent_path: Path, prompt: str, timeout_s: int) -> str:
+            original.write_text("swapped")
+            assert agent_path != original and agent_path.read_bytes() == expected
+            assert agent_path.stat().st_mode & 0o777 == 0o400
+            assert agent_path.parent.stat().st_mode & 0o777 == 0o700
+            return super().invoke(
+                agent_path=agent_path, prompt=prompt, timeout_s=timeout_s
+            )
+
+    assert run(monkeypatch, tmp_path, SnapshotBackend([envelope()]))["success"] is True
 
 
 def test_redactor_normalizes_trace_and_common_secret_forms() -> None:
@@ -348,6 +433,7 @@ def test_redactor_normalizes_trace_and_common_secret_forms() -> None:
                 "github_token": "ghp_12345678901234567890",
                 "url": "https://user:password@example.test/x?token=secret",
                 "pem": "-----BEGIN PRIVATE KEY-----\nabc\n-----END PRIVATE KEY-----",
+                "message": "TOKEN=supersecret xoxb-1234567890 glpat-1234567890 github_pat_12345678901234567890 eyJabc.def.ghi ASIA1234567890ABCDEF",
             },
         }
     )
@@ -355,3 +441,5 @@ def test_redactor_normalizes_trace_and_common_secret_forms() -> None:
     text = json.dumps(value)
     assert "AKIA" not in text and "ghp_" not in text and "password@" not in text
     assert "BEGIN PRIVATE" not in text and "token=secret" not in text
+    for secret in ("supersecret", "xoxb-", "glpat-", "github_pat_", "eyJabc", "ASIA"):
+        assert secret not in text

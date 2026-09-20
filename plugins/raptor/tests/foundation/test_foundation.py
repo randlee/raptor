@@ -2,11 +2,13 @@ from __future__ import annotations
 
 import ast
 import json
+import shutil
 from pathlib import Path
 
 import pytest
 
 from runtime.plugin_validation import COMMANDS, validate_plugin
+from runtime.plugin_validation import PluginValidationError
 from runtime import routes
 from runtime.routes import route
 
@@ -97,6 +99,8 @@ def test_ci_wires_complete_case_insensitive_exclusion_gates() -> None:
     for value in (
         "test ! -e schema/sql/dolt",
         "test ! -e plugins/raptor/templates",
+        "-iname 'marketplace.json'",
+        "-iname 'templates'",
         "grep -ei '/(import|export|render|round[-_]?trip|transform|convert).*\\.py$'",
         "rg -ni",
         "p3" + "-documentation",
@@ -110,3 +114,27 @@ def test_ci_wires_complete_case_insensitive_exclusion_gates() -> None:
         "*.pyc",
     ):
         assert value in workflow
+
+
+@pytest.mark.parametrize(
+    "relative",
+    ["Marketplace.JSON", "Templates/example.j2", "scripts/ReNdEr-artifact.py"],
+)
+def test_validator_rejects_marketplace_template_and_transformation_paths(
+    tmp_path: Path, relative: str
+) -> None:
+    plugin = tmp_path / "raptor"
+    shutil.copytree(
+        ROOT, plugin, ignore=shutil.ignore_patterns("tests", "__pycache__", "*.pyc")
+    )
+    path = plugin / relative
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_text("forbidden")
+    with pytest.raises(
+        PluginValidationError, match="marketplace, template, or transformation"
+    ):
+        validate_plugin(
+            plugin,
+            REPO
+            / "docs/plans/phase-a/references/claude-code-skills-agents-guidelines-v0.7.md",
+        )

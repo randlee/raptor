@@ -4,13 +4,14 @@ import hashlib
 import json
 import re
 import subprocess
+import tempfile
 import time
 import uuid
 from collections.abc import Mapping
 from pathlib import Path
 from typing import Any, Protocol, cast
 
-from .io import atomic_json
+from .io import secure_repository_json
 from .registry import parse_registry
 from .strict_json import is_value, loads
 
@@ -21,7 +22,7 @@ _SECRET_KEY = re.compile(
     re.I,
 )
 _SECRET_VALUE = re.compile(
-    r"(?:Bearer\s+\S+|sk-[A-Za-z0-9_-]{8,}|AKIA[0-9A-Z]{16}|gh[pousr]_[A-Za-z0-9]{20,}|-----BEGIN [^-]*PRIVATE KEY-----.*?-----END [^-]*PRIVATE KEY-----|https?://[^\s/@:]+:[^\s/@]+@)",
+    r"(?:Bearer\s+\S+|(?:sk|xox[baprs]|glpat)-[A-Za-z0-9_-]{8,}|(?:AKIA|ASIA)[0-9A-Z]{16}|gh[pousr]_[A-Za-z0-9]{20,}|github_pat_[A-Za-z0-9_]{20,}|eyJ[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+|-----BEGIN [^-]*PRIVATE KEY-----.*?-----END [^-]*PRIVATE KEY-----|https?://[^\s/@:]+:[^\s/@]+@|(?:secret|token|password|api[_-]?key)\s*[=:]\s*[^\s,;]+)",
     re.I | re.DOTALL,
 )
 _URL_SECRET = re.compile(
@@ -160,12 +161,13 @@ def _audit(
     correlation_id: str | None,
     repository_root: Path,
 ) -> None:
-    identifier = hashlib.sha256(
+    correlation_hash = hashlib.sha256(
         (correlation_id or uuid.uuid4().hex).encode()
     ).hexdigest()
+    invocation_id = uuid.uuid4().hex
     record = {
         "timestamp": time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime()),
-        "agent": agent,
+        "agent": _redact(agent),
         "version_frontmatter": version,
         "file_sha256": digest,
         "invoker": "raptor-agent-runner",
@@ -173,21 +175,11 @@ def _audit(
         "duration_ms": duration_ms,
     }
     if correlation_id is not None:
-        record["correlation_id"] = identifier
-    current = repository_root
-    for relative in (".raptor", ".raptor/state", ".raptor/state/logs"):
-        path = repository_root / relative
-        if path.is_symlink():
-            raise ValueError("audit path contains a symlink")
-        path.mkdir(exist_ok=True)
-        resolved = path.resolve()
-        if repository_root not in resolved.parents:
-            raise ValueError("audit path escapes repository root")
-        current = path
-    destination = current / f"{identifier}.json"
-    if destination.is_symlink():
-        raise ValueError("audit destination is a symlink")
-    atomic_json(destination, record)
+        record["correlation_id"] = correlation_hash
+    record["invocation_id"] = invocation_id
+    secure_repository_json(
+        repository_root, (".raptor", "state", "logs"), f"{invocation_id}.json", record
+    )
 
 
 def run_agent(
@@ -252,32 +244,42 @@ def run_agent(
             )
         except (TypeError, ValueError):
             return _error("EXECUTION.RESPONSE", "Agent parameters are not valid JSON.")
-        for attempt in range(2):
-            try:
-                response = backend.invoke(
-                    agent_path=agent_path,
-                    prompt=prompt,
-                    timeout_s=timeout_s,
-                )
-                result = _parse_envelope(response)
-            except (TimeoutError, subprocess.TimeoutExpired):
-                result = _error(
-                    "EXECUTION.TIMEOUT", "Agent exceeded its timeout.", canceled=True
-                )
-            except Exception as error:
-                result = _error(
-                    "EXECUTION.RESPONSE",
-                    f"Agent response failed validation: {type(error).__name__}",
-                )
-            result["metadata"]["retry_count"] = attempt
-            error_value = result.get("error")
-            if (
-                result["success"]
-                or not isinstance(error_value, dict)
-                or not error_value.get("recoverable")
-                or attempt == 1
-            ):
-                break
+        with tempfile.TemporaryDirectory(prefix="raptor-agent-") as directory:
+            snapshot_root = Path(directory)
+            snapshot_root.chmod(0o700)
+            snapshot = snapshot_root / agent_path.name
+            snapshot.write_bytes(agent_path.read_bytes())
+            snapshot.chmod(0o400)
+            if _sha256(snapshot) != digest:
+                raise OSError("agent snapshot verification failed")
+            for attempt in range(2):
+                try:
+                    response = backend.invoke(
+                        agent_path=snapshot,
+                        prompt=prompt,
+                        timeout_s=timeout_s,
+                    )
+                    result = _parse_envelope(response)
+                except (TimeoutError, subprocess.TimeoutExpired):
+                    result = _error(
+                        "EXECUTION.TIMEOUT",
+                        "Agent exceeded its timeout.",
+                        canceled=True,
+                    )
+                except Exception as error:
+                    result = _error(
+                        "EXECUTION.RESPONSE",
+                        f"Agent response failed validation: {type(error).__name__}",
+                    )
+                result["metadata"]["retry_count"] = attempt
+                error_value = result.get("error")
+                if (
+                    result["success"]
+                    or not isinstance(error_value, dict)
+                    or not error_value.get("recoverable")
+                    or attempt == 1
+                ):
+                    break
         assert result is not None
         return result
     except (KeyError, OSError, ValueError, LookupError, json.JSONDecodeError):

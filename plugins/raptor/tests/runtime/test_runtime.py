@@ -97,6 +97,25 @@ def test_bootstrap_rejects_every_malformed_manifest_contract(
         bootstrap(plugin)
 
 
+def test_bootstrap_rejects_extra_packaged_file_and_agent_registry_drift(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    plugin = tmp_path / "raptor"
+    shutil.copytree(
+        ROOT, plugin, ignore=shutil.ignore_patterns("tests", "__pycache__", "*.pyc")
+    )
+    (plugin / "runtime/extra.py").write_text("extra")
+    with pytest.raises(BootstrapError, match="packaged inventory"):
+        bootstrap(plugin)
+    (plugin / "runtime/extra.py").unlink()
+    (plugin / "agents/json-validate.md").write_text("tampered")
+    for name in tuple(sys.modules):
+        if name == "raptor_schema" or name.startswith("raptor_schema."):
+            monkeypatch.delitem(sys.modules, name, raising=False)
+    with pytest.raises(BootstrapError, match="REGISTRY"):
+        bootstrap(plugin)
+
+
 def test_client_adapters_only_own_host_invocation() -> None:
     for path in (ROOT / "runtime/client_adapters").glob("*.py"):
         text = path.read_text()
@@ -149,11 +168,14 @@ def test_adapter_environment_excludes_ambient_credentials() -> None:
 @pytest.mark.skipif(sys.platform == "win32", reason="POSIX process-group assertion")
 def test_timeout_terminates_and_reaps_descendant_tree(tmp_path: Path) -> None:
     marker = tmp_path / "descendant-survived"
-    child = f"import time; time.sleep(.4); open({str(marker)!r}, 'w').write('alive')"
+    child = (
+        "import os,signal,time; os.setsid(); signal.signal(signal.SIGTERM, signal.SIG_IGN); "
+        f"time.sleep(1.2); open({str(marker)!r}, 'w').write('alive')"
+    )
     parent = f"import subprocess,time,sys; subprocess.Popen([sys.executable,'-c',{child!r}]); time.sleep(5)"
     with pytest.raises(TimeoutError):
         invoke_process([sys.executable, "-c", parent], 0.05)
-    time.sleep(0.6)
+    time.sleep(1.3)
     assert not marker.exists()
 
 
@@ -171,11 +193,10 @@ def test_windows_timeout_uses_descendant_tree_termination(
         def wait(self, timeout: float | None = None) -> int:
             return 0
 
-    monkeypatch.setattr(process_runtime.os, "name", "nt")
     monkeypatch.setattr(
         process_runtime.subprocess,
         "run",
         lambda command, **values: calls.append(command),
     )
-    process_runtime._terminate_tree(Process())  # type: ignore[arg-type]
-    assert calls == [["taskkill", "/PID", "42", "/T", "/F"]]
+    process_runtime._terminate_windows(Process())  # type: ignore[arg-type]
+    assert calls == [["taskkill", "/PID", "42", "/T", "/F"]] * 3

@@ -3,6 +3,7 @@ from __future__ import annotations
 import os
 import signal
 import subprocess
+import time
 from collections.abc import Sequence
 
 from .environment import allowed_environment
@@ -40,27 +41,78 @@ def invoke_process(command: Sequence[str], timeout_s: int) -> str:
 def _terminate_tree(process: subprocess.Popen[str]) -> None:
     if process.poll() is not None:
         return
-    try:
-        if os.name == "nt":
+    if os.name == "nt":
+        _terminate_windows(process)
+        return
+    known = {process.pid}
+    for _ in range(4):
+        known |= _descendants(known)
+        for pid in sorted(known, reverse=True):
             try:
-                subprocess.run(
-                    ["taskkill", "/PID", str(process.pid), "/T", "/F"],
-                    check=False,
-                    capture_output=True,
-                    env=allowed_environment(),
-                )
-            except OSError:
-                process.terminate()
-        else:
-            os.killpg(process.pid, signal.SIGTERM)
+                os.kill(pid, signal.SIGTERM)
+            except ProcessLookupError:
+                pass
+        time.sleep(0.05)
+    for _ in range(3):
+        known |= _descendants(known)
+        for pid in sorted(known, reverse=True):
+            try:
+                os.kill(pid, signal.SIGKILL)
+            except ProcessLookupError:
+                pass
+        time.sleep(0.03)
+    try:
+        process.wait(timeout=0.5)
+    except subprocess.TimeoutExpired:
+        process.kill()
+        process.wait()
+
+
+def _terminate_windows(process: subprocess.Popen[str]) -> None:
+    for _ in range(3):
+        try:
+            subprocess.run(
+                ["taskkill", "/PID", str(process.pid), "/T", "/F"],
+                check=False,
+                capture_output=True,
+                env=allowed_environment(),
+            )
+        except OSError:
+            process.terminate()
+        time.sleep(0.05)
+    try:
         process.wait(timeout=0.25)
-    except (ProcessLookupError, subprocess.TimeoutExpired):
-        if process.poll() is None:
-            if os.name == "nt":
-                process.kill()
-            else:
-                os.killpg(process.pid, signal.SIGKILL)
-            process.wait()
+    except subprocess.TimeoutExpired:
+        process.kill()
+        process.wait()
+
+
+def _descendants(parents: set[int]) -> set[int]:
+    try:
+        result = subprocess.run(
+            ["ps", "-axo", "pid=,ppid="],
+            check=True,
+            capture_output=True,
+            text=True,
+            env=allowed_environment(),
+        )
+    except (OSError, subprocess.SubprocessError):
+        return set()
+    relationships: list[tuple[int, int]] = []
+    for line in result.stdout.splitlines():
+        try:
+            pid, parent = (int(item) for item in line.split())
+        except (TypeError, ValueError):
+            continue
+        relationships.append((pid, parent))
+    discovered: set[int] = set()
+    frontier = set(parents)
+    while frontier:
+        children = {pid for pid, parent in relationships if parent in frontier}
+        children -= discovered
+        discovered |= children
+        frontier = children
+    return discovered
 
 
 __all__ = ["invoke_process"]

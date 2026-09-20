@@ -7,6 +7,7 @@ from pathlib import Path
 from .vendor import check
 from .routes import unsupported_envelope
 from .strict_json import loads
+from .registry import AGENTS, SKILLS, parse_registry
 
 COMMANDS = {
     "raptor:import": "./skills/import/SKILL.md",
@@ -14,17 +15,6 @@ COMMANDS = {
     "raptor:validate": "./skills/validate/SKILL.md",
     "raptor:round-trip": "./skills/round-trip/SKILL.md",
 }
-AGENTS = {
-    "markdown-json-import",
-    "json-sqlite-import",
-    "sqlite-json-export",
-    "markdown-validate",
-    "json-validate",
-    "sqlite-validate",
-    "json-markdown-export",
-    "migration-round-trip",
-}
-SKILLS = {"import", "export", "validate", "round-trip"}
 REQUIRED_AGENT_SECTIONS = {
     "## Purpose",
     "## Inputs",
@@ -85,7 +75,7 @@ def validate_plugin(plugin_root: Path, guideline: Path) -> None:
         raise PluginValidationError(
             "clients do not discover exactly four public commands"
         )
-    registry = json.loads((root / "agents/registry.yaml").read_text())
+    registry = parse_registry((root / "agents/registry.yaml").read_text())
     if (
         set(registry.get("agents", {})) != AGENTS
         or set(registry.get("skills", {})) != SKILLS
@@ -195,6 +185,23 @@ def validate_plugin(plugin_root: Path, guideline: Path) -> None:
     for relative in inventory:
         if not isinstance(relative, str) or not (root / relative).is_file():
             raise PluginValidationError(f"missing packaged file: {relative}")
+    forbidden_paths = [
+        path
+        for path in root.rglob("*")
+        if path.name.casefold() in {"marketplace.json", "templates"}
+        or (
+            path.parent == root / "scripts"
+            and re.search(
+                r"(?:import|export|render|round[-_]?trip|transform|convert)",
+                path.stem,
+                re.I,
+            )
+        )
+    ]
+    if forbidden_paths:
+        raise PluginValidationError(
+            "plugin contains marketplace, template, or transformation paths"
+        )
     check(root)
 
 

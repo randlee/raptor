@@ -52,7 +52,7 @@ def probe(
         f"module = bootstrap(Path({str(plugin)!r})); {expression}"
     )
     return subprocess.run(
-        [sys.executable, "-I", "-S", "-c", source],
+        [sys.executable, "-I", "-S", "-B", "-c", source],
         capture_output=True,
         text=True,
         env={"PATH": os.environ["PATH"], "PYTHONDONTWRITEBYTECODE": "1"},

@@ -34,6 +34,25 @@ def test_refresh_check_and_hand_edit_detection(tmp_path: Path) -> None:
         check(plugin)
 
 
+@pytest.mark.parametrize(
+    "relative",
+    [
+        "_vendor/raptor_schema.stage.not-a-transaction/file.py",
+        "agents/unrelated.backup.file",
+        "runtime/refresh-notes.txt",
+    ],
+)
+def test_inventory_rejects_every_noncanonical_extra(
+    tmp_path: Path, relative: str
+) -> None:
+    plugin = sandbox(tmp_path)
+    path = plugin / relative
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_text("extra")
+    with pytest.raises(VendorError, match="inventory"):
+        check(plugin)
+
+
 def test_live_lock_and_unmatched_stale_lock_fail(tmp_path: Path) -> None:
     plugin = sandbox(tmp_path)
     lock = plugin / "_vendor/.raptor_schema-refresh.lock"
@@ -62,12 +81,29 @@ def test_live_lock_and_unmatched_stale_lock_fail(tmp_path: Path) -> None:
 )
 def test_restart_recovery_at_every_boundary(tmp_path: Path, boundary: str) -> None:
     plugin = sandbox(tmp_path)
+    source = plugin.parents[1] / "schema/src/raptor_schema/canonical.py"
+    source.write_text(source.read_text() + "\n# recovery publication\n")
     with pytest.raises(RuntimeError, match="injected failure"):
         refresh(plugin, fail_at=boundary)
     lock = plugin / "_vendor/.raptor_schema-refresh.lock"
     value = json.loads(lock.read_text())
     value["pid"] = 99999999
     lock.write_text(json.dumps(value))
+    marker = plugin / "_vendor/raptor_schema-refresh.json"
+    transaction = json.loads(marker.read_text())
+    vendor._recover(plugin, marker, lock)
+    assert (
+        vendor.tree_hash(plugin / "_vendor/raptor_schema")[0]
+        == transaction["post_tree_sha256"]
+    )
+    assert (
+        vendor._file_hash(plugin / "agents/registry.yaml")
+        == transaction["post_registry_sha256"]
+    )
+    assert (
+        vendor._file_hash(plugin / "plugin-manifest.json")
+        == transaction["post_manifest_sha256"]
+    )
     refresh(plugin)
     check(plugin)
 
@@ -153,33 +189,40 @@ def test_restart_discards_unpublished_sidecars(tmp_path: Path, boundary: str) ->
     assert not list(plugin.rglob("*.stage.*")) and not list(plugin.rglob("*.backup.*"))
 
 
-def test_sidecars_restore_all_publication_files_before_complete(tmp_path: Path) -> None:
+def test_sidecars_roll_forward_complete_publication_before_new_refresh(
+    tmp_path: Path,
+) -> None:
     plugin = sandbox(tmp_path)
-    prior = {
-        "vendor": vendor.tree_hash(plugin / "_vendor/raptor_schema")[0],
-        "registry": (plugin / "agents/registry.yaml").read_bytes(),
-        "manifest": (plugin / "plugin-manifest.json").read_bytes(),
-    }
+    source = plugin.parents[1] / "schema/src/raptor_schema/canonical.py"
+    source.write_text(source.read_text() + "\n# roll forward\n")
     with pytest.raises(RuntimeError):
         refresh(plugin, fail_at="after_manifest_promoted")
     lock = plugin / "_vendor/.raptor_schema-refresh.lock"
     owner = json.loads(lock.read_text())
     lock.write_text(json.dumps({**owner, "pid": 99999999}))
-    vendor._recover(plugin, plugin / "_vendor/raptor_schema-refresh.json", lock)
-    assert vendor.tree_hash(plugin / "_vendor/raptor_schema")[0] == prior["vendor"]
-    assert (plugin / "agents/registry.yaml").read_bytes() == prior["registry"]
-    assert (plugin / "plugin-manifest.json").read_bytes() == prior["manifest"]
+    marker = plugin / "_vendor/raptor_schema-refresh.json"
+    transaction = json.loads(marker.read_text())
+    vendor._recover(plugin, marker, lock)
+    assert (
+        vendor.tree_hash(plugin / "_vendor/raptor_schema")[0]
+        == transaction["post_tree_sha256"]
+    )
+    assert (
+        vendor._file_hash(plugin / "agents/registry.yaml")
+        == transaction["post_registry_sha256"]
+    )
+    assert (
+        vendor._file_hash(plugin / "plugin-manifest.json")
+        == transaction["post_manifest_sha256"]
+    )
 
 
-def test_final_check_failure_rolls_back_all_publication_files(
+def test_final_check_failure_reconciles_complete_publication(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     plugin = sandbox(tmp_path)
-    prior = (
-        vendor.tree_hash(plugin / "_vendor/raptor_schema")[0],
-        (plugin / "agents/registry.yaml").read_bytes(),
-        (plugin / "plugin-manifest.json").read_bytes(),
-    )
+    source = plugin.parents[1] / "schema/src/raptor_schema/canonical.py"
+    source.write_text(source.read_text() + "\n# final check reconcile\n")
     monkeypatch.setattr(
         vendor,
         "check",
@@ -187,9 +230,10 @@ def test_final_check_failure_rolls_back_all_publication_files(
     )
     with pytest.raises(VendorError, match="reconciled"):
         refresh(plugin)
-    assert vendor.tree_hash(plugin / "_vendor/raptor_schema")[0] == prior[0]
-    assert (plugin / "agents/registry.yaml").read_bytes() == prior[1]
-    assert (plugin / "plugin-manifest.json").read_bytes() == prior[2]
+    assert (
+        "# final check reconcile"
+        in (plugin / "_vendor/raptor_schema/canonical.py").read_text()
+    )
     assert not list(plugin.rglob("*.stage.*")) and not list(plugin.rglob("*.backup.*"))
 
 
