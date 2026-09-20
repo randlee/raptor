@@ -55,13 +55,10 @@ def _markdown_sources(
     profile_id: str,
     profile_version: str | None,
     allow_profile_code: bool,
-) -> tuple[SourceDocument, ...]:
+) -> tuple[tuple[SourceDocument, ...], bool]:
     source_path, _ = repository_path(repository_root, input_path, must_exist=True)
-    paths = (
-        tuple(sorted(source_path.rglob("*.md")))
-        if source_path.is_dir()
-        else (source_path,)
-    )
+    is_directory = source_path.is_dir()
+    paths = tuple(sorted(source_path.rglob("*.md"))) if is_directory else (source_path,)
     if not paths:
         raise ValueError("RAPTOR.OPERATION.EMPTY_INPUT: no Markdown documents found")
     profile = resolve_profile(
@@ -115,7 +112,18 @@ def _markdown_sources(
                 "RAPTOR.PROFILE.RETURN_TYPE: canonicalize returned an invalid value"
             )
         documents.append(document)
-    return tuple(documents)
+    return tuple(documents), is_directory
+
+
+def _markdown_reference_mode(is_directory: bool, requested: str | None) -> str:
+    expected = "batch" if is_directory else "document"
+    selected = requested or expected
+    if selected != expected:
+        kind = "directories" if is_directory else "single Markdown files"
+        raise ValueError(
+            f"RAPTOR.REFERENCE.MODE_MISMATCH: {kind} require {expected} mode"
+        )
+    return selected
 
 
 def validate_markdown(
@@ -128,18 +136,14 @@ def validate_markdown(
     database: str | None = None,
     allow_profile_code: bool = False,
 ) -> dict[str, Any]:
-    documents = _markdown_sources(
+    documents, is_directory = _markdown_sources(
         repository_root,
         input_path,
         profile_id=profile_id,
         profile_version=profile_version,
         allow_profile_code=allow_profile_code,
     )
-    selected_mode = reference_mode or ("batch" if len(documents) > 1 else "document")
-    if len(documents) > 1 and selected_mode != "batch":
-        raise ValueError(
-            "RAPTOR.REFERENCE.MODE_MISMATCH: directories require batch mode"
-        )
+    selected_mode = _markdown_reference_mode(is_directory, reference_mode)
     _validate_references(repository_root, documents, selected_mode, database)
     return {
         "diagnostics": [],
@@ -166,18 +170,14 @@ def markdown_to_json(
     allow_profile_code: bool = False,
     apply: bool = False,
 ) -> dict[str, Any]:
-    documents = _markdown_sources(
+    documents, is_directory = _markdown_sources(
         repository_root,
         input_path,
         profile_id=profile_id,
         profile_version=profile_version,
         allow_profile_code=allow_profile_code,
     )
-    selected_mode = reference_mode or ("batch" if len(documents) > 1 else "document")
-    if len(documents) > 1 and selected_mode != "batch":
-        raise ValueError(
-            "RAPTOR.REFERENCE.MODE_MISMATCH: directories require batch mode"
-        )
+    selected_mode = _markdown_reference_mode(is_directory, reference_mode)
     _validate_references(repository_root, documents, selected_mode, database)
     canonical = dump_canonical_json(documents[0]) if len(documents) == 1 else None
     if output_path == "-":

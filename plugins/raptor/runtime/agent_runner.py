@@ -74,7 +74,7 @@ def _sha256(path: Path) -> str:
     return hashlib.sha256(path.read_bytes()).hexdigest()
 
 
-def _redact(value: Any) -> Any:
+def redact(value: Any) -> Any:
     if isinstance(value, dict):
         result: dict[str, Any] = {}
         for key, item in value.items():
@@ -82,11 +82,11 @@ def _redact(value: Any) -> Any:
             if normalized in _TRACE_KEYS:
                 continue
             result[key] = (
-                "[REDACTED]" if _SECRET_KEY.search(normalized) else _redact(item)
+                "[REDACTED]" if _SECRET_KEY.search(normalized) else redact(item)
             )
         return result
     if isinstance(value, list):
-        return [_redact(item) for item in value]
+        return [redact(item) for item in value]
     if isinstance(value, str):
         return _URL_SECRET.sub(r"\1[REDACTED]", _SECRET_VALUE.sub("[REDACTED]", value))
     return value
@@ -149,7 +149,7 @@ def _parse_envelope(response: str) -> dict[str, Any]:
             raise ValueError("failure response error is invalid")
         if value["canceled"] != (value["aborted_by"] is not None):
             raise ValueError("failure cancellation fields are contradictory")
-    return cast(dict[str, Any], _redact(value))
+    return cast(dict[str, Any], redact(value))
 
 
 def _audit(
@@ -167,7 +167,7 @@ def _audit(
     ).hexdigest()
     record = {
         "timestamp": time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime()),
-        "agent": _redact(agent),
+        "agent": redact(agent),
         "version_frontmatter": version,
         "file_sha256": digest,
         "invoker": "raptor-agent-runner",

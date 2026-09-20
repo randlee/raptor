@@ -9,6 +9,7 @@ import sys
 from pathlib import Path
 
 import pytest
+from pydantic import ValidationError
 from raptor_schema import (
     ReferenceValidationError,
     SourceDocument,
@@ -17,6 +18,7 @@ from raptor_schema import (
 )
 
 from runtime.identity import document_identity, load_identity, register_identity
+from runtime.cli import failure
 from runtime.operations import (
     export_sqlite,
     import_sqlite,
@@ -88,6 +90,16 @@ def test_identity_validate_apply_repeat_clone_and_conflicts(tmp_path: Path) -> N
         repository_path="docs/a.md",
     )
     assert result["changed"] is True and not (root / ".raptor/identity.json").exists()
+    with pytest.raises(ValueError, match="RAPTOR.IDENTITY.REUSE"):
+        register_identity(
+            root,
+            repository_id="urn:raptor:repo:one",
+            document_id="DOC-RAP-001",
+            repository_path="docs/a.md",
+            registered_repository_id="urn:raptor:repo:other",
+            apply=True,
+        )
+    assert not (root / ".raptor/identity.json").exists()
     register_identity(
         root,
         repository_id="urn:raptor:repo:one",
@@ -134,7 +146,7 @@ def test_identity_validate_apply_repeat_clone_and_conflicts(tmp_path: Path) -> N
     assert missing.value.suggested_action == (
         "python plugins/raptor/scripts/identity.py register --repo-root <repo-root> "
         "--repository-id urn:raptor:repo:one --document-id <document-id> "
-        "--path docs/missing.md --validate"
+        "--path docs/missing.md --apply"
     )
     assert (root / ".raptor/identity.json").read_bytes() == before
 
@@ -173,6 +185,7 @@ def test_identity_cli_validate_apply_and_conflict_envelopes(tmp_path: Path) -> N
 def test_cli_preserves_identity_remediation_and_reference_diagnostic(
     tmp_path: Path,
 ) -> None:
+    secret_repository = "urn:raptor:repo:secret-token-sk_live_1234567890"
     missing = tmp_path / "missing"
     (missing / "docs").mkdir(parents=True)
     (missing / "docs/source.md").write_text(
@@ -193,7 +206,7 @@ def test_cli_preserves_identity_remediation_and_reference_diagnostic(
         "code": "RAPTOR.IDENTITY.MISSING",
         "message": "RAPTOR.IDENTITY.MISSING: explicit repository, document, and path registration is required",
         "recoverable": False,
-        "suggested_action": "python plugins/raptor/scripts/identity.py register --repo-root <repo-root> --repository-id <repository-id> --document-id <document-id> --path docs/source.md --validate",
+        "suggested_action": "python plugins/raptor/scripts/identity.py register --repo-root <repo-root> --repository-id <repository-id> --document-id <document-id> --path docs/source.md --apply",
     }
 
     root, document = _repo(tmp_path)
@@ -203,7 +216,7 @@ def test_cli_preserves_identity_remediation_and_reference_diagnostic(
             "relation": "relates_to",
             "target": {
                 "target_kind": "artifact",
-                "repository_id": "urn:raptor:repo:missing",
+                "repository_id": secret_repository,
                 "artifact_id": "REQ-RAP-999",
             },
         }
@@ -227,11 +240,129 @@ def test_cli_preserves_identity_remediation_and_reference_diagnostic(
         text=True,
     )
     envelope = json.loads(result.stdout.split("```json\n", 1)[1].rsplit("\n```", 1)[0])
+    encoded_envelope = json.dumps(envelope)
+    assert "SECRET_TOKEN" not in encoded_envelope and "sk_live_" not in encoded_envelope
     diagnostic = json.loads(envelope["error"]["message"])
     assert envelope["error"]["code"] == "RAPTOR.REFERENCE.UNRESOLVED"
     assert diagnostic["repository_id"] == "urn:raptor:repo:raptor"
     assert diagnostic["document_id"] == "DOC-RAP-001"
     assert diagnostic["repository_path"] == "docs/requirements.md"
+    assert diagnostic["mode"] == "document"
+    assert diagnostic["relation"] == "relates_to"
+    assert diagnostic["source"] == {
+        "repository_id": "urn:raptor:repo:raptor",
+        "artifact_id": "REQ-RAP-001",
+    }
+    assert diagnostic["target"] == {
+        "repository_id": "urn:raptor:repo:secret-token-[REDACTED]",
+        "artifact_id": "REQ-RAP-999",
+    }
+    assert diagnostic["document_key"] == {
+        "repository_id": "urn:raptor:repo:raptor",
+        "document_id": "DOC-RAP-001",
+    }
+    assert diagnostic["json_pointer"] == "/artifacts/0/relationships/0/target"
+
+
+def test_cli_redacts_untrusted_and_pydantic_error_values() -> None:
+    secret = "SECRET_TOKEN_sk_live_1234567890"
+    namespaced = failure(ValueError(f"RAPTOR.INPUT.INVALID: value={secret}"))
+    encoded = json.dumps(namespaced)
+    assert secret not in encoded and "sk_live_" not in encoded
+
+    with pytest.raises(ValidationError) as caught:
+        SourceDocument.model_validate({"schema_version": secret})
+    pydantic = failure(caught.value)
+    assert pydantic["error"] == {
+        "code": "RAPTOR.VALIDATION.ERROR",
+        "message": "RAPTOR.VALIDATION.ERROR: input failed schema validation",
+        "recoverable": False,
+        "suggested_action": "Correct the reported plugin state and retry.",
+    }
+    assert secret not in json.dumps(pydantic)
+
+
+def test_repository_io_windows_branch_uses_handle_safe_contracts(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    from runtime import io as runtime_io
+
+    observed: list[tuple[str, tuple[str, ...], bytes | None]] = []
+    monkeypatch.setattr(runtime_io, "_is_windows", lambda: True)
+    monkeypatch.setattr(
+        runtime_io,
+        "_windows_repository_read",
+        lambda root, parts: observed.append(("read", parts, None)) or b"safe",
+    )
+    monkeypatch.setattr(
+        runtime_io,
+        "_windows_repository_publish",
+        lambda root, parts, value: observed.append(("write", parts, value)),
+    )
+    assert runtime_io.read_repository_bytes(tmp_path, "docs/input.md") == b"safe"
+    runtime_io.atomic_repository_bytes(tmp_path, "out/result.json", b"value")
+    assert observed == [
+        ("read", ("docs", "input.md"), None),
+        ("write", ("out", "result.json"), b"value"),
+    ]
+
+
+def test_windows_repository_read_is_bound_to_verified_handle(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    from runtime import io as runtime_io
+
+    target = tmp_path / "source.json"
+    target.write_bytes(b"verified")
+
+    def swap_after_open(
+        path: Path, *, write: bool, directory: bool, create: bool
+    ) -> int:
+        assert not write and not directory and not create
+        descriptor = runtime_io.os.open(path, runtime_io.os.O_RDONLY)
+        path.unlink()
+        path.write_bytes(b"attacker")
+        return descriptor
+
+    monkeypatch.setattr(runtime_io, "_windows_open_checked", swap_after_open)
+    assert (
+        runtime_io._windows_repository_read(tmp_path, ("source.json",)) == b"verified"
+    )
+    assert target.read_bytes() == b"attacker"
+
+
+def test_windows_repository_publish_renames_relative_to_verified_parent_handle(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    from runtime import io as runtime_io
+
+    output = tmp_path / "output"
+    output.mkdir()
+    opened_temporary: list[Path] = []
+    renamed: list[tuple[int, int, str]] = []
+
+    def open_checked(path: Path, *, write: bool, directory: bool, create: bool) -> int:
+        if directory:
+            return runtime_io.os.open(path, runtime_io.os.O_RDONLY)
+        assert write and create
+        opened_temporary.append(path)
+        return runtime_io.os.open(
+            path,
+            runtime_io.os.O_WRONLY | runtime_io.os.O_CREAT | runtime_io.os.O_EXCL,
+        )
+
+    def rename_relative(descriptor: int, parent: int, name: str) -> None:
+        assert runtime_io.os.fstat(descriptor).st_size == len(b"published")
+        assert stat.S_ISDIR(runtime_io.os.fstat(parent).st_mode)
+        renamed.append((descriptor, parent, name))
+
+    monkeypatch.setattr(runtime_io, "_windows_open_checked", open_checked)
+    monkeypatch.setattr(runtime_io, "_windows_rename_relative", rename_relative)
+    runtime_io._windows_repository_publish(
+        tmp_path, ("output", "result.json"), b"published"
+    )
+    assert len(opened_temporary) == 1
+    assert renamed and renamed[0][2] == "result.json"
 
 
 def test_markdown_json_sqlite_round_trip_and_validation_is_read_only(
@@ -428,9 +559,32 @@ Exit Criteria: Both peers validate.
     ]
     with pytest.raises(ValueError, match="RAPTOR.REFERENCE.MODE_MISMATCH"):
         markdown_to_json(root, "docs", "generated", reference_mode="document")
+    for mode in ("structural", "store"):
+        with pytest.raises(ValueError, match="RAPTOR.REFERENCE.MODE_MISMATCH"):
+            validate_markdown(root, "docs", reference_mode=mode)
+    for mode in ("structural", "batch", "store"):
+        with pytest.raises(ValueError, match="RAPTOR.REFERENCE.MODE_MISMATCH"):
+            validate_markdown(root, "docs/a.md", reference_mode=mode)
     (root / "empty").mkdir()
     with pytest.raises(ValueError, match="RAPTOR.OPERATION.EMPTY_INPUT"):
         validate_markdown(root, "empty")
+    single = root / "single"
+    single.mkdir()
+    (single / "only.md").write_text(
+        "### REQ-RAP-020 — Single document\nStatement.\nAcceptance: accepted.\n"
+    )
+    register_identity(
+        root,
+        repository_id="urn:raptor:repo:batch",
+        document_id="DOC-RAP-020",
+        repository_path="single/only.md",
+        apply=True,
+    )
+    assert validate_markdown(root, "single")["documents"][0]["document_id"] == (
+        "DOC-RAP-020"
+    )
+    with pytest.raises(ValueError, match="RAPTOR.REFERENCE.MODE_MISMATCH"):
+        validate_markdown(root, "single", reference_mode="document")
 
 
 def test_failures_do_not_mutate_output_database_or_escape_root(

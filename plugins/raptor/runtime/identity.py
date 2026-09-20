@@ -29,7 +29,7 @@ class IdentityResolutionError(ValueError):
             "--repo-root <repo-root> "
             f"--repository-id {repository_id} "
             f"--document-id {document_id} "
-            f"--path {repository_path} --validate"
+            f"--path {repository_path} --apply"
         )
         super().__init__(
             f"{self.code}: explicit repository, document, and path registration is required"
@@ -79,6 +79,13 @@ def register_identity(
     root = repository_root.resolve()
     if not root.is_dir():
         raise ValueError("RAPTOR.PATH.OUTSIDE_ROOT: repository root does not exist")
+    if (
+        registered_repository_id is not None
+        and registered_repository_id != repository_id
+    ):
+        raise ValueError(
+            "RAPTOR.IDENTITY.REUSE: registered repository ownership does not match"
+        )
     path = identity_path(root)
     current: IdentityManifest | None = None
     if path.exists():

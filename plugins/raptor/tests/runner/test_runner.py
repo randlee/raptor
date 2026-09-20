@@ -385,7 +385,9 @@ def test_windows_audit_verifies_open_handle_before_writing(
         runtime_io, "_windows_final_path", lambda descriptor: "C:\\attacker\\audit.json"
     )
     monkeypatch.setattr(
-        runtime_io, "_discard_windows_file", lambda descriptor: discarded.append(descriptor)
+        runtime_io,
+        "_discard_windows_file",
+        lambda descriptor: discarded.append(descriptor),
     )
     with pytest.raises(ValueError, match="reparse"):
         runtime_io._secure_windows_json(
@@ -473,7 +475,7 @@ def test_agent_executes_verified_private_snapshot_during_original_swap(
 
 
 def test_redactor_normalizes_trace_and_common_secret_forms() -> None:
-    value = agent_runner._redact(
+    value = agent_runner.redact(
         {
             "Stack-Trace": "hidden",
             "nested": {

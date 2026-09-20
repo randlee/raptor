@@ -8,7 +8,7 @@ import stat
 import tempfile
 from collections.abc import Mapping
 from pathlib import Path
-from typing import Any
+from typing import Any, cast
 
 
 def repository_parts(value: str) -> tuple[str, ...]:
@@ -29,15 +29,8 @@ def repository_parts(value: str) -> tuple[str, ...]:
 def read_repository_bytes(repository_root: Path, relative: str) -> bytes:
     """Read one repository file without following any path-component symlink."""
     parts = repository_parts(relative)
-    if os.name == "nt":
-        path = repository_root.joinpath(*parts)
-        if any(
-            item.is_symlink()
-            for item in (path, *path.parents)
-            if item != repository_root.parent
-        ):
-            raise ValueError("RAPTOR.PATH.OUTSIDE_ROOT: symlinks are not allowed")
-        return path.read_bytes()
+    if _is_windows():
+        return _windows_repository_read(repository_root, parts)
     directory_flags = os.O_RDONLY | os.O_DIRECTORY | getattr(os, "O_NOFOLLOW", 0)
     descriptor = os.open(repository_root, directory_flags)
     try:
@@ -64,25 +57,8 @@ def read_repository_bytes(repository_root: Path, relative: str) -> bytes:
 def atomic_repository_bytes(repository_root: Path, relative: str, value: bytes) -> None:
     """Atomically publish one file below an existing, no-follow directory tree."""
     parts = repository_parts(relative)
-    if os.name == "nt":
-        destination = repository_root.joinpath(*parts)
-        if any(
-            item.is_symlink()
-            for item in destination.parents
-            if item != repository_root.parent
-        ):
-            raise ValueError("RAPTOR.PATH.OUTSIDE_ROOT: symlinks are not allowed")
-        destination.parent.mkdir(parents=True, exist_ok=True)
-        descriptor, temporary = tempfile.mkstemp(dir=destination.parent)
-        try:
-            with os.fdopen(descriptor, "wb") as stream:
-                stream.write(value)
-                stream.flush()
-                os.fsync(stream.fileno())
-            os.replace(temporary, destination)
-        finally:
-            if os.path.exists(temporary):
-                os.unlink(temporary)
+    if _is_windows():
+        _windows_repository_publish(repository_root, parts, value)
         return
     flags = os.O_RDONLY | os.O_DIRECTORY | getattr(os, "O_NOFOLLOW", 0)
     descriptor = os.open(repository_root, flags)
@@ -283,6 +259,181 @@ def _windows_open_exclusive(path: Path) -> int:
     return msvcrt.open_osfhandle(  # type: ignore[attr-defined,no-any-return]
         handle, os.O_WRONLY | getattr(os, "O_BINARY", 0)
     )
+
+
+def _is_windows() -> bool:
+    return os.name == "nt"
+
+
+def _windows_repository_read(repository_root: Path, parts: tuple[str, ...]) -> bytes:
+    """Read through a verified final Windows handle, never through Path.read_bytes."""
+    descriptor = _windows_open_checked(
+        repository_root.joinpath(*parts), write=False, directory=False, create=False
+    )
+    try:
+        with os.fdopen(descriptor, "rb") as stream:
+            return stream.read()
+    except OSError as error:
+        try:
+            os.close(descriptor)
+        except OSError:
+            pass
+        raise ValueError(
+            "RAPTOR.PATH.OUTSIDE_ROOT: file is missing or unsafe"
+        ) from error
+
+
+def _windows_repository_publish(
+    repository_root: Path, parts: tuple[str, ...], value: bytes
+) -> None:
+    """Publish using verified handles and a parent-handle-relative rename."""
+    parent = repository_root
+    parent_descriptor = _windows_open_checked(
+        parent, write=False, directory=True, create=False
+    )
+    try:
+        for part in parts[:-1]:
+            child = parent / part
+            try:
+                child_descriptor = _windows_open_checked(
+                    child, write=False, directory=True, create=False
+                )
+            except FileNotFoundError:
+                _windows_create_directory(child)
+                child_descriptor = _windows_open_checked(
+                    child, write=False, directory=True, create=False
+                )
+            os.close(parent_descriptor)
+            parent_descriptor = child_descriptor
+            parent = child
+        temporary_name = f".{parts[-1]}.{secrets.token_hex(8)}"
+        temporary_path = parent / temporary_name
+        descriptor = _windows_open_checked(
+            temporary_path, write=True, directory=False, create=True
+        )
+        published = False
+        try:
+            with os.fdopen(descriptor, "wb", closefd=False) as stream:
+                stream.write(value)
+                stream.flush()
+                os.fsync(stream.fileno())
+            _windows_rename_relative(descriptor, parent_descriptor, parts[-1])
+            published = True
+        finally:
+            if not published:
+                _discard_windows_file(descriptor)
+            os.close(descriptor)
+    finally:
+        os.close(parent_descriptor)
+
+
+def _windows_open_checked(
+    path: Path, *, write: bool, directory: bool, create: bool
+) -> int:
+    import ctypes
+    import msvcrt
+
+    kernel32 = ctypes.WinDLL("kernel32", use_last_error=True)  # type: ignore[attr-defined]
+    create_file = kernel32.CreateFileW
+    create_file.argtypes = [
+        ctypes.c_wchar_p,
+        ctypes.c_uint32,
+        ctypes.c_uint32,
+        ctypes.c_void_p,
+        ctypes.c_uint32,
+        ctypes.c_uint32,
+        ctypes.c_void_p,
+    ]
+    create_file.restype = ctypes.c_void_p
+    access = 0x40000000 if write else 0x80000000
+    share = 0 if write else 0x00000001 | 0x00000002 | 0x00000004
+    disposition = 1 if create else 3
+    flags = 0x00200000 | (0x02000000 if directory else 0x00000080)
+    handle = create_file(str(path), access, share, None, disposition, flags, None)
+    if handle == ctypes.c_void_p(-1).value:
+        error = ctypes.get_last_error()  # type: ignore[attr-defined]
+        if error in (2, 3):
+            raise FileNotFoundError(str(path))
+        raise ctypes.WinError(error)  # type: ignore[attr-defined]
+    descriptor = msvcrt.open_osfhandle(  # type: ignore[attr-defined]
+        handle,
+        (os.O_WRONLY if write else os.O_RDONLY) | getattr(os, "O_BINARY", 0),
+    )
+    expected = _windows_normal_path(str(path.absolute()))
+    if (
+        _windows_is_reparse(descriptor)
+        or _windows_normal_path(_windows_final_path(descriptor)) != expected
+    ):
+        os.close(descriptor)
+        raise ValueError("RAPTOR.PATH.OUTSIDE_ROOT: reparse points are not allowed")
+    return cast(int, descriptor)
+
+
+def _windows_normal_path(value: str) -> str:
+    normalized = ntpath.normcase(ntpath.normpath(value))
+    return normalized[4:] if normalized.startswith("\\\\?\\") else normalized
+
+
+def _windows_is_reparse(descriptor: int) -> bool:
+    import ctypes
+    import msvcrt
+
+    class AttributeTagInfo(ctypes.Structure):
+        _fields_ = [("attributes", ctypes.c_uint32), ("tag", ctypes.c_uint32)]
+
+    info = AttributeTagInfo()
+    get_osfhandle = cast(Any, getattr(msvcrt, "get_osfhandle"))
+    result = ctypes.windll.kernel32.GetFileInformationByHandleEx(  # type: ignore[attr-defined]
+        ctypes.c_void_p(get_osfhandle(descriptor)),
+        9,
+        ctypes.byref(info),
+        ctypes.sizeof(info),
+    )
+    if not result:
+        raise ctypes.WinError()  # type: ignore[attr-defined]
+    return bool(info.attributes & 0x00000400)
+
+
+def _windows_create_directory(path: Path) -> None:
+    import ctypes
+
+    if not ctypes.windll.kernel32.CreateDirectoryW(str(path), None):  # type: ignore[attr-defined]
+        error = ctypes.get_last_error()  # type: ignore[attr-defined]
+        if error != 183:
+            raise ctypes.WinError(error)  # type: ignore[attr-defined]
+
+
+def _windows_rename_relative(
+    descriptor: int, parent_descriptor: int, destination_name: str
+) -> None:
+    import ctypes
+    import msvcrt
+
+    encoded = destination_name.encode("utf-16-le")
+
+    class RenameInfo(ctypes.Structure):
+        _fields_ = [
+            ("replace", ctypes.c_ubyte),
+            ("root", ctypes.c_void_p),
+            ("length", ctypes.c_uint32),
+            ("name", ctypes.c_byte * len(encoded)),
+        ]
+
+    info = RenameInfo()
+    get_osfhandle = cast(Any, getattr(msvcrt, "get_osfhandle"))
+    info.replace = 1
+    info.root = get_osfhandle(parent_descriptor)
+    info.length = len(encoded)
+    ctypes.memmove(
+        ctypes.addressof(info) + RenameInfo.name.offset, encoded, len(encoded)
+    )
+    if not ctypes.windll.kernel32.SetFileInformationByHandle(  # type: ignore[attr-defined]
+        ctypes.c_void_p(get_osfhandle(descriptor)),
+        3,
+        ctypes.byref(info),
+        ctypes.sizeof(info),
+    ):
+        raise ctypes.WinError()  # type: ignore[attr-defined]
 
 
 def _windows_final_path(descriptor: int) -> str:
