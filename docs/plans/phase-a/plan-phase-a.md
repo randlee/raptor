@@ -34,7 +34,7 @@ This establishes the contract needed to migrate 30–50 repositories without put
 | PA-REQ-003 | Publish Pydantic models and generated JSON Schemas from one implementation contract under top-level `schema/`. |
 | PA-REQ-004 | Provide deterministic, structured source-profile validation findings before canonical conversion. |
 | PA-REQ-005 | Persist and recover canonical artifacts with a minimal SQLite reference schema compatible with the models. |
-| PA-REQ-006 | Package repository-neutral validation and conversion operations as one shared skill/scripts implementation discoverable by Claude and Codex. |
+| PA-REQ-006 | Package repository-neutral validation and conversion operations as one shared importable runtime with thin skill/CLI adapters discoverable by Claude and Codex. |
 | PA-REQ-007 | Render Markdown through sc-compose templates that accept canonical model data. |
 | PA-REQ-008 | Prove semantic round-trip equivalence after render and reparse; byte-for-byte Markdown identity is not required. |
 | PA-REQ-009 | Derive in-repository examples and fixtures only from Raptor-owned `REQ-RAP-*`, `NFR-RAP-*`, and `ADR-RAP-*` artifacts. |
@@ -58,7 +58,7 @@ This establishes the contract needed to migrate 30–50 repositories without put
 | ADR-RAP-002 | Pydantic models are authoritative and JSON Schemas are generated artifacts checked for drift. |
 | ADR-RAP-003 | SQLite is the Phase A reference persistence target; Dolt/MySQL follows only after the logical schema is proven. |
 | ADR-RAP-004 | Composite repository/document/artifact identity and immutable origin survive storage/rendering; materialization provenance records path/hash transitions; round-trip success means semantic plus transition equivalence. |
-| ADR-RAP-005 | Claude and Codex integrations share skills, agents, registry-enforcing runner, vendored runtime, scripts, templates, and tests; only thin discovery/invocation adapters differ. |
+| ADR-RAP-005 | Claude and Codex integrations share skills, agents, registry-enforcing runner, vendored schema, importable runtime, thin scripts, templates, and tests; only thin discovery/invocation adapters differ. |
 
 ## Sprint stack
 
@@ -140,10 +140,22 @@ plugins/raptor/
     sqlite-validate.md
     json-markdown-export.md
     migration-round-trip.md
-  scripts/
-    _bootstrap.py
+  runtime/
+    __init__.py
+    bootstrap.py
     agent_runner.py
+    plugin_validation.py
+    vendor.py
+    operations.py
+    identity.py
+    profiles.py
+    rendering.py
+    transactions.py
+    client_adapters/{claude,codex}.py
+  scripts/
+    run_agent.py
     validate_plugin.py
+    vendor_schema.py
     identity.py
     markdown_to_json.py
     import_sqlite.py
@@ -151,7 +163,6 @@ plugins/raptor/
     validate.py
     json_to_markdown.py
     render_transaction.py
-    client_adapters/{claude,codex}.py
   templates/
     requirement.md.j2
     non-functional-requirement.md.j2
@@ -161,7 +172,7 @@ plugins/raptor/
   _vendor/raptor_schema/
 ```
 
-The four skills are thin routers over focused reference pages; they contain no transformation logic. Focused single-responsibility execution agents perform implemented routes, with versioned YAML frontmatter and plugin-local registry path/version constraints. Shared Python implementation lives only in `plugins/raptor/scripts/`, and shared sc-compose templates live only in `plugins/raptor/templates/`. `round-trip` composes the other routers to prove semantic migration rather than reimplementing their operations. The sole normative plugin-architecture contract is the committed [`references/claude-code-skills-agents-guidelines-v0.7.md`](references/claude-code-skills-agents-guidelines-v0.7.md); its sibling-repository path is provenance only.
+The four skills are thin routers over focused reference pages; they contain no transformation logic. Focused single-responsibility execution agents perform implemented routes, with versioned YAML frontmatter and plugin-local registry path/version constraints. Shared importable behavior lives only in `plugins/raptor/runtime/`; files under `plugins/raptor/scripts/` are thin argument/exit-code wrappers that call that runtime and contain no transformation, orchestration, registry, profile-loading, rendering, or recovery logic. Shared sc-compose templates live only in `plugins/raptor/templates/`. `round-trip` composes the other routers to prove semantic migration rather than reimplementing their operations. The sole normative plugin-architecture contract is the committed [`references/claude-code-skills-agents-guidelines-v0.7.md`](references/claude-code-skills-agents-guidelines-v0.7.md); its sibling-repository path is provenance only.
 
 The plugin namespace and stable public command surface are exactly:
 
@@ -174,9 +185,9 @@ The plugin namespace and stable public command surface are exactly:
 
 Both Claude and Codex discovery tests must resolve these names to the matching router skill directories.
 
-Every skill/agent declares versioned YAML frontmatter. Agents return fenced standard JSON envelopes with namespaced errors and no secrets/tool traces. CLI-dependent routes verify the tool and minimum version before delegation and link `references/installation-and-troubleshooting.md`; this is mandatory for `sc-compose` on JSON→Markdown and round-trip routes. All file operations use repository-root allowlists. Mutations default to validate/dry-run and require explicit apply intent. Individual file replacement and SQLite transactions are atomic within their own resource; A5 uses a bounded durable journal with restart recovery rather than claiming atomicity across files and SQLite.
+Every skill/agent declares versioned YAML frontmatter. Agents return fenced standard JSON envelopes with namespaced errors and no secrets/tool traces. CLI-dependent routes verify the tool and minimum version before delegation and link `references/installation-and-troubleshooting.md`. For JSON→Markdown and round-trip, the shared `plugin-manifest.json` `requires.cli` entry named `sc-compose` is authoritative and pins `>=1.6.1,<2.0.0`; `which sc-compose && sc-compose --version` is the first executable preflight step, followed by the pinned guideline's common-location/troubleshooting path when absent. All file operations use repository-root allowlists. Mutations default to validate/dry-run and require explicit apply intent. Individual file replacement and SQLite transactions are atomic within their own resource; A5 uses a bounded durable journal with restart recovery rather than claiming atomicity across files and SQLite.
 
-`schema/src/raptor_schema/` remains authoritative. A3 owns the exact-copy/hash/bootstrap contract, shared registry-enforcing agent runner, and logic-free Claude/Codex adapters. A4 activates Markdown→JSON, JSON/Markdown/SQLite validation, JSON→SQLite, and SQLite→JSON. A5 implements JSON→Markdown, shared templates, and composed round-trip proof.
+`schema/src/raptor_schema/` remains authoritative, including the executable `SourceProfile` protocol and its boundary data types. A3 owns the portable copy/hash/bootstrap contract, shared importable runtime foundation, registry-enforcing agent runner, thin CLI wrappers, and logic-free Claude/Codex adapters. A4 imports the A1 profile contract and owns only profile implementations, registry/discovery/loading, Markdown→JSON, JSON/Markdown/SQLite validation, JSON→SQLite, and SQLite→JSON. A5 adds runtime rendering/recovery behavior, JSON→Markdown, shared templates, and composed round-trip proof.
 
 The `json-dolt`, `dolt-json`, and Dolt validation references reserve future interface semantics only. During Phase A they must clearly describe the unavailable capability and return a structured unsupported result. They may not add Dolt DDL, drivers, connections, fixtures, or tests.
 
@@ -211,7 +222,7 @@ An external repository may supply Markdown adapters, profile rules, and its own 
 | PA-REQ-002 | A1, A2, A4, A5 | identity manifest model and reference modes, persisted recovery/rendered-path-update tests, explicit registration, journaled render/identity/SQLite convergence proof |
 | PA-REQ-004 | A1, A4 | concrete source-profile contract and structured diagnostic route tests |
 | PA-REQ-005 | A2 | SQL migration plus store/load tests |
-| PA-REQ-006 | A3, A4, A5 | shared discovery/vendor/runner foundation and activated focused operation agents |
+| PA-REQ-006 | A3, A4, A5 | shared discovery/vendor/runner foundation, importable runtime, thin CLI wrappers, and activated focused operation agents |
 | PA-REQ-007 | A5 | five sc-compose templates and render tests |
 | PA-REQ-008 | A5 | semantic round-trip tests for all five families |
 | PA-REQ-009 | A1–A5 | fixture-origin audit tied to Raptor artifact IDs |
@@ -229,7 +240,7 @@ Phase A is complete only when:
 3. The same public interfaces can be invoked by an external consumer without adding consumer-specific code or test data to Raptor.
 4. Repository checks find no `NFT`, `p3-documentation`, P3-specific identifiers, Rust SQLx, Dolt integration, or bulk-migration implementation in Phase A artifacts.
 5. Schema, SQL, templates, plugin assets, and tests are version-aligned and documented at their public entry points.
-6. Both client packages contain the same registered skills, focused references, agents, scripts, complete `.j2` inventory, schema vendor, and manifest metadata; CI fails omissions or version/path drift.
+6. Both client packages contain the same registered skills, focused references, agents, runtime modules, thin scripts, complete `.j2` inventory, schema vendor, and manifest metadata; CI fails omissions or version/path drift.
 
 ## Phase-wide non-closure
 
@@ -249,7 +260,7 @@ The following are intentionally deferred:
 | Consumer conventions leak into canonical models | A1 ownership matrix and repo-wide forbidden-content checks | Any required canonical field exists only to satisfy one consumer. |
 | Model and SQL contracts diverge | A2 uses public model dumps/loads and a reusable dialect-neutral conformance suite | A persisted valid model cannot be loaded without loss. |
 | Rendering hides data loss | A5 compares semantics and validates origin/materialization transitions after reparse | Any canonical field, composite key, origin value, or transition is unaccounted for. |
-| Plugin duplicates implementations | A3 owns one runner/vendor and thin client adapters; A4/A5 use shared scripts | Client manifests or agents select different policy/transformation logic. |
+| Plugin duplicates implementations | A3 owns one runtime/runner/vendor and thin client/CLI adapters; A4/A5 add behavior only to shared runtime modules | Client manifests, scripts, or agents select different policy/transformation logic. |
 | Sprint scope grows into fleet migration | enforce Phase-wide non-closure and re-harden before expansion | Work requires consumer repository changes or Dolt operations. |
 
 ## Handoff after Phase A

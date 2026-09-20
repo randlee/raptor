@@ -11,11 +11,24 @@ Activate JSON→Markdown and `/raptor:round-trip` with shared sc-compose templat
 
 ## Scope boundary
 
-A5 adds `plugins/raptor/templates/`, shared `scripts/json_to_markdown.py`, `scripts/render_transaction.py`, and comparison support; activates `json-markdown-export` and `migration-round-trip`; changes `json-md`/round-trip from Phase-unsupported to supported; and preserves Dolt unsupported behavior. Skills remain routers; round-trip composes A4 routes rather than duplicating them.
+A5 adds `plugins/raptor/templates/`, importable `runtime/rendering.py` and `runtime/transactions.py`, thin `scripts/json_to_markdown.py` and `scripts/render_transaction.py`, and comparison support; activates `json-markdown-export` and `migration-round-trip`; changes `json-md`/round-trip from Phase-unsupported to supported; and preserves Dolt unsupported behavior. Skills remain routers; round-trip composes A4 runtime routes rather than duplicating them.
+
+```text
+plugins/raptor/
+  runtime/{rendering,transactions}.py
+  scripts/{json_to_markdown,render_transaction}.py
+  templates/**/*.j2
+```
 
 Every authoritative deliverable must land production-ready. Templates, projection, rendering, provenance transitions, focused agents, route composition, and loss detection close together.
 
-For JSON→Markdown and round-trip, checking `sc-compose` and its minimum version is the first executable step before agent delegation. Failure uses installation/troubleshooting guidance; no degraded renderer exists.
+For JSON→Markdown and round-trip, `plugins/raptor/plugin-manifest.json` is the authoritative version source (minimum selected from the repository's verified `sc-compose 1.6.1` toolchain):
+
+```json
+{"requires":{"cli":[{"name":"sc-compose","version":">=1.6.1,<2.0.0","version_command":["sc-compose","--version"]}]}}
+```
+
+Running `which sc-compose && sc-compose --version`, parsing its semantic version, and enforcing that range is the first executable step before agent delegation. When PATH lookup fails, the skill follows the pinned guideline's common-location search and `references/installation-and-troubleshooting.md`; missing, unparseable, older, or incompatible-major versions fail with a namespaced preflight error and no degraded renderer. Both client manifests package and consume the same shared constraint rather than restating a version.
 
 ## Render/comparison contract
 
@@ -64,10 +77,10 @@ plugins/raptor/templates/
 |---|---|---|
 | A5-D1 | Five strict sc-compose entry templates plus inventoried shared macros/partials. | complete `plugins/raptor/templates/**/*.j2` inventory |
 | A5-D2 | Model-to-template projection and pre-render validation rejecting missing/unsupported family data. | projection API and negative tests |
-| A5-D3 | Validate/apply JSON→Markdown implementation with atomic single-file replaces and bounded journal/recovery across rendered output, identity manifest, and idempotent SQLite put. | `scripts/json_to_markdown.py`, `scripts/render_transaction.py`, agent tests, and recovery tests |
+| A5-D3 | Importable JSON→Markdown and transaction runtime with atomic single-file replaces and bounded journal/recovery across rendered output, identity manifest, and idempotent SQLite put; scripts remain thin CLI wrappers. | `runtime/{rendering,transactions}.py`, thin scripts, direct runtime, wrapper-thinness, agent, and recovery tests |
 | A5-D4 | Path-level semantic comparator implementing A1 identity/origin/materialization equality and transition matrix. | public API and mutation tests |
 | A5-D5 | Operational round-trip agent/router composing validate/import/export for all five families. | five-family integration suite |
-| A5-D6 | Dual-client inventory gate covering all skills/references, eight agents, scripts, every `.j2`, vendor, registry, and manifest metadata. | CI/package audit |
+| A5-D6 | Dual-client inventory gate covering all skills/references, eight agents, runtime modules, thin scripts, every `.j2`, vendor, registry, and manifest metadata. | CI/package audit |
 | A5-D7 | External template-set guide retaining templates/fixtures in consumer repositories. | documentation and temporary external-template test |
 
 ## Authoritative acceptance criteria
@@ -80,17 +93,19 @@ plugins/raptor/templates/
 | A5-AC4 | All five pipelines Markdown→JSON→SQLite→JSON→Markdown→reparse compare semantically equal with identity-qualified evidence. |
 | A5-AC5 | Mutation tests for payload, relationship repository namespace, origin, output hash, parent hash, template identity, and transport location produce exact path-level failures. |
 | A5-AC6 | `/raptor:round-trip` composes existing routes through the shared runner; neither skill nor agent duplicates transformations. |
-| A5-AC7 | `sc-compose` preflight precedes delegation and missing/old versions halt with troubleshooting guidance. |
-| A5-AC8 | Both client packages contain the identical complete eight-agent and `.j2` inventory; omission/extra/hash/version drift fails CI. |
+| A5-AC7 | The first executable preflight runs `which sc-compose && sc-compose --version`, follows the pinned common-location/troubleshooting path when absent, and enforces the shared manifest's authoritative `>=1.6.1,<2.0.0` range; boundary tests cover missing, `1.6.0`, `1.6.1`, newer compatible 1.x, unparseable, and 2.x versions before delegation. |
+| A5-AC8 | Both client packages contain identical complete runtime, thin-script, eight-agent, and `.j2` inventories; omission/extra/hash/version drift fails CI. |
 | A5-AC9 | Dolt references still return structured unsupported and no Dolt implementation is added. |
 | A5-AC10 | No P3 asset, `NFT`, Rust SQLx, bulk rewrite/migration, secret, or raw tool trace is present. |
 | A5-AC11 | Failure injection before and after every journal transition, including crash after SQLite commit but before marker advance, proves restart rollback for pre-identity states, roll-forward for identity/DB-pending states, idempotent retry, conflict detection, lock exclusion, and cleanup only after completion. |
+| A5-AC12 | Rendering/transaction/comparison behavior is tested through importable runtime APIs; scripts contain only argument parsing, runtime invocation, envelope serialization, and exit-code mapping. |
 
 ## Authoritative validation
 
 ```sh
-python -m pip install -e 'schema[test]'
 which sc-compose && sc-compose --version
+python -m pip install -e 'schema[test]'
+python plugins/raptor/scripts/validate_plugin.py --check-cli sc-compose --expected-range '>=1.6.1,<2.0.0'
 python -m pytest plugins/raptor/tests/render plugins/raptor/tests/round_trip plugins/raptor/tests/provenance plugins/raptor/tests/recovery
 python plugins/raptor/scripts/validate_plugin.py --guideline docs/plans/phase-a/references/claude-code-skills-agents-guidelines-v0.7.md --check-frontmatter --check-registry --check-manifests --check-inventory --check-vendor --check-templates
 mkdir -p plugins/raptor/tests/.tmp

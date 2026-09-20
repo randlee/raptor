@@ -2,7 +2,7 @@
 
 ## Objective
 
-Activate the consumer-neutral Markdown/JSON/SQLite validation, import, and export routes on the A3 plugin foundation using shared scripts and six focused execution agents.
+Activate the consumer-neutral Markdown/JSON/SQLite validation, import, and export routes on the A3 plugin foundation using shared importable runtime modules, thin CLI wrappers, and six focused execution agents.
 
 - Branch: `phase-a/04-plugin-operations`
 - Stack relation: `must_follow A3`
@@ -19,18 +19,24 @@ Every authoritative deliverable must land production-ready for the six supported
 
 | Public route | Focused agent | Shared implementation |
 |---|---|---|
-| `/raptor:import md-json` | `markdown-json-import` | `scripts/markdown_to_json.py` |
-| `/raptor:import json-sqlite` | `json-sqlite-import` | `scripts/import_sqlite.py` |
-| `/raptor:export sqlite-json` | `sqlite-json-export` | `scripts/export_sqlite.py` |
-| `/raptor:validate markdown` | `markdown-validate` | `scripts/validate.py markdown` |
-| `/raptor:validate json` | `json-validate` | `scripts/validate.py json` |
-| `/raptor:validate sqlite` | `sqlite-validate` | `scripts/validate.py sqlite` |
+| `/raptor:import md-json` | `markdown-json-import` | `scripts/markdown_to_json.py` → `runtime/operations.py` |
+| `/raptor:import json-sqlite` | `json-sqlite-import` | `scripts/import_sqlite.py` → `runtime/operations.py` |
+| `/raptor:export sqlite-json` | `sqlite-json-export` | `scripts/export_sqlite.py` → `runtime/operations.py` |
+| `/raptor:validate markdown` | `markdown-validate` | `scripts/validate.py markdown` → `runtime/operations.py` |
+| `/raptor:validate json` | `json-validate` | `scripts/validate.py json` → `runtime/operations.py` |
+| `/raptor:validate sqlite` | `sqlite-validate` | `scripts/validate.py sqlite` → `runtime/operations.py` |
 
-Skills only select the focused reference and ask the A3 runner to invoke its registered agent. Agents perform one operation and delegate data behavior to shared scripts/vendored APIs. No layer duplicates Pydantic or SQL logic.
+```text
+plugins/raptor/
+  runtime/{operations,identity,profiles}.py
+  scripts/{markdown_to_json,import_sqlite,export_sqlite,validate,identity}.py
+```
+
+Skills only select the focused reference and ask the A3 runner to invoke its registered agent. Agents perform one operation. Thin scripts delegate all data behavior to the shared importable runtime and vendored APIs. No layer duplicates Pydantic, profile-contract, or SQL logic.
 
 ## Source-profile execution contract
 
-A4 implements A1's `SourceInput`, `ParsedSection`, `ParsedDocument`, `ComparableDocument`, `ProfileDescriptor`, and `SourceProfile` types exactly. Inputs require repository root, stable repository/document identities, and repository-relative path. Resolution order, exact/`1.x` version selection, module hash/API/entrypoint checks, `--allow-profile-code`, no-network rule, root/symlink allowlist, trust/failure codes, and external consumer-owned `.raptor/profiles/` workflow are acceptance contracts, not examples.
+A1's installed/vendored `raptor_schema.profiles` module is the sole executable owner of `SourceInput`, `ParsedSection`, `ParsedDocument`, `ComparableDocument`, `ProfileDescriptor`, and `SourceProfile`. A4 imports those types without redefining them and owns only concrete profile implementations plus `runtime/profiles.py` registry, discovery, version resolution, trust, and loading. Inputs require repository root, stable repository/document identities, and repository-relative path. Resolution order, exact/`1.x` version selection, module hash/API/entrypoint checks, `--allow-profile-code`, no-network rule, root/symlink allowlist, trust/failure codes, and external consumer-owned `.raptor/profiles/` workflow are acceptance contracts, not examples.
 
 Before Markdown validation/import, the operation resolves repository/document identity only through `<repo-root>/.raptor/identity.json`. A4 is the sole owner of executable registration and its CLI tests. Its shared `scripts/identity.py register` command exposes `--validate` and `--apply`: validate reports the proposed binding and conflicts without mutation; apply atomically creates or extends the A1 manifest. A missing legacy manifest returns `RAPTOR.IDENTITY.MISSING` with this exact remediation path. Repeat import reuses the binding; clone/root changes do not affect it; repository/document/path conflicts use A1 codes. Neither profile nor command derives an ID from the input path. A1 supplies only the model/schema and validation semantics consumed here.
 
@@ -48,12 +54,12 @@ The built-in Raptor profile is the only committed profile/fixture source. A temp
 
 | ID | Deliverable | Expected evidence |
 |---|---|---|
-| A4-D1 | Shared scripts activating all six route modes in the matrix without duplicated schema/storage logic. | `plugins/raptor/scripts/{markdown_to_json,import_sqlite,export_sqlite,validate}.py` and tests |
+| A4-D1 | Shared importable operation runtime activating all six route modes, with scripts limited to CLI parsing/envelope/exit-code adaptation. | `plugins/raptor/runtime/operations.py`, thin `scripts/{markdown_to_json,import_sqlite,export_sqlite,validate}.py`, direct runtime and wrapper-thinness tests |
 | A4-D2 | Six focused agents activated through the shared runner with fenced envelopes and namespaced errors. | agent/runner integration tests |
-| A4-D3 | Sole executable identity registration/resolution CLI and tests, plus source-profile discovery/loading/trust/version/path implementation and built-in Raptor profile. | `scripts/identity.py`, CLI tests, profile implementation and tests |
+| A4-D3 | Sole executable identity registration operation/CLI and tests, plus profile implementations and registry/discovery/loading that import A1's executable profile contract. | runtime identity/profile modules, thin `scripts/identity.py`, CLI tests, profile implementation/loading tests |
 | A4-D4 | Deterministic structured validation diagnostics for Markdown, canonical JSON, and SQLite. | positive/negative diagnostic suite |
 | A4-D5 | Validate/apply Markdown→JSON, JSON→SQLite, and SQLite→JSON flows using atomic replacement or a transaction within each route's single mutated resource. | route integration/conformance tests |
-| A4-D6 | Updated dual-client inventories and external-consumer guide without consumer assets. | manifest gate and docs |
+| A4-D6 | Updated dual-client inventories covering runtime modules and thin scripts, plus external-consumer guide without consumer assets. | manifest gate and docs |
 
 ## Authoritative acceptance criteria
 
@@ -70,6 +76,7 @@ The built-in Raptor profile is the only committed profile/fixture source. A temp
 | A4-AC9 | No P3 asset, `NFT`, Rust SQLx, duplicated client logic, secret, or raw tool trace is present. |
 | A4-AC10 | A4 alone implements identity registration and CLI tests covering validate versus apply, first/repeat import, clone/root-path change, repository/document/path conflict or reuse, and legacy missing identity without inference; A1 model/schema APIs are reused rather than duplicated. |
 | A4-AC11 | Route tests prove document, batch, structural, and store-backed reference modes with same-document, cyclic batch, existing-store, and missing cross-repository cases and exact diagnostics. |
+| A4-AC12 | Direct runtime tests cover transformations/orchestration; AST/import-boundary tests prove scripts are thin wrappers, and identity/profile tests prove A4 imports every boundary type from `raptor_schema.profiles` without redefining the protocol or data classes. |
 
 ## Authoritative validation
 
@@ -105,7 +112,7 @@ rg -n 'unsupported|RAPTOR\.UNSUPPORTED\.DOLT' plugins/raptor/skills/import/refer
 
 | Risk | Mitigation |
 |---|---|
-| Route logic leaks into skills/agents | matrix and tests require shared scripts/vendored APIs; client inventory checks parity. |
+| Route logic leaks into skills/agents/scripts | matrix and tests require shared runtime/vendored APIs; wrapper-thinness and client inventory checks enforce parity. |
 | External profile is mistaken for sandboxed content | require explicit trust, local hash/path checks, and document arbitrary-code boundary. |
 | Multi-repo identities collapse to paths/local IDs | all commands require repository/document keys and run cross-repository collision tests. |
 | Mutations bypass validation | default dry-run, explicit apply, per-file atomic replacement, SQLite transactions, and failure injection. |

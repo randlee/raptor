@@ -22,6 +22,7 @@ schema/
   src/raptor_schema/
     models/
     canonical.py
+    profiles.py
   json/v1/
   tests/
     models/
@@ -340,7 +341,7 @@ Every float must be finite; NaN and positive/negative infinity fail before canon
 | A1-D6 | Strict validation for schema version, IDs/types, duplicate IDs, four explicit reference modes, family fields, extension namespace, and unknown fields. | validators and `schema/tests/models/` |
 | A1-D7 | Deterministic canonical JSON dump/load API and versioned JSON Schemas generated from Pydantic by one documented command. | `schema/src/raptor_schema/canonical.py`, `schema/json/v1/`, drift test |
 | A1-D8 | Positive/negative tests derived only from the Raptor corpus, with origin artifact IDs recorded, plus compatibility documentation for external adapters. | `schema/tests/{models,json_schema}/` and package docs |
-| A1-D9 | Concrete source-profile types, deterministic trusted discovery/loading/version contract, identity-manifest model/schema and conflict semantics, multi-repository composite identity, and origin/materialization transition rules. | public models/generated schema and model contract tests; no registration executable |
+| A1-D9 | Executable `SourceProfile` protocol and concrete boundary data types, deterministic trusted discovery/loading/version contract, identity-manifest model/schema and conflict semantics, multi-repository composite identity, and origin/materialization transition rules. | `schema/src/raptor_schema/profiles.py`, public exports, generated schema, and contract tests; no profile implementation/registry or registration executable |
 | A1-D10 | Raptor's own registered repository/document identities for its dogfood corpus and model/schema validation cases. | `.raptor/identity.json` mapped to Raptor `REQ-RAP-*`/`NFR-RAP-*`/`ADR-RAP-*` sources |
 
 ## Authoritative acceptance criteria
@@ -363,6 +364,7 @@ Every float must be finite; NaN and positive/negative infinity fail before canon
 | A1-AC14 | Provenance tests prove immutable origin preservation and every materialization transition, including same/new output paths, recomputed hashes, parent hash, template identity, and transport-location inequality. |
 | A1-AC15 | The structural/document/batch/store reference API has deterministic mode-specific tests for same-document resolution, batch cycles, existing-store resolution, and missing cross-repository targets with fully qualified diagnostics. |
 | A1-AC16 | Model/schema tests prove `.raptor/identity.json` shape, canonical serialization, stable IDs independent of clone/root path, identical-tuple idempotence, repository/document/path conflict and reuse diagnostics, missing-manifest diagnostic contract, and Raptor dogfood validity; A1 contains no register CLI or filesystem-mutation test. |
+| A1-AC17 | `SourceProfile`, `SourceInput`, `ParsedSection`, `ParsedDocument`, `ComparableDocument`, and `ProfileDescriptor` are executable public types exported from `raptor_schema.profiles`, install and type-check in a clean environment, and have contract tests independent of any plugin profile implementation or loader. |
 
 ## Authoritative validation
 
