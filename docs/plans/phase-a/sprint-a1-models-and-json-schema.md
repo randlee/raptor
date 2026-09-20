@@ -179,7 +179,7 @@ Each source repository owns `.raptor/identity.json`; it is the only authority fo
 
 `repository_id` is immutable once registered. Document IDs and paths are unique within the manifest, paths use the repository-relative path grammar, and object keys serialize canonically. Neither repository nor document identity may be inferred from a path, clone URL, Git remote, directory name, content hash, or artifact ID. A clone carries the same committed identity manifest and therefore retains its keys even when its filesystem root changes.
 
-First import is an explicit two-step operation: `identity register --validate` checks a proposed repository/document/path binding without writing; `identity register --apply` atomically creates or extends the manifest; normal validation/import then consumes that binding. Missing identity fails `RAPTOR.IDENTITY.MISSING` with the registration command and does not invent an ID. A repeated registration/import of the same tuple is idempotent. Changing an existing repository ID fails `RAPTOR.IDENTITY.REPOSITORY_CONFLICT`; binding one document ID to two paths fails `RAPTOR.IDENTITY.DOCUMENT_CONFLICT`; binding two IDs to one path fails `RAPTOR.IDENTITY.PATH_CONFLICT`; and reuse of an identity from a different repository fails `RAPTOR.IDENTITY.REUSE`. Legacy repositories without a manifest follow the same explicit registration path—there is no automatic compatibility inference. A5 owns the sole path-relocation flow: render to a new path, atomically update the same document's manifest binding, then persist the rendered document under the unchanged `DocumentKey`.
+A1 owns only the Pydantic model/generated JSON Schema, canonical serialization, conflict semantics, error-code contract, and Raptor dogfood model/schema tests for this manifest. It does not implement a registration CLI or filesystem mutation. The model defines `RAPTOR.IDENTITY.MISSING` when an operational caller has no manifest, idempotent acceptance of an identical tuple, `RAPTOR.IDENTITY.REPOSITORY_CONFLICT` for changing an existing repository ID, `RAPTOR.IDENTITY.DOCUMENT_CONFLICT` for binding one document ID to two paths, `RAPTOR.IDENTITY.PATH_CONFLICT` for binding two IDs to one path, and `RAPTOR.IDENTITY.REUSE` for reuse from another repository. It never invents an ID. A4 solely implements and tests `identity register --validate/--apply`; A5 composes the established operational identity support for its path-relocation workflow.
 
 ### Referential validation modes
 
@@ -340,8 +340,8 @@ Every float must be finite; NaN and positive/negative infinity fail before canon
 | A1-D6 | Strict validation for schema version, IDs/types, duplicate IDs, four explicit reference modes, family fields, extension namespace, and unknown fields. | validators and `schema/tests/models/` |
 | A1-D7 | Deterministic canonical JSON dump/load API and versioned JSON Schemas generated from Pydantic by one documented command. | `schema/src/raptor_schema/canonical.py`, `schema/json/v1/`, drift test |
 | A1-D8 | Positive/negative tests derived only from the Raptor corpus, with origin artifact IDs recorded, plus compatibility documentation for external adapters. | `schema/tests/{models,json_schema}/` and package docs |
-| A1-D9 | Concrete source-profile types, deterministic trusted discovery/loading/version contract, repository-owned identity-manifest contract, multi-repository composite identity, and origin/materialization transition rules. | public model/protocol docs and contract tests |
-| A1-D10 | Raptor's own registered repository/document identities for its dogfood corpus. | `.raptor/identity.json` mapped to Raptor `REQ-RAP-*`/`NFR-RAP-*`/`ADR-RAP-*` sources |
+| A1-D9 | Concrete source-profile types, deterministic trusted discovery/loading/version contract, identity-manifest model/schema and conflict semantics, multi-repository composite identity, and origin/materialization transition rules. | public models/generated schema and model contract tests; no registration executable |
+| A1-D10 | Raptor's own registered repository/document identities for its dogfood corpus and model/schema validation cases. | `.raptor/identity.json` mapped to Raptor `REQ-RAP-*`/`NFR-RAP-*`/`ADR-RAP-*` sources |
 
 ## Authoritative acceptance criteria
 
@@ -362,7 +362,7 @@ Every float must be finite; NaN and positive/negative infinity fail before canon
 | A1-AC13 | Profile resolution tests cover precedence, exact/major version selection, ambiguity, API/entrypoint/hash mismatch, root/symlink escapes, explicit trust, and a temporary consumer-owned profile outside Raptor assets. |
 | A1-AC14 | Provenance tests prove immutable origin preservation and every materialization transition, including same/new output paths, recomputed hashes, parent hash, template identity, and transport-location inequality. |
 | A1-AC15 | The structural/document/batch/store reference API has deterministic mode-specific tests for same-document resolution, batch cycles, existing-store resolution, and missing cross-repository targets with fully qualified diagnostics. |
-| A1-AC16 | `.raptor/identity.json` tests prove explicit validate/apply registration, first and repeat import, clone/root-path independence, repository/document/path conflict rejection, and actionable failure for legacy repositories without identity; no identity is derived from a path. |
+| A1-AC16 | Model/schema tests prove `.raptor/identity.json` shape, canonical serialization, stable IDs independent of clone/root path, identical-tuple idempotence, repository/document/path conflict and reuse diagnostics, missing-manifest diagnostic contract, and Raptor dogfood validity; A1 contains no register CLI or filesystem-mutation test. |
 
 ## Authoritative validation
 

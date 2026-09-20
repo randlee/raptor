@@ -13,6 +13,8 @@ This ledger records the reviewer chain for `plan-phase-a.md` and all Phase A spr
 | 2 | 5 | arch-ctm | WORKTREE | READY_FOR_REREVIEW | 0 | 0 | 0 | critical-r1-correction | 2a7d444d84df64c5b62b33ecebbead78a27a8a2607969ae4d8cdc0106f3b494e | Corrected all critical findings and split plugin foundation/operations/rendering into A3/A4/A5; metadata commit remains pending. |
 | 3 | 4 | critical-plan-reviewer | 5ada27ecfda2e7268e4e16d934714294820403f8 | FAIL | 0 | 4 | 0 | 5d751b50a7385e117c09daadaa0905b31b4132147d9a01fe5d55003f9c10a5db | 2a7d444d84df64c5b62b33ecebbead78a27a8a2607969ae4d8cdc0106f3b494e | CRIT-010..013: historical handoff paths/counts, reference-validation modes, first-import identity authority, and removal of path-only storage move. |
 | 3 | 5 | arch-ctm | WORKTREE | READY_FOR_REREVIEW | 0 | 0 | 0 | critical-r2-correction | 5d751b50a7385e117c09daadaa0905b31b4132147d9a01fe5d55003f9c10a5db | Corrected CRIT-010..013 without adding or splitting product scope; validation pending coordinator commit/rerun. |
+| 4 | 4 | critical-plan-reviewer | 8f5eec9b7bd9b52731f1dff4fa06485dc481bf18 | FAIL | 0 | 2 | 0 | efda24d70b9483b29f7639674dd4d7300d0e589f3879a4067efc4fc084b6c9f7 | 5d751b50a7385e117c09daadaa0905b31b4132147d9a01fe5d55003f9c10a5db | CRIT-014..015: identity execution ownership and false cross-resource atomicity. Third critical-review attempt exhausted the configured cap. |
+| 4 | 5 | arch-ctm | WORKTREE | CAP_EXHAUSTED_NOT_CONVERGED | 0 | 0 | 0 | critical-r3-final-correction | efda24d70b9483b29f7639674dd4d7300d0e589f3879a4067efc4fc084b6c9f7 | Applied bounded corrections for CRIT-014..015; no further critical review is initiated and no reviewer PASS is claimed. |
 
 Cycle caps:
 
@@ -20,6 +22,8 @@ Cycle caps:
 - `critical_review_cycle_limit`: 3
 
 Completion requires PASS from `plan-scope-reviewer`, `critical-plan-reviewer`, and `quality-mgr`. Each later row must supersede the applicable prior finding set; repeated reviewer output against the same commit with the same findings hash is a stale replay, not a new round.
+
+Critical review is **cap exhausted / not converged** after STEP4-R3. The final author correction below records the changes but cannot convert the reviewer FAIL into PASS. Automated plan hardening stops here; advancement requires an explicit human/coordinator decision under the plan-hardening process, not another review cycle.
 
 ## Reconstructed Step 1 handoff
 
@@ -148,6 +152,38 @@ The original Step 1 work was committed, but the coordinator handoff omitted the 
   "docs_created": [],
   "docs_removed_or_renamed": [],
   "ready_for_critical_rereview": true,
+  "errors": []
+}
+```
+
+## Final critical correction at cycle cap
+
+```json
+{
+  "status": "CAP_EXHAUSTED_NOT_CONVERGED",
+  "mode": "plan-hardening-consistency",
+  "round_id": "STEP4-R3-FINAL-CORRECTION",
+  "round_index": 3,
+  "reviewed_commit": "WORKTREE",
+  "previous_reviewed_commit": "8f5eec9b7bd9b52731f1dff4fa06485dc481bf18",
+  "findings_hash": "efda24d70b9483b29f7639674dd4d7300d0e589f3879a4067efc4fc084b6c9f7",
+  "reviewer_verdict": "FAIL",
+  "reviewer_pass_claimed": false,
+  "critical_review_cycle_cap": 3,
+  "critical_review_cycle_cap_exhausted": true,
+  "corrections_applied": 2,
+  "sprint_splits_added": 0,
+  "docs_modified": [
+    "docs/plans/phase-a/plan-hardening-rounds.md",
+    "docs/plans/phase-a/plan-phase-a.md",
+    "docs/plans/phase-a/sprint-a1-models-and-json-schema.md",
+    "docs/plans/phase-a/sprint-a4-plugin-operations.md",
+    "docs/plans/phase-a/sprint-a5-render-and-roundtrip.md"
+  ],
+  "docs_created": [],
+  "docs_removed_or_renamed": [],
+  "ready_for_critical_rereview": false,
+  "next_action": "Stop automatic review; coordinator or human disposition is required.",
   "errors": []
 }
 ```

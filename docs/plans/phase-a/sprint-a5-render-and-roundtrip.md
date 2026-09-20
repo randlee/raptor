@@ -32,7 +32,14 @@ def compare_semantics(
 
 Output path is required, repository-relative, resolved beneath repository root, and may equal the current path or be a new path. Rendering never changes `OriginProvenance`. It creates rendered `MaterializationProvenance` with requested path, recomputed byte hash, prior materialization hash, current parse profile/version, and template set/version. Reparse must recover the serialized immutable origin; an attempted origin rewrite is `RAPTOR.PROVENANCE.ORIGIN_MUTATION`.
 
-For a new path, validate mode checks output safety, provenance transition, and the proposed `.raptor/identity.json` update without writing. Apply atomically renders the file and changes the existing `document_id` binding to the new path; a collision or identity reuse fails with the A1 identity code and leaves both unchanged. Persistence then uses the ordinary A2 `put_document` for the same `DocumentKey`. There is no `move_document` or other path-only storage operation, and a path change without this rendered transition is rejected as `RAPTOR.STORAGE.PROVENANCE_TRANSITION`.
+Validate mode checks output safety, provenance transition, and any proposed `.raptor/identity.json` update without writing. A standalone render with no database touches one output through atomic replacement. A render apply associated with a stored document—including every new-path render—does not claim atomicity across the rendered file, identity manifest, and SQLite. It uses the following small, repository-root-scoped recovery protocol; for a same-path render the identity stage is a verified no-op, and no global transaction service is introduced:
+
+1. Acquire an exclusive lock for the `DocumentKey`; stage the rendered bytes and next identity manifest beside their destinations; create and fsync path-scoped backups of existing destinations (or record that a destination did not exist); fsync the stages; and atomically create and fsync `.raptor/transactions/<transaction-id>.json`. The durable marker records only the transaction/version, `DocumentKey`, old/new paths, staged/backup paths, expected before/after content and manifest hashes, SQLite path, and state; all recorded paths must pass the repository-root allowlist.
+2. Advance the marker through `prepared`, `output_committed`, `identity_committed`, `db_pending`, and `complete`, atomically replacing and fsyncing it and the affected parent directory at each boundary. Commit order is rendered-output replace, identity-manifest replace (or hash-verified no-op), then the ordinary A2 `put_document` for the unchanged `DocumentKey`.
+3. Recovery of `prepared` or `output_committed` rolls back file replacements from the path-scoped backups, verifies their hashes, and removes stages only after the prior state is restored. Recovery of `identity_committed` or `db_pending` rolls forward: verify the committed output/manifest hashes and retry the SQLite put. If SQLite is unavailable, retain `db_pending`, return `RAPTOR.TRANSACTION.DB_PENDING`, and make the next apply/recovery invocation resume rather than start a second transaction.
+4. The SQLite put is idempotent for the same canonical document/hash. If it committed before a crash but the marker did not advance, recovery reads and compares the stored canonical value, safely repeats the put if needed, marks `complete`, then removes backups/stages and finally the marker. Hash/state disagreement fails `RAPTOR.TRANSACTION.RECOVERY_CONFLICT` without guessing; a concurrent operation fails `RAPTOR.TRANSACTION.BUSY`.
+
+There is no `move_document` or other path-only storage operation, and a path change without this rendered transition is rejected as `RAPTOR.STORAGE.PROVENANCE_TRANSITION`. This protocol provides bounded restart convergence, not false cross-resource atomicity.
 
 Every entry template emits a reserved, profile-defined machine-readable Raptor provenance block containing immutable origin and the non-self-referential materialization inputs needed for reparse. The output byte hash is computed only after atomic rendering and stored in the returned canonical object/database record; a template never embeds a hash of the bytes that contain that same hash.
 
@@ -57,7 +64,7 @@ plugins/raptor/templates/
 |---|---|---|
 | A5-D1 | Five strict sc-compose entry templates plus inventoried shared macros/partials. | complete `plugins/raptor/templates/**/*.j2` inventory |
 | A5-D2 | Model-to-template projection and pre-render validation rejecting missing/unsupported family data. | projection API and negative tests |
-| A5-D3 | Atomic validate/apply JSON→Markdown shared implementation and focused export agent. | script/agent tests |
+| A5-D3 | Validate/apply JSON→Markdown implementation with atomic single-file replaces and bounded journal/recovery across rendered output, identity manifest, and idempotent SQLite put. | script/agent and recovery tests |
 | A5-D4 | Path-level semantic comparator implementing A1 identity/origin/materialization equality and transition matrix. | public API and mutation tests |
 | A5-D5 | Operational round-trip agent/router composing validate/import/export for all five families. | five-family integration suite |
 | A5-D6 | Dual-client inventory gate covering all skills/references, eight agents, scripts, every `.j2`, vendor, registry, and manifest metadata. | CI/package audit |
@@ -68,8 +75,8 @@ plugins/raptor/templates/
 | ID | Criterion |
 |---|---|
 | A5-AC1 | Each family selects one entry template, renders deterministically, fails undefined variables, and accounts for every canonical field. |
-| A5-AC2 | JSON→Markdown defaults to validate, requires apply, rejects out-of-root/symlink escapes, and atomically writes no partial output. |
-| A5-AC3 | Same-path and new-path render/reparse cases preserve immutable origin/composite keys and satisfy every materialization/hash/location transition rule; new-path apply atomically updates the identity binding then uses normal `put_document`, while ambiguous path-only change is rejected. |
+| A5-AC2 | JSON→Markdown defaults to validate, requires apply, rejects out-of-root/symlink escapes, uses atomic replacement for each individual file, and makes multi-resource progress recoverable through the bounded durable journal without claiming cross-resource atomicity. |
+| A5-AC3 | Same-path and new-path render/reparse cases preserve immutable origin/composite keys and satisfy every materialization/hash/location transition rule; new-path apply commits output then identity then normal idempotent `put_document`, while ambiguous path-only change is rejected. |
 | A5-AC4 | All five pipelines Markdown→JSON→SQLite→JSON→Markdown→reparse compare semantically equal with identity-qualified evidence. |
 | A5-AC5 | Mutation tests for payload, relationship repository namespace, origin, output hash, parent hash, template identity, and transport location produce exact path-level failures. |
 | A5-AC6 | `/raptor:round-trip` composes existing routes through the shared runner; neither skill nor agent duplicates transformations. |
@@ -77,13 +84,14 @@ plugins/raptor/templates/
 | A5-AC8 | Both client packages contain the identical complete eight-agent and `.j2` inventory; omission/extra/hash/version drift fails CI. |
 | A5-AC9 | Dolt references still return structured unsupported and no Dolt implementation is added. |
 | A5-AC10 | No P3 asset, `NFT`, Rust SQLx, bulk rewrite/migration, secret, or raw tool trace is present. |
+| A5-AC11 | Failure injection before and after every journal transition, including crash after SQLite commit but before marker advance, proves restart rollback for pre-identity states, roll-forward for identity/DB-pending states, idempotent retry, conflict detection, lock exclusion, and cleanup only after completion. |
 
 ## Authoritative validation
 
 ```sh
 python -m pip install -e 'schema[test]'
 which sc-compose && sc-compose --version
-python -m pytest plugins/raptor/tests/render plugins/raptor/tests/round_trip plugins/raptor/tests/provenance
+python -m pytest plugins/raptor/tests/render plugins/raptor/tests/round_trip plugins/raptor/tests/provenance plugins/raptor/tests/recovery
 python plugins/raptor/scripts/validate_plugin.py --guideline docs/plans/phase-a/references/claude-code-skills-agents-guidelines-v0.7.md --check-frontmatter --check-registry --check-manifests --check-inventory --check-vendor --check-templates
 mkdir -p plugins/raptor/tests/.tmp
 python plugins/raptor/scripts/json_to_markdown.py --repo-root . --profile raptor --template-set raptor --input plugins/raptor/tests/fixtures/raptor/requirement.json --output plugins/raptor/tests/.tmp/REQ-RAP-rendered.md --validate
@@ -114,6 +122,7 @@ Tests use and clean repository-root `.tmp/` paths.
 | Provenance conflates immutable origin with output transport | separate models and explicit transition/equality matrix with recomputed hashes. |
 | Round-trip becomes another implementation | compose A4 routes; only renderer/comparator logic is new shared code. |
 | One client omits agent/template assets | compare filesystem, registry, manifest, and both package inventories. |
+| Crash splits output, identity, and SQLite state | durable path-scoped journal, explicit rollback/roll-forward boundary, idempotent database retry, and failure-injection restart tests. |
 
 ## Non-closure
 

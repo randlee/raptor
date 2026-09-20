@@ -162,7 +162,7 @@ The plugin namespace and stable public command surface are exactly:
 
 Both Claude and Codex discovery tests must resolve these names to the matching router skill directories.
 
-Every skill/agent declares versioned YAML frontmatter. Agents return fenced standard JSON envelopes with namespaced errors and no secrets/tool traces. CLI-dependent routes verify the tool and minimum version before delegation and link `references/installation-and-troubleshooting.md`; this is mandatory for `sc-compose` on JSON→Markdown and round-trip routes. All file operations use repository-root allowlists. Mutations default to validate/dry-run, require explicit apply intent, and use atomic writes or transactions.
+Every skill/agent declares versioned YAML frontmatter. Agents return fenced standard JSON envelopes with namespaced errors and no secrets/tool traces. CLI-dependent routes verify the tool and minimum version before delegation and link `references/installation-and-troubleshooting.md`; this is mandatory for `sc-compose` on JSON→Markdown and round-trip routes. All file operations use repository-root allowlists. Mutations default to validate/dry-run and require explicit apply intent. Individual file replacement and SQLite transactions are atomic within their own resource; A5 uses a bounded durable journal with restart recovery rather than claiming atomicity across files and SQLite.
 
 `schema/src/raptor_schema/` remains authoritative. A3 owns the exact-copy/hash/bootstrap contract, shared registry-enforcing agent runner, and logic-free Claude/Codex adapters. A4 activates Markdown→JSON, JSON/Markdown/SQLite validation, JSON→SQLite, and SQLite→JSON. A5 implements JSON→Markdown, shared templates, and composed round-trip proof.
 
@@ -174,7 +174,7 @@ Canonical model fields describe Raptor concepts. A source profile may map reposi
 
 Every imported document carries a stable `RepositoryId`, repository-scoped `DocumentId`, and repository-scoped artifact IDs. Canonical document/artifact keys are composite with repository identity, so one SQLite database safely holds many repositories with overlapping local IDs and paths. Immutable origin records first path/hash/profile; materialization provenance records current path/hash/profile and render transition. Preservation of original bytes is optional; preservation of immutable origin is required.
 
-Each repository owns `.raptor/identity.json` as the stable repository/document identity authority. First import requires an explicit validate/apply registration; identity is never inferred from a path or remote. A1 defines the manifest and four reference-validation modes, A2 enforces store/batch resolution on writes, A4 exposes registration and mode-selecting routes, and A5 alone changes a registered path as part of render-to-new-path followed by ordinary transactional `put_document`.
+Each repository owns `.raptor/identity.json` as the stable repository/document identity authority. First import requires an explicit validate/apply registration; identity is never inferred from a path or remote. A1 owns only the manifest model/schema, conflict semantics, and Raptor dogfood validation. A2 enforces store/batch resolution on writes. A4 solely implements/tests identity registration and mode-selecting routes. A5 changes a registered path through its bounded render journal followed by ordinary idempotent `put_document`.
 
 ### Semantic round trip
 
@@ -196,7 +196,7 @@ An external repository may supply Markdown adapters, profile rules, and its own 
 | Requirement | Owning sprint | Evidence at phase close |
 |---|---|---|
 | PA-REQ-001, PA-REQ-003 | A1 | Pydantic API, schema files, family tests |
-| PA-REQ-002 | A1, A2, A4, A5 | identity manifest and reference modes, persisted recovery/rendered-path-update tests, explicit registration, render-transition proof |
+| PA-REQ-002 | A1, A2, A4, A5 | identity manifest model and reference modes, persisted recovery/rendered-path-update tests, explicit registration, journaled render/identity/SQLite convergence proof |
 | PA-REQ-004 | A1, A4 | concrete source-profile contract and structured diagnostic route tests |
 | PA-REQ-005 | A2 | SQL migration plus store/load tests |
 | PA-REQ-006 | A3, A4, A5 | shared discovery/vendor/runner foundation and activated focused operation agents |

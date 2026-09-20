@@ -32,7 +32,7 @@ Skills only select the focused reference and ask the A3 runner to invoke its reg
 
 A4 implements A1's `SourceInput`, `ParsedSection`, `ParsedDocument`, `ComparableDocument`, `ProfileDescriptor`, and `SourceProfile` types exactly. Inputs require repository root, stable repository/document identities, and repository-relative path. Resolution order, exact/`1.x` version selection, module hash/API/entrypoint checks, `--allow-profile-code`, no-network rule, root/symlink allowlist, trust/failure codes, and external consumer-owned `.raptor/profiles/` workflow are acceptance contracts, not examples.
 
-Before Markdown validation/import, the operation resolves repository/document identity only through `<repo-root>/.raptor/identity.json`. A shared `scripts/identity.py register` command exposes `--validate` and `--apply`: validate reports the proposed binding and conflicts without mutation; apply atomically creates or extends the A1 manifest. A missing legacy manifest returns `RAPTOR.IDENTITY.MISSING` with this exact remediation path. Repeat import reuses the binding; clone/root changes do not affect it; repository/document/path conflicts use A1 codes. Neither profile nor command derives an ID from the input path.
+Before Markdown validation/import, the operation resolves repository/document identity only through `<repo-root>/.raptor/identity.json`. A4 is the sole owner of executable registration and its CLI tests. Its shared `scripts/identity.py register` command exposes `--validate` and `--apply`: validate reports the proposed binding and conflicts without mutation; apply atomically creates or extends the A1 manifest. A missing legacy manifest returns `RAPTOR.IDENTITY.MISSING` with this exact remediation path. Repeat import reuses the binding; clone/root changes do not affect it; repository/document/path conflicts use A1 codes. Neither profile nor command derives an ID from the input path. A1 supplies only the model/schema and validation semantics consumed here.
 
 The built-in Raptor profile is the only committed profile/fixture source. A temporary test creates an external profile under a temporary consumer repository, invokes it by descriptor/path with explicit trust, and proves no consumer file is copied into plugin or Raptor source.
 
@@ -50,9 +50,9 @@ The built-in Raptor profile is the only committed profile/fixture source. A temp
 |---|---|---|
 | A4-D1 | Six shared scripts/operation modes activating the matrix without duplicated schema/storage logic. | `plugins/raptor/scripts/` and tests |
 | A4-D2 | Six focused agents activated through the shared runner with fenced envelopes and namespaced errors. | agent/runner integration tests |
-| A4-D3 | Concrete identity registration/resolution and source-profile discovery/loading/trust/version/path implementation plus built-in Raptor profile. | identity/profile implementation and tests |
+| A4-D3 | Sole executable identity registration/resolution CLI and tests, plus source-profile discovery/loading/trust/version/path implementation and built-in Raptor profile. | `scripts/identity.py`, CLI tests, profile implementation and tests |
 | A4-D4 | Deterministic structured validation diagnostics for Markdown, canonical JSON, and SQLite. | positive/negative diagnostic suite |
-| A4-D5 | Atomic validate/apply Markdown→JSON, JSON→SQLite, and SQLite→JSON flows preserving composite identity and provenance. | route integration/conformance tests |
+| A4-D5 | Validate/apply Markdown→JSON, JSON→SQLite, and SQLite→JSON flows using atomic replacement or a transaction within each route's single mutated resource. | route integration/conformance tests |
 | A4-D6 | Updated dual-client inventories and external-consumer guide without consumer assets. | manifest gate and docs |
 
 ## Authoritative acceptance criteria
@@ -64,11 +64,11 @@ The built-in Raptor profile is the only committed profile/fixture source. A temp
 | A4-AC3 | JSON→SQLite and SQLite→JSON satisfy A2 conformance, multi-repository identity, replacement/reference, validate/apply, rollback, and exact recovery rules. |
 | A4-AC4 | Validation returns deterministic identity-qualified diagnostics and rejects malformed source/model/storage without mutation. |
 | A4-AC5 | Profile tests cover precedence, version/API/entrypoint/hash, trust, root/symlink escape, invalid return types, and temporary external consumer profile without copy. |
-| A4-AC6 | Files and databases are atomically mutated only with apply; failures leave no partial destination or transaction. |
+| A4-AC6 | Apply uses atomic replacement for a single file or one SQLite transaction for a database; validation never mutates, and A4 makes no cross-resource atomicity claim. |
 | A4-AC7 | A3 vendor hash/bootstrap/registry/runner/client parity gates continue passing after scripts are added. |
 | A4-AC8 | JSON→Markdown, round-trip, and Dolt retain their exact structured unsupported responses; no templates or Dolt implementation appear. |
 | A4-AC9 | No P3 asset, `NFT`, Rust SQLx, duplicated client logic, secret, or raw tool trace is present. |
-| A4-AC10 | Identity CLI tests cover validate versus apply, first/repeat import, clone/root-path change, repository/document/path conflict or reuse, and legacy missing identity without inference. |
+| A4-AC10 | A4 alone implements identity registration and CLI tests covering validate versus apply, first/repeat import, clone/root-path change, repository/document/path conflict or reuse, and legacy missing identity without inference; A1 model/schema APIs are reused rather than duplicated. |
 | A4-AC11 | Route tests prove document, batch, structural, and store-backed reference modes with same-document, cyclic batch, existing-store, and missing cross-repository cases and exact diagnostics. |
 
 ## Authoritative validation
@@ -108,7 +108,7 @@ rg -n 'unsupported|RAPTOR\.UNSUPPORTED\.DOLT' plugins/raptor/skills/import/refer
 | Route logic leaks into skills/agents | matrix and tests require shared scripts/vendored APIs; client inventory checks parity. |
 | External profile is mistaken for sandboxed content | require explicit trust, local hash/path checks, and document arbitrary-code boundary. |
 | Multi-repo identities collapse to paths/local IDs | all commands require repository/document keys and run cross-repository collision tests. |
-| Mutations bypass validation | default dry-run, explicit apply, atomic files, SQLite transactions, failure injection. |
+| Mutations bypass validation | default dry-run, explicit apply, per-file atomic replacement, SQLite transactions, and failure injection. |
 
 ## Non-closure
 
