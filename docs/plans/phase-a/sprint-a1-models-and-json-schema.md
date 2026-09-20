@@ -12,6 +12,8 @@ Freeze the Phase A artifact contract in Raptor's own REQ/NFR/ADR documents, then
 
 This sprint owns the semantic contract and its executable representation under top-level `schema/`. Raptor-owned REQ/NFR/ADR artifacts are normative inputs and the only origin for examples. Models validate canonical JSON, not a consumer's Markdown conventions. Persistence, plugin packaging, and Markdown rendering remain later closures. `NFR` is canonical and `NFT` is invalid.
 
+Every authoritative deliverable in this sprint must land production-ready for this stated boundary. A deliverable may not be accepted as a shape-only stub or silently carried into A2; intentional non-closure is limited to the section below.
+
 ## Public contract and layout
 
 ```text

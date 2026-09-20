@@ -15,6 +15,8 @@ A3 establishes every public router and implements the Phase A ingest/storage pat
 
 External consumers own and test their source profiles in their repositories. Raptor ships only its dogfood profile and consumer-neutral routing boundaries.
 
+Every authoritative deliverable in this sprint must land production-ready for the supported A3 routes. A router, agent, or script may not be accepted as a shape-only placeholder; only the explicitly unsupported A4/Dolt routes listed below remain open.
+
 Normative design reference: [`references/claude-code-skills-agents-guidelines-v0.7.md`](references/claude-code-skills-agents-guidelines-v0.7.md). Its provenance header records the sibling source and commit, but the committed copy is the sole normative contract; implementation and CI must not read the sibling checkout.
 
 ## Stable public surface and layout
@@ -152,6 +154,8 @@ python plugins/raptor/scripts/import_sqlite.py --database plugins/raptor/tests/.
 python plugins/raptor/scripts/import_sqlite.py --database plugins/raptor/tests/.tmp/phase-a.sqlite --input plugins/raptor/tests/.tmp/raptor-canonical.json --apply
 python plugins/raptor/scripts/validate.py sqlite --database plugins/raptor/tests/.tmp/phase-a.sqlite --format json
 python plugins/raptor/scripts/export_sqlite.py --database plugins/raptor/tests/.tmp/phase-a.sqlite --source docs/requirements.md --output plugins/raptor/tests/.tmp/raptor-export.json --validate
+python plugins/raptor/scripts/export_sqlite.py --database plugins/raptor/tests/.tmp/phase-a.sqlite --source docs/requirements.md --output plugins/raptor/tests/.tmp/raptor-export.json --apply
+python plugins/raptor/scripts/validate.py json --input plugins/raptor/tests/.tmp/raptor-export.json --format json
 test ! -e schema/sql/dolt
 test ! -e plugins/raptor/tests/fixtures/dolt
 rg --files plugins/raptor/tests | rg '(?i)(^|/)dolt([^/]*)(integration|fixture)|(^|/)(integration|fixture)[^/]*dolt' && exit 1 || true

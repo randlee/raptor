@@ -27,6 +27,8 @@ plugins/raptor/agents/
 
 For the `json-md` export route and `/raptor:round-trip`, verifying `sc-compose` presence and minimum version is the first executable step, before agent delegation. Failure halts with guidance from the respective `references/installation-and-troubleshooting.md`; no degraded renderer is allowed.
 
+Every authoritative deliverable in this sprint must land production-ready for this stated boundary. Templates, routes, agents, and round-trip proof must close together; intentional non-closure is limited to the section below.
+
 ## Render and comparison contract
 
 ```python

@@ -15,6 +15,8 @@ There is one semantic/logical Raptor schema: the A1 models and canonical JSON co
 
 The implementation uses Python's standard `sqlite3` unless a reviewed requirement proves otherwise. It is not a general ORM, service, migration framework, server driver, or Rust SQLx layer.
 
+Every authoritative deliverable in this sprint must land production-ready for this stated boundary. A deliverable may not be accepted as schema-only or test-only work while adapter behavior remains open; intentional non-closure is limited to the section below.
+
 ## Layout and public contract
 
 ```text
