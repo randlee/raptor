@@ -13,4 +13,4 @@ Read and execute `../runtime-preflight.md`. If either check fails, read `referen
 
 Read only the selected reference: `references/sqlite-json.md`, `references/json-markdown.md`, or `references/dolt-json.md`.
 
-In A3, return its structured unsupported result without invoking an agent. Read `references/installation-and-troubleshooting.md` only for Python/Pydantic setup failures.
+For SQLite → JSON, use the A3 Agent Runner to invoke `sqlite-json-export` with the selected reference's parameters. JSON → Markdown and Dolt → JSON retain their structured unsupported results. Read `references/installation-and-troubleshooting.md` only for Python/Pydantic setup failures.

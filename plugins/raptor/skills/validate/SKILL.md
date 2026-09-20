@@ -13,4 +13,4 @@ Read and execute `../runtime-preflight.md`. If either check fails, read `referen
 
 Read only the selected reference: `references/markdown.md`, `references/json.md`, `references/sqlite.md`, or `references/dolt.md`.
 
-In A3, return its structured unsupported result without invoking an agent. Read `references/installation-and-troubleshooting.md` only for Python/Pydantic setup failures.
+For Markdown, JSON, and SQLite, use the A3 Agent Runner to invoke the focused agent named by the selected reference. Dolt retains its structured unsupported result. Read `references/installation-and-troubleshooting.md` only for Python/Pydantic setup failures.

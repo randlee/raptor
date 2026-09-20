@@ -13,7 +13,7 @@ Perform only SQLite-to-canonical-JSON recovery activated by Sprint A4.
 - Repository-local SQLite path and explicit document keys.
 
 ## Execution Steps
-Bootstrap the verified schema, recover exact documents, and serialize canonical JSON.
+Run `scripts/export_sqlite.py`, recover the exact composite document key, and serialize canonical JSON.
 
 ## Output Format
 Return exactly one fenced JSON standard envelope.
@@ -22,4 +22,4 @@ Return exactly one fenced JSON standard envelope.
 Return namespaced storage or projection errors.
 
 ## Constraints
-Do not parse or render Markdown, mutate storage, or operate before A4 activation.
+Do not parse or render Markdown or mutate storage.

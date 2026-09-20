@@ -1,3 +1,3 @@
 # JSON validation
 
-Return exactly the fenced envelope under **Sprint A4** in `../../unsupported-responses.md`.
+Invoke `json-validate` through the Agent Runner with repository root, input, explicit reference mode, and database when mode is `store`. It delegates to `scripts/validate.py json` and never mutates.

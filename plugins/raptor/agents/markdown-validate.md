@@ -13,7 +13,7 @@ Perform only Markdown validation activated by Sprint A4.
 - Repository root, normalized source paths, and explicit profile identity.
 
 ## Execution Steps
-Apply the selected reference mode and return deterministic diagnostics.
+Run `scripts/validate.py markdown`, apply the selected reference mode, and return deterministic diagnostics.
 
 ## Output Format
 Return exactly one fenced JSON standard envelope.
@@ -22,4 +22,4 @@ Return exactly one fenced JSON standard envelope.
 Return namespaced profile, path, or validation errors.
 
 ## Constraints
-Never write files or databases and do not operate before A4 activation.
+Never write files or databases.

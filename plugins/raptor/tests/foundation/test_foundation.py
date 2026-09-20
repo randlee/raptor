@@ -28,7 +28,7 @@ def test_dual_manifests_expose_exact_commands() -> None:
     assert discovered == COMMANDS
 
 
-def test_all_twelve_a3_routes_are_structured_unsupported_without_invocation(
+def test_six_a4_routes_are_active_and_later_routes_remain_unsupported(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     import runtime.agent_runner as runner
@@ -41,16 +41,24 @@ def test_all_twelve_a3_routes_are_structured_unsupported_without_invocation(
         raise AssertionError(values)
 
     monkeypatch.setattr(runner, "run_agent", forbidden)
+    supported = {
+        ("import", "markdown", "json"): ("markdown-json-import", "scripts/markdown_to_json.py"),
+        ("import", "json", "sqlite"): ("json-sqlite-import", "scripts/import_sqlite.py"),
+        ("export", "sqlite", "json"): ("sqlite-json-export", "scripts/export_sqlite.py"),
+        ("validate", "markdown", None): ("markdown-validate", "scripts/validate.py"),
+        ("validate", "json", None): ("json-validate", "scripts/validate.py"),
+        ("validate", "sqlite", None): ("sqlite-validate", "scripts/validate.py"),
+    }
+    for (command, source, target), (agent, script) in supported.items():
+        result = route(command, source, target)
+        assert result["success"] is True
+        assert result["data"] == {"agent": agent, "script": script}
+        assert script in (ROOT / f"agents/{agent}.md").read_text()
+        assert result["metadata"]["tool_calls"] == 0
     cases = [
-        ("import", "markdown", "json"),
-        ("import", "json", "sqlite"),
         ("import", "json", "dolt"),
-        ("export", "sqlite", "json"),
         ("export", "json", "markdown"),
         ("export", "dolt", "json"),
-        ("validate", "markdown", None),
-        ("validate", "json", None),
-        ("validate", "sqlite", None),
         ("validate", "dolt", None),
         ("round-trip", "migration", None),
         ("round-trip", "dolt", None),
@@ -64,6 +72,7 @@ def test_all_twelve_a3_routes_are_structured_unsupported_without_invocation(
             else "RAPTOR.UNSUPPORTED.PHASE"
         )
         assert result["error"]["code"] == expected
+        assert result["metadata"]["tool_calls"] == 0
     assert not invoked
 
 
@@ -93,7 +102,7 @@ def test_scripts_are_thin_runtime_wrappers() -> None:
             if isinstance(node, (ast.Import, ast.ImportFrom)) and node.names
         }
         assert not imports & forbidden
-        assert len(list(ast.walk(tree))) < 260
+        assert len(list(ast.walk(tree))) < 400
 
 
 def test_ci_wires_complete_case_insensitive_exclusion_gates() -> None:
@@ -132,7 +141,7 @@ def test_ci_exclusion_step_returns_nonzero_for_injected_artifact(
     tmp_path: Path, relative: str
 ) -> None:
     workflow = (REPO / ".github/workflows/ci.yml").read_text()
-    block = workflow.split("- name: Enforce Phase A3 exclusions", 1)[1]
+    block = workflow.split("- name: Enforce Phase A4 exclusions", 1)[1]
     block = block.split("\n      - name:", 1)[0].split("run: |", 1)[1]
     script = textwrap.dedent(block)
     (tmp_path / "plugins/raptor/scripts").mkdir(parents=True)

@@ -13,7 +13,7 @@ Perform only SQLite validation activated by Sprint A4.
 - Repository-local SQLite path.
 
 ## Execution Steps
-Bootstrap the verified schema and validate metadata, integrity, and canonical projections.
+Run `scripts/validate.py sqlite`, bootstrap the verified schema, and validate metadata, integrity, and canonical projections.
 
 ## Output Format
 Return exactly one fenced JSON standard envelope.
@@ -22,4 +22,4 @@ Return exactly one fenced JSON standard envelope.
 Return namespaced schema, integrity, or projection errors.
 
 ## Constraints
-Never mutate storage or connect to another database; do not operate before A4 activation.
+Never mutate storage or connect to another database.

@@ -17,6 +17,6 @@ Select only the reference matching the requested source and target:
 - JSON → SQLite: read `references/json-sqlite.md`.
 - JSON → Dolt: read `references/json-dolt.md`.
 
-In A3, return the reference's fenced unsupported envelope verbatim. Do not invoke an agent or transform content.
+For Markdown → JSON and JSON → SQLite, use the A3 Agent Runner to invoke the focused agent named by the selected reference with the user's validated parameters. Return only its fenced standard envelope. JSON → Dolt remains unsupported.
 
 For Python or Pydantic setup failures, read `references/installation-and-troubleshooting.md`.

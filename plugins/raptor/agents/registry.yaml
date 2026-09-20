@@ -7,22 +7,22 @@
     },
     "json-sqlite-import": {
       "path": "agents/json-sqlite-import.md",
-      "sha256": "a5e51400306915f46a82a69b4f34f84b1b057cb174b909a98b5fe43ba75e7b02",
+      "sha256": "75f14e3231e875afd236e5cea61a7e4d81b2a928a8750321425044c35caec1de",
       "version": "1.0.0"
     },
     "json-validate": {
       "path": "agents/json-validate.md",
-      "sha256": "a7b809c0f2cbd63549acda2d3b7446c1e4292d557fb9190b0b8f1c8d071aa7e8",
+      "sha256": "12bfb75c9387d0dd420c1156bab26e0c229c4964aced30d1586d909a7e4a63fb",
       "version": "1.0.0"
     },
     "markdown-json-import": {
       "path": "agents/markdown-json-import.md",
-      "sha256": "4995c03492d44aa5375d9f9a0a55eba0589204e31fba1a01ae88ed734ecb50d7",
+      "sha256": "7c8d5ad55a37d957b110a93c25a9c10c60d6f26a6b003f74280054179e50b0c9",
       "version": "1.0.0"
     },
     "markdown-validate": {
       "path": "agents/markdown-validate.md",
-      "sha256": "5980a1bcdb8b9f980ebf5f7698cc55875611e2850c60f9a68dd3fb55c40cc2f9",
+      "sha256": "1b7fc5604738ebf02eabef44c4a9a0231099b49ec475940605d8145cb5eb41bb",
       "version": "1.0.0"
     },
     "migration-round-trip": {
@@ -32,12 +32,12 @@
     },
     "sqlite-json-export": {
       "path": "agents/sqlite-json-export.md",
-      "sha256": "ff30f95dcaf6e3c03d6e21ed4d3a92e18d9b35fff2e4634b9f61da59209cc25d",
+      "sha256": "fc9d1918fe75eaf2ab58fafc4bb4ea1641e3d60d1a84df3895353b3521e7380b",
       "version": "1.0.0"
     },
     "sqlite-validate": {
       "path": "agents/sqlite-validate.md",
-      "sha256": "1ce8f6c5005d3aa6b8bc77d5bf5190928c6d569e741aec88b7ffd53ebc53d48f",
+      "sha256": "df4cac47a124fd670597646f37f954bc6c0812c76d48628dc2fb05fe1a1ade9d",
       "version": "1.0.0"
     }
   },

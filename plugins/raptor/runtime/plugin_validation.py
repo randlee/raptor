@@ -5,6 +5,7 @@ import hashlib
 import json
 import re
 from pathlib import Path
+from typing import cast
 from .vendor import check
 from .routes import unsupported_envelope
 from .strict_json import loads
@@ -182,6 +183,127 @@ SCRIPT_CONTRACTS: dict[str, dict[str, object]] = {
     },
 }
 
+_OPERATION_TOP = (
+    "ImportFrom",
+    "Import",
+    "Import",
+    "ImportFrom",
+    "Assign",
+    "Assign",
+    "Expr",
+    "ImportFrom",
+    "Expr",
+    "ImportFrom",
+    "ImportFrom",
+    "FunctionDef",
+    "If",
+)
+_OPERATION_IMPORTS = {
+    "__future__.annotations",
+    "argparse",
+    "pathlib.Path",
+    "runtime.bootstrap.bootstrap",
+    "runtime.cli.invoke",
+    "sys",
+}
+_OPERATION_CALLS = {
+    "Call.resolve",
+    "Path",
+    "SystemExit",
+    "argparse.ArgumentParser",
+    "bootstrap",
+    "invoke",
+    "main",
+    "parser.add_argument",
+    "parser.parse_args",
+    "str",
+    "sys.path.insert",
+}
+
+
+def _operation_contract(
+    runtime_imports: set[str],
+    operation_calls: set[str],
+    *,
+    functions: set[str] | None = None,
+    assignments: tuple[str, ...] | None = None,
+    calls: set[str] | None = None,
+    lambdas: int = 1,
+    top: tuple[str, ...] = _OPERATION_TOP,
+) -> dict[str, object]:
+    return {
+        "imports": frozenset(_OPERATION_IMPORTS | runtime_imports),
+        "functions": frozenset(functions or {"main"}),
+        "calls": frozenset(_OPERATION_CALLS | operation_calls | (calls or set())),
+        "assignments": assignments
+        or ("PLUGIN_ROOT", "arguments", "mode", "parser", "sys.dont_write_bytecode"),
+        "lambdas": lambdas,
+        "top": top,
+    }
+
+
+SCRIPT_CONTRACTS.update(
+    {
+        "markdown_to_json.py": _operation_contract(
+            {"runtime.operations.markdown_to_json"},
+            {"markdown_to_json"},
+            calls={"mode.add_argument", "parser.add_mutually_exclusive_group"},
+        ),
+        "import_sqlite.py": _operation_contract(
+            {"runtime.operations.import_sqlite"},
+            {"import_sqlite"},
+            calls={"mode.add_argument", "parser.add_mutually_exclusive_group"},
+        ),
+        "export_sqlite.py": _operation_contract(
+            {"runtime.operations.export_sqlite"},
+            {"export_sqlite"},
+            calls={"mode.add_argument", "parser.add_mutually_exclusive_group"},
+        ),
+        "identity.py": _operation_contract(
+            {"runtime.identity.register_identity"},
+            {"register_identity"},
+            assignments=(
+                "PLUGIN_ROOT",
+                "arguments",
+                "mode",
+                "parser",
+                "register",
+                "subparsers",
+                "sys.dont_write_bytecode",
+            ),
+            calls={
+                "mode.add_argument",
+                "parser.add_subparsers",
+                "register.add_argument",
+                "register.add_mutually_exclusive_group",
+                "subparsers.add_parser",
+            },
+        ),
+        "validate.py": _operation_contract(
+            {
+                "runtime.operations.validate_json",
+                "runtime.operations.validate_markdown",
+                "runtime.operations.validate_sqlite",
+            },
+            {"validate_json", "validate_markdown", "validate_sqlite"},
+            functions={"main", "_required"},
+            assignments=(
+                "PLUGIN_ROOT",
+                "arguments",
+                "parser",
+                "sys.dont_write_bytecode",
+            ),
+            calls={"ValueError", "_required"},
+            lambdas=3,
+            top=_OPERATION_TOP[:-2] + ("FunctionDef", "FunctionDef", "If"),
+        ),
+    }
+)
+SCRIPT_CONTRACTS["identity.py"]["calls"] = frozenset(
+    cast(frozenset[str], SCRIPT_CONTRACTS["identity.py"]["calls"])
+    - {"parser.add_argument"}
+)
+
 
 class PluginValidationError(ValueError):
     pass
@@ -353,11 +475,18 @@ def validate_plugin(plugin_root: Path, guideline: Path) -> None:
                 raise PluginValidationError(
                     f"broken skill reference: {name}/{reference}"
                 )
-        if (
+        if name in {"import", "export", "validate"}:
+            if "Agent Runner" not in text:
+                raise PluginValidationError(
+                    f"active skill omits the shared runner: {name}"
+                )
+        elif (
             "Do not invoke an agent" not in text
             and "without invoking an agent" not in text
         ):
-            raise PluginValidationError(f"A3 skill can delegate unexpectedly: {name}")
+            raise PluginValidationError(
+                f"unsupported skill can delegate unexpectedly: {name}"
+            )
     preflight = (root / "skills/runtime-preflight.md").read_text(encoding="utf-8")
     for location in (
         "$HOME/.local/bin/python3",
@@ -374,9 +503,23 @@ def validate_plugin(plugin_root: Path, guideline: Path) -> None:
         for path in root.glob("skills/*/references/*.md")
         if path.name != "installation-and-troubleshooting.md"
     ]
-    if len(route_references) != 12 or any(
-        "../../unsupported-responses.md" not in path.read_text(encoding="utf-8")
-        for path in route_references
+    unsupported_names = {
+        "json-dolt.md",
+        "json-markdown.md",
+        "dolt-json.md",
+        "dolt.md",
+        "migration.md",
+    }
+    unsupported_references = [
+        path for path in route_references if path.name in unsupported_names
+    ]
+    if (
+        len(route_references) != 12
+        or len(unsupported_references) != 6
+        or any(
+            "../../unsupported-responses.md" not in path.read_text(encoding="utf-8")
+            for path in unsupported_references
+        )
     ):
         raise PluginValidationError(
             "route references do not share the deterministic unsupported contract"
@@ -408,6 +551,8 @@ def validate_plugin(plugin_root: Path, guideline: Path) -> None:
         if path.name.casefold() in {"marketplace.json", "templates"}
         or (
             path.parent == root / "scripts"
+            and path.name
+            not in {"markdown_to_json.py", "import_sqlite.py", "export_sqlite.py"}
             and re.search(
                 r"(?:import|export|render|round[-_]?trip|transform|convert)",
                 path.stem,

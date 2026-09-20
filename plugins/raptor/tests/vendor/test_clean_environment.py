@@ -63,9 +63,14 @@ def test_clean_declared_dependencies_load_vendor(
     clean_install: tuple[Path, Path],
 ) -> None:
     plugin, dependencies = clean_install
-    result = probe(plugin, dependencies, "print(module.__file__)")
+    result = probe(
+        plugin,
+        dependencies,
+        "from runtime.operations import validate_json; print(module.__file__, validate_json.__module__)",
+    )
     assert result.returncode == 0, result.stderr
     assert str(plugin / "_vendor/raptor_schema") in result.stdout
+    assert "runtime.operations" in result.stdout
 
 
 def test_clean_environment_reports_missing_dependency(

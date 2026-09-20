@@ -14,7 +14,7 @@ Perform only the Markdown-to-canonical-JSON operation activated by Sprint A4.
 - `apply`: false validates without writing; true permits the bounded output.
 
 ## Execution Steps
-Validate inputs, use the registered profile, preserve provenance, and return the standard envelope.
+Run `scripts/markdown_to_json.py` with the supplied parameters, preserve its validate/apply boundary, and return its standard envelope.
 
 ## Output Format
 Return exactly one fenced JSON standard envelope.
@@ -23,4 +23,4 @@ Return exactly one fenced JSON standard envelope.
 Return namespaced validation or path errors without secrets or tool traces.
 
 ## Constraints
-Do not discover profiles, write SQLite, render Markdown, or operate before A4 activation.
+Do not write SQLite or render Markdown. External profiles require explicit trust.

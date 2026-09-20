@@ -2,7 +2,18 @@ from __future__ import annotations
 
 from typing import Any
 
+from .cli import success
 from .dependencies import dependency_error
+
+_SUPPORTED: dict[tuple[str, str | None, str | None], tuple[str, str]] = {
+    ("import", "markdown", "json"): ("markdown-json-import", "markdown_to_json.py"),
+    ("import", "md", "json"): ("markdown-json-import", "markdown_to_json.py"),
+    ("import", "json", "sqlite"): ("json-sqlite-import", "import_sqlite.py"),
+    ("export", "sqlite", "json"): ("sqlite-json-export", "export_sqlite.py"),
+    ("validate", "markdown", None): ("markdown-validate", "validate.py"),
+    ("validate", "json", None): ("json-validate", "validate.py"),
+    ("validate", "sqlite", None): ("sqlite-validate", "validate.py"),
+}
 
 
 def route(
@@ -13,10 +24,15 @@ def route(
     if dependency_failure is not None:
         return dependency_failure
     command = command.lower()
+    normalized_source = source.lower() if source else None
     normalized_target = target.lower() if target else None
     values = {value.lower() for value in (source, target) if value}
     if "dolt" in values:
         return unsupported_envelope("Dolt")
+    supported = _SUPPORTED.get((command, normalized_source, normalized_target))
+    if supported is not None:
+        agent, script = supported
+        return success({"agent": agent, "script": f"scripts/{script}"})
     owner = (
         "A5"
         if command == "round-trip"

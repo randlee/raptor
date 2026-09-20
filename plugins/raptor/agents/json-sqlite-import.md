@@ -14,7 +14,7 @@ Perform only canonical JSON-to-SQLite persistence activated by Sprint A4.
 - `apply`: false validates; true permits one transaction.
 
 ## Execution Steps
-Bootstrap the verified schema, validate all documents, then use one adapter transaction.
+Run `scripts/import_sqlite.py`; bootstrap the verified schema, validate all documents, then use one adapter transaction only when apply is explicit.
 
 ## Output Format
 Return exactly one fenced JSON standard envelope.
@@ -23,4 +23,4 @@ Return exactly one fenced JSON standard envelope.
 Return namespaced validation, reference, or storage errors.
 
 ## Constraints
-Do not parse or render Markdown, connect to another database, or operate before A4 activation.
+Do not parse or render Markdown or connect to another database.
