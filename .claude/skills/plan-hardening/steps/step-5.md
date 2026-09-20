@@ -46,8 +46,9 @@ Save the extracted fenced JSON to `/tmp/step-5.json`.
   being replayed, increment `round_index`, update `round_id`, refresh
   `replay_nonce` with the current UTC timestamp, and re-render before
   re-sending
-- if Step 5 returns `FAIL` three times without converging, stop and report
-  `cap-exhausted / not converged`; do not ask the user what to do mid-loop
+- if Step 5 returns `FAIL` three times, apply the final bounded corrections,
+  record `CAP_REACHED_CORRECTIONS_APPLIED`, and proceed to Step 6; the cap
+  prevents endless editorial churn while QA remains the acceptance gate
 
 ## Hard stops
 
@@ -56,5 +57,6 @@ Save the extracted fenced JSON to `/tmp/step-5.json`.
   or malformed fields explicitly
 - fenced JSON is missing or malformed: do not advance; send a correction
   request immediately and identify the missing or malformed fields explicitly
-- Step 5 has returned `FAIL` three times without converging: do not advance;
-  stop and report `cap-exhausted / not converged` without prompting the user
+- Step 5 has returned `FAIL` three times and its final corrections were not
+  applied or validation still fails: do not advance; report the concrete
+  unresolved validation failure

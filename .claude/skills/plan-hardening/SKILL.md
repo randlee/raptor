@@ -83,10 +83,13 @@ Cycle-cap behavior:
 - no reviewer findings may be accepted as-is or bypass the plan-editing agent
 - if a reviewer returns `FAIL` on the final allowed reviewer cycle, `team-lead`
   must still send those findings to `arch-ctm` for one final correction pass
-- after that final correction pass, if no reviewer cycles remain, stop the
-  hardening run as `cap-exhausted / not converged` and report status plainly
-- do not ask the user how to proceed, do not offer multiple-choice options,
-  and do not invent an "accept and proceed" path
+- after that final correction pass, close the reviewer loop as
+  `CAP_REACHED_CORRECTIONS_APPLIED`; the cap bounds reviewer churn and is not
+  a hardening failure or a claim that findings were ignored
+- do not launch another cycle of the capped reviewer; continue to the next
+  workflow step, including consistency hardening and final `quality-mgr` QA
+- QA evaluates the corrected committed state against requirements and
+  acceptance criteria; it does not require a final reviewer `PASS`
 
 ## Hard Stops
 
@@ -103,10 +106,12 @@ Cycle-cap behavior:
 - remaining in-scope work without sprint ownership is a hard stop
 - if a sprint cannot credibly land its committed deliverables at a
   production-ready level, split it before implementation
-- if a reviewer loop reaches its configured cap without converging, stop after
-  routing the last findings to `arch-ctm` and report `cap-exhausted / not
-  converged`; do not continue launching background reviewers and do not ask
-  the user for a decision mid-loop
+- if a reviewer loop reaches its configured cap, stop launching that reviewer,
+  route the final findings to `arch-ctm`, record
+  `CAP_REACHED_CORRECTIONS_APPLIED`, and advance to the next workflow step
+- reaching a cycle cap is not a hard stop; malformed handoffs, uncorrected
+  findings, validation failures, scope conflicts, and unowned deliverables are
+  hard stops
 
 ## Workflow Metadata
 

@@ -80,8 +80,8 @@ Save the extracted fenced JSON to `/tmp/step-4.json`.
     `critical-plan-reviewer` agent when possible
   - if the just-completed reviewer response used cycle index equal to
     `critical_review_cycle_limit`, do not launch another background review;
-    stop the hardening run after the Step 3 correction pass and report
-    `cap-exhausted / not converged`
+    finish the Step 3 correction pass, record
+    `CAP_REACHED_CORRECTIONS_APPLIED`, and proceed to Step 5
 - the reviewer must return all remaining `Blocking` and `Important` findings
   in one pass; newly surfaced findings after a previous round are acceptable
   only if the plan changed between rounds
@@ -138,7 +138,7 @@ Update the round table after every Step 4 response:
 - reviewer output repeats the same `reviewed_commit` and the same
   `findings_hash`: do not advance; mark it as stale replay and request a fresh
   review cycle only after the plan state changes
-- reviewer has reached `critical_review_cycle_limit` without converging: do not
-  launch another reviewer cycle, do not ask the user what to do, and do not
-  accept the findings silently; finish the Step 3 correction pass and report
-  `cap-exhausted / not converged`
+- reviewer has reached `critical_review_cycle_limit`: do not launch another
+  reviewer cycle and do not accept the findings silently; finish the Step 3
+  correction pass, record `CAP_REACHED_CORRECTIONS_APPLIED`, and proceed to
+  Step 5

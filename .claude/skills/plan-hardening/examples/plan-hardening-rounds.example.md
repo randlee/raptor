@@ -11,7 +11,7 @@ Cap behavior reminder:
   JSON overrides it explicitly
 - every reviewer `FAIL` must still be routed to `arch-ctm`
 - if the final allowed reviewer cycle still returns `FAIL`, route that finding
-  set to `arch-ctm`, complete the correction pass, then stop and report
-  `cap-exhausted / not converged`
-- do not offer `accept and proceed`
-- do not ask the user for a branching decision mid-loop
+  set to `arch-ctm`, complete the correction pass, record
+  `CAP_REACHED_CORRECTIONS_APPLIED`, and proceed without launching that
+  reviewer again
+- consistency hardening and `quality-mgr` QA still run; QA is the final gate

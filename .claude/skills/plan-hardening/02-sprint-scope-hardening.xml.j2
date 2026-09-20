@@ -283,7 +283,9 @@ metadata:
     If `{{ lead }}` later sends back fenced JSON findings and `sprint_scores` from
     `critical-plan-reviewer`, fix those findings and return updated fenced
     JSON. Continue until `{{ lead }}` reports that
-    `critical-plan-reviewer` returned `PASS`.
+    `critical-plan-reviewer` returned `PASS` or its cycle cap was reached and
+    the final findings were applied. A capped reviewer loop still advances to
+    consistency hardening and QA.
 
     <exit-criterion>
       Output fenced JSON only when audit-phase produces zero findings:

@@ -80,8 +80,8 @@ Save the extracted fenced JSON to `/tmp/step-2.json`.
     `plan-scope-reviewer` agent when possible
   - if the just-completed reviewer response used cycle index equal to
     `plan_scope_review_cycle_limit`, do not launch another background review;
-    stop the hardening run after the Step 1 correction pass and report
-    `cap-exhausted / not converged`
+    finish the Step 1 correction pass, record
+    `CAP_REACHED_CORRECTIONS_APPLIED`, and proceed to Step 3
 - if the next Step 2 response repeats the same `reviewed_commit` and the same
   `findings_hash`, classify it as a stale replay and do not open a new Step 1
   round
@@ -130,7 +130,7 @@ Update the round table after every Step 2 response:
 - reviewer output repeats the same `reviewed_commit` and the same
   `findings_hash`: do not advance; mark it as stale replay and request a fresh
   review cycle only after the plan state changes
-- reviewer has reached `plan_scope_review_cycle_limit` without converging: do
-  not launch another reviewer cycle, do not ask the user what to do, and do
-  not accept the findings silently; finish the Step 1 correction pass and
-  report `cap-exhausted / not converged`
+- reviewer has reached `plan_scope_review_cycle_limit`: do not launch another
+  reviewer cycle and do not accept the findings silently; finish the Step 1
+  correction pass, record `CAP_REACHED_CORRECTIONS_APPLIED`, and proceed to
+  Step 3
