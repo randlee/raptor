@@ -47,6 +47,15 @@ def test_registration_idempotence_and_conflicts() -> None:
         document_id="DOC-RAP-001",
         path="docs/requirements.md",
     ) is value
+    added = validate_identity_registration(
+        value,
+        repository_id=value.repository_id,
+        document_id="DOC-RAP-099",
+        path="docs/new.md",
+    )
+    assert added.documents["DOC-RAP-099"].path == "docs/new.md"
+    with pytest.raises(TypeError):
+        added.documents["DOC-RAP-100"] = added.documents["DOC-RAP-099"]  # type: ignore[index]
     cases = [
         (IDENTITY_MISSING, dict(manifest=None, repository_id="urn:raptor:repo:raptor", document_id="DOC-RAP-001", path="docs/requirements.md")),
         (IDENTITY_REPOSITORY_CONFLICT, dict(manifest=value, repository_id="urn:raptor:repo:other", document_id="DOC-RAP-001", path="docs/requirements.md")),
@@ -65,3 +74,39 @@ def test_manifest_duplicate_path_rejected() -> None:
     value["documents"]["DOC-RAP-099"] = {"path": "docs/requirements.md"}
     with pytest.raises(ValidationError, match="PATH_CONFLICT"):
         IdentityManifest.model_validate(value)
+
+
+def test_identity_manifest_and_documents_are_defensively_immutable() -> None:
+    value = manifest()
+    with pytest.raises(ValidationError, match="frozen"):
+        value.repository_id = "urn:raptor:repo:other"
+    with pytest.raises(TypeError):
+        value.documents["DOC-RAP-099"] = value.documents["DOC-RAP-001"]  # type: ignore[index]
+    with pytest.raises(ValidationError, match="frozen"):
+        value.documents["DOC-RAP-001"].path = "docs/other.md"
+
+    copied = value.model_copy(
+        update={
+            "documents": {
+                **value.documents,
+                "DOC-RAP-099": {"path": "docs/new.md"},
+            }
+        }
+    )
+    assert "DOC-RAP-099" not in value.documents
+    assert copied.documents["DOC-RAP-099"].path == "docs/new.md"
+    with pytest.raises(TypeError):
+        copied.documents["DOC-RAP-100"] = copied.documents["DOC-RAP-099"]  # type: ignore[index]
+
+
+def test_identity_manifest_snapshots_caller_documents() -> None:
+    documents = {"DOC-RAP-099": {"path": "docs/new.md"}}
+    value = IdentityManifest.model_validate(
+        {
+            "identity_version": "1.0.0",
+            "repository_id": "urn:raptor:repo:raptor",
+            "documents": documents,
+        }
+    )
+    documents.clear()
+    assert "DOC-RAP-099" in value.documents

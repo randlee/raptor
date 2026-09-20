@@ -17,6 +17,7 @@ from .models import (
     ProfileId,
     ProfileVersion,
     RepositoryId,
+    RepositoryPath,
     SchemaVersion,
     Sha256,
     SourceDocument,
@@ -26,6 +27,7 @@ from .models.base import reject_non_finite
 
 _REPOSITORY_ID_ADAPTER = TypeAdapter(RepositoryId)
 _DOCUMENT_ID_ADAPTER = TypeAdapter(DocumentId)
+_REPOSITORY_PATH_ADAPTER = TypeAdapter(RepositoryPath)
 _JSON_OBJECT_ADAPTER = TypeAdapter(JsonObject)
 _SCHEMA_VERSION_ADAPTER = TypeAdapter(SchemaVersion)
 _PROFILE_ID_ADAPTER = TypeAdapter(ProfileId)
@@ -69,7 +71,9 @@ def _freeze_json(value: JsonValue) -> FrozenJsonValue:
     return value
 
 
-def _snapshot_mapping(value: Mapping[str, JsonValue]) -> FrozenJsonObject:
+def _snapshot_mapping(value: object) -> FrozenJsonObject:
+    if not isinstance(value, Mapping):
+        raise TypeError("value must be a mapping")
     validated = validate_json_object(dict(value))
     return cast(FrozenJsonObject, _freeze_json(validated))
 
@@ -93,12 +97,12 @@ class SourceInput:
         if not isinstance(self.repository_path, PurePosixPath):
             raise TypeError("repository_path must be pathlib.PurePosixPath")
         relative = self.repository_path
-        if (
-            str(relative) == "."
-            or relative.is_absolute()
-            or any(part in {"", ".", ".."} for part in relative.parts)
-        ):
-            raise ValueError("RAPTOR.PATH.OUTSIDE_ROOT: source path must be normalized and relative")
+        try:
+            _REPOSITORY_PATH_ADAPTER.validate_python(str(relative))
+        except ValueError as error:
+            raise ValueError(
+                "RAPTOR.PATH.OUTSIDE_ROOT: source path must be normalized and relative"
+            ) from error
         _resolved_inside(root, relative)
         if not isinstance(self.content, bytes):
             raise TypeError("content must be bytes")
@@ -116,11 +120,15 @@ class ParsedSection:
     attributes: FrozenJsonObject
 
     def __post_init__(self) -> None:
+        if not isinstance(self.kind, str):
+            raise TypeError("kind must be a string")
+        if self.heading is not None and not isinstance(self.heading, str):
+            raise TypeError("heading must be a string or None")
+        if not isinstance(self.body, str):
+            raise TypeError("body must be a string")
         if not isinstance(self.location, SourceLocation):
             raise TypeError("location must be SourceLocation")
-        object.__setattr__(self, "location", self.location.model_copy(deep=True))
-        source = cast(Mapping[str, JsonValue], self.attributes)
-        object.__setattr__(self, "attributes", _snapshot_mapping(source))
+        object.__setattr__(self, "attributes", _snapshot_mapping(self.attributes))
 
 
 @dataclass(frozen=True)
@@ -130,9 +138,13 @@ class ParsedDocument:
     sections: tuple[ParsedSection, ...]
 
     def __post_init__(self) -> None:
-        source = cast(Mapping[str, JsonValue], self.frontmatter)
-        object.__setattr__(self, "frontmatter", _snapshot_mapping(source))
-        object.__setattr__(self, "sections", tuple(self.sections))
+        if not isinstance(self.source, SourceInput):
+            raise TypeError("source must be SourceInput")
+        if not isinstance(self.sections, tuple) or any(
+            not isinstance(section, ParsedSection) for section in self.sections
+        ):
+            raise TypeError("sections must be a tuple of ParsedSection values")
+        object.__setattr__(self, "frontmatter", _snapshot_mapping(self.frontmatter))
 
 
 @dataclass(frozen=True)
@@ -140,8 +152,7 @@ class ArtifactSnapshot:
     data: FrozenJsonObject
 
     def __post_init__(self) -> None:
-        source = cast(Mapping[str, JsonValue], self.data)
-        object.__setattr__(self, "data", _snapshot_mapping(source))
+        object.__setattr__(self, "data", _snapshot_mapping(self.data))
 
     @classmethod
     def from_artifact(cls, artifact: Artifact) -> "ArtifactSnapshot":
@@ -164,7 +175,6 @@ class ComparableDocument:
         ):
             raise TypeError("artifacts must be a tuple of ArtifactSnapshot values")
         object.__setattr__(self, "schema_version", schema_version)
-        object.__setattr__(self, "artifacts", tuple(self.artifacts))
 
 
 @dataclass(frozen=True)

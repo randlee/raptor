@@ -5,7 +5,12 @@ import json
 import pytest
 from pydantic import ValidationError
 
-from raptor_schema import SourceDocument, dump_canonical_json, load_canonical_json
+from raptor_schema import (
+    ArtifactRelationship,
+    SourceDocument,
+    dump_canonical_json,
+    load_canonical_json,
+)
 
 
 def test_all_families_round_trip_and_omission(document: SourceDocument) -> None:
@@ -23,6 +28,40 @@ def test_all_families_round_trip_and_omission(document: SourceDocument) -> None:
     assert "summary" not in payload["artifacts"][0]
     assert payload["artifacts"][2]["alternatives"]
     assert payload["artifacts"][4]["entry_criteria"] == []
+
+
+def test_canonical_dump_revalidates_live_mutable_collections(
+    document: SourceDocument,
+) -> None:
+    relationships = document.artifacts[0].relationships
+    relationships.extend(
+        [
+            ArtifactRelationship.model_validate(
+                {
+                    "relation": "verifies",
+                    "target": {
+                        "target_kind": "uri",
+                        "target_uri": "https://example.test/z",
+                    },
+                }
+            ),
+            ArtifactRelationship.model_validate(
+                {
+                    "relation": "depends_on",
+                    "target": {
+                        "target_kind": "uri",
+                        "target_uri": "https://example.test/a",
+                    },
+                }
+            ),
+        ]
+    )
+    canonical = dump_canonical_json(document)
+    relationships.reverse()
+    assert dump_canonical_json(document) == canonical
+    relationships.append(relationships[0])
+    with pytest.raises(ValidationError, match="duplicate artifact relationship"):
+        dump_canonical_json(document)
 
 
 def test_unknown_field_and_bad_version_rejected(document_dict: dict[str, object]) -> None:

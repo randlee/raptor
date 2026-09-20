@@ -49,6 +49,7 @@ def test_source_input_validates_and_resolves_root(tmp_path: Path) -> None:
         ("repository_path", "docs/source.md", TypeError),
         ("repository_path", PurePosixPath("/absolute.md"), ValueError),
         ("repository_path", PurePosixPath("../escape.md"), ValueError),
+        ("repository_path", PurePosixPath(r"docs\source.md"), ValueError),
         ("content", "source", TypeError),
         ("content", bytearray(b"source"), TypeError),
     ],
@@ -149,6 +150,51 @@ def test_render_projection_json_boundary_accepts_recursive_json() -> None:
 
 
 @pytest.mark.parametrize(
+    ("field", "value"),
+    [
+        ("kind", 1),
+        ("heading", 1),
+        ("body", 1),
+        ("location", object()),
+        ("attributes", [("key", "value")]),
+    ],
+)
+def test_parsed_section_runtime_boundaries(field: str, value: object) -> None:
+    values: dict[str, object] = {
+        "kind": "requirement",
+        "heading": "Requirement",
+        "body": "body",
+        "location": SourceLocation(start_line=1, start_column=1),
+        "attributes": {},
+    }
+    values[field] = value
+    with pytest.raises(TypeError):
+        ParsedSection(**values)  # type: ignore[arg-type]
+
+
+@pytest.mark.parametrize(
+    ("field", "value"),
+    [
+        ("source", object()),
+        ("frontmatter", [("key", "value")]),
+        ("sections", []),
+        ("sections", (object(),)),
+    ],
+)
+def test_parsed_document_runtime_boundaries(
+    tmp_path: Path, field: str, value: object
+) -> None:
+    values: dict[str, object] = {
+        "source": source_input(tmp_path),
+        "frontmatter": {},
+        "sections": (),
+    }
+    values[field] = value
+    with pytest.raises(TypeError):
+        ParsedDocument(**values)  # type: ignore[arg-type]
+
+
+@pytest.mark.parametrize(
     "value",
     [
         ["not", "an", "object"],
@@ -214,7 +260,7 @@ def test_boundary_types_are_deeply_immutable(
         attributes=attributes,  # type: ignore[arg-type]
     )
     attributes["nested"] = "changed"
-    assert section.location is not location
+    assert section.location is location
     with pytest.raises(ValidationError, match="frozen"):
         setattr(location, "start_line", 2)
     assert section.location.start_line == 1

@@ -48,7 +48,7 @@ RepositoryPath = Annotated[
         {
             "type": "string",
             "minLength": 1,
-            "pattern": r"^(?!/)(?!\.{1,2}(?:/|$))(?!.*(?:/\.{1,2})(?:/|$))(?!.*//)(?!.*\\).+$",
+            "pattern": r"^(?!/)(?!\.{1,2}(?:/|$))(?!.*(?:/\.{1,2})(?:/|$))(?!.*//)(?!.*\/$)(?!.*\\).+$",
         }
     ),
     AfterValidator(_repository_path),

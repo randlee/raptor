@@ -2,9 +2,7 @@ from __future__ import annotations
 
 from enum import Enum
 from typing import Annotated, Literal
-from urllib.parse import urlparse
-
-from pydantic import ConfigDict, Field, GetJsonSchemaHandler, StrictInt, field_validator, model_validator
+from pydantic import ConfigDict, Field, GetJsonSchemaHandler, StrictInt, model_validator
 from pydantic.json_schema import JsonSchemaValue
 from pydantic_core import core_schema
 
@@ -115,19 +113,9 @@ class ArtifactTarget(ContractModel):
 
 class UriTarget(ContractModel):
     target_kind: Literal["uri"]
-    target_uri: str = Field(pattern=r"^(?:https?://[^/\s]+(?:[/?#].*)?|urn:[^\s]+)$")
-
-    @field_validator("target_uri")
-    @classmethod
-    def absolute_supported_uri(cls, value: str) -> str:
-        parsed = urlparse(value)
-        if parsed.scheme not in {"https", "http", "urn"}:
-            raise ValueError("URI scheme must be https, http, or urn")
-        if parsed.scheme in {"https", "http"} and not parsed.netloc:
-            raise ValueError("HTTP URI must be absolute")
-        if parsed.scheme == "urn" and not parsed.path:
-            raise ValueError("URN must include a namespace-specific string")
-        return value
+    target_uri: str = Field(
+        pattern=r"^(?:https?://[^\x00-\x20\x7f/?#]+(?:[/?#][^\x00-\x20\x7f]*)?|urn:[A-Za-z0-9](?:[A-Za-z0-9-]{0,30}[A-Za-z0-9])?:[A-Za-z0-9()+,.:=@;$_!*'%/?#-]+)$"
+    )
 
 
 RelationshipTarget = Annotated[ArtifactTarget | UriTarget, Field(discriminator="target_kind")]

@@ -52,7 +52,7 @@
           "type": "object"
         },
         "id": {
-          "pattern": "^(REQ|NFR|ADR|DES|TST)-[A-Z0-9][A-Z0-9-]*-[0-9]{3,}$",
+          "pattern": "^ADR-[A-Z0-9][A-Z0-9-]*-[0-9]{3,}$",
           "title": "Id",
           "type": "string"
         },
@@ -61,7 +61,8 @@
             "$ref": "#/$defs/ArtifactRelationship"
           },
           "title": "Relationships",
-          "type": "array"
+          "type": "array",
+          "uniqueItems": true
         },
         "source_location": {
           "anyOf": [
@@ -213,7 +214,8 @@
             "$ref": "#/$defs/ArtifactKey"
           },
           "title": "Dependencies",
-          "type": "array"
+          "type": "array",
+          "uniqueItems": true
         },
         "name": {
           "maxLength": 200,
@@ -265,7 +267,7 @@
           "type": "object"
         },
         "id": {
-          "pattern": "^(REQ|NFR|ADR|DES|TST)-[A-Z0-9][A-Z0-9-]*-[0-9]{3,}$",
+          "pattern": "^DES-[A-Z0-9][A-Z0-9-]*-[0-9]{3,}$",
           "title": "Id",
           "type": "string"
         },
@@ -287,7 +289,8 @@
             "$ref": "#/$defs/ArtifactRelationship"
           },
           "title": "Relationships",
-          "type": "array"
+          "type": "array",
+          "uniqueItems": true
         },
         "source_location": {
           "anyOf": [
@@ -634,7 +637,7 @@
           "type": "object"
         },
         "id": {
-          "pattern": "^(REQ|NFR|ADR|DES|TST)-[A-Z0-9][A-Z0-9-]*-[0-9]{3,}$",
+          "pattern": "^NFR-[A-Z0-9][A-Z0-9-]*-[0-9]{3,}$",
           "title": "Id",
           "type": "string"
         },
@@ -676,7 +679,8 @@
             "$ref": "#/$defs/ArtifactRelationship"
           },
           "title": "Relationships",
-          "type": "array"
+          "type": "array",
+          "uniqueItems": true
         },
         "source_location": {
           "anyOf": [
@@ -786,7 +790,7 @@
           "type": "object"
         },
         "id": {
-          "pattern": "^(REQ|NFR|ADR|DES|TST)-[A-Z0-9][A-Z0-9-]*-[0-9]{3,}$",
+          "pattern": "^REQ-[A-Z0-9][A-Z0-9-]*-[0-9]{3,}$",
           "title": "Id",
           "type": "string"
         },
@@ -820,7 +824,8 @@
             "$ref": "#/$defs/ArtifactRelationship"
           },
           "title": "Relationships",
-          "type": "array"
+          "type": "array",
+          "uniqueItems": true
         },
         "source_location": {
           "anyOf": [
@@ -985,7 +990,8 @@
           },
           "minItems": 1,
           "title": "Verifies",
-          "type": "array"
+          "type": "array",
+          "uniqueItems": true
         }
       },
       "required": [
@@ -1037,7 +1043,7 @@
           "type": "object"
         },
         "id": {
-          "pattern": "^(REQ|NFR|ADR|DES|TST)-[A-Z0-9][A-Z0-9-]*-[0-9]{3,}$",
+          "pattern": "^TST-[A-Z0-9][A-Z0-9-]*-[0-9]{3,}$",
           "title": "Id",
           "type": "string"
         },
@@ -1052,7 +1058,8 @@
             "$ref": "#/$defs/ArtifactRelationship"
           },
           "title": "Relationships",
-          "type": "array"
+          "type": "array",
+          "uniqueItems": true
         },
         "scope": {
           "minLength": 1,
@@ -1125,7 +1132,7 @@
           "type": "string"
         },
         "target_uri": {
-          "pattern": "^(?:https?://[^/\\s]+(?:[/?#].*)?|urn:[^\\s]+)$",
+          "pattern": "^(?:https?://[^\\x00-\\x20\\x7f/?#]+(?:[/?#][^\\x00-\\x20\\x7f]*)?|urn:[A-Za-z0-9](?:[A-Za-z0-9-]{0,30}[A-Za-z0-9])?:[A-Za-z0-9()+,.:=@;$_!*'%/?#-]+)$",
           "title": "Target Uri",
           "type": "string"
         }

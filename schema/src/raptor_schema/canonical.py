@@ -193,6 +193,7 @@ def _normalize_numbers(value: JsonValue) -> JsonValue:
 
 def dump_canonical_json(value: SourceDocument | object) -> str:
     document = _coerce(value)
+    document = SourceDocument.model_validate(document.model_dump(mode="python"))
     payload = cast(JsonObject, document.model_dump(mode="json", exclude_none=True))
     return json.dumps(
         _normalize_numbers(payload),

@@ -1,6 +1,17 @@
 from __future__ import annotations
 
-from pydantic import Field, TypeAdapter, model_validator
+from collections.abc import Mapping
+from types import MappingProxyType
+from typing import Any, Self
+
+from pydantic import (
+    ConfigDict,
+    Field,
+    TypeAdapter,
+    field_serializer,
+    field_validator,
+    model_validator,
+)
 
 from .base import (
     DOCUMENT_ID_RE,
@@ -19,15 +30,32 @@ IDENTITY_REUSE = "RAPTOR.IDENTITY.REUSE"
 
 
 class IdentityDocument(ContractModel):
+    model_config = ConfigDict(extra="forbid", validate_assignment=True, frozen=True)
+
     path: RepositoryPath
 
 
 class IdentityManifest(ContractModel):
+    model_config = ConfigDict(extra="forbid", validate_assignment=True, frozen=True)
+
     identity_version: SchemaVersion
     repository_id: RepositoryId
-    documents: dict[DocumentId, IdentityDocument] = Field(
+    documents: Mapping[DocumentId, IdentityDocument] = Field(
         json_schema_extra={"propertyNames": {"pattern": DOCUMENT_ID_RE}}
     )
+
+    @field_validator("documents", mode="after")
+    @classmethod
+    def immutable_documents(
+        cls, value: Mapping[DocumentId, IdentityDocument]
+    ) -> Mapping[DocumentId, IdentityDocument]:
+        return MappingProxyType(dict(value))
+
+    @field_serializer("documents")
+    def serialize_documents(
+        self, value: Mapping[DocumentId, IdentityDocument]
+    ) -> dict[DocumentId, IdentityDocument]:
+        return dict(value)
 
     @model_validator(mode="after")
     def unique_paths(self) -> "IdentityManifest":
@@ -35,6 +63,15 @@ class IdentityManifest(ContractModel):
         if len(paths) != len(set(paths)):
             raise ValueError(f"{IDENTITY_PATH_CONFLICT}: document paths must be unique")
         return self
+
+    def model_copy(
+        self, *, update: Mapping[str, Any] | None = None, deep: bool = False
+    ) -> Self:
+        if update is None:
+            return super().model_copy(deep=deep)
+        values = self.model_dump(mode="python")
+        values.update(update)
+        return type(self).model_validate(values)
 
 
 class IdentityConflict(ValueError):
@@ -77,7 +114,12 @@ def validate_identity_registration(
     if current is not None:
         return manifest
     return manifest.model_copy(
-        update={"documents": {**manifest.documents, document_id: IdentityDocument(path=path)}}
+        update={
+            "documents": {
+                **manifest.documents,
+                document_id: IdentityDocument(path=path),
+            }
+        }
     )
 
 

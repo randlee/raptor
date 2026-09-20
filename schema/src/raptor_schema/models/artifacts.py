@@ -105,7 +105,9 @@ class Measurement(ContractModel):
 class DesignComponent(ContractModel):
     name: Title
     responsibility: NonEmptyText
-    dependencies: list[ArtifactKey] = Field(default_factory=list)
+    dependencies: list[ArtifactKey] = Field(
+        default_factory=list, json_schema_extra={"uniqueItems": True}
+    )
 
     @field_validator("dependencies")
     @classmethod
@@ -127,7 +129,9 @@ class TestCase(ContractModel):
     title: Title
     steps: list[NonEmptyText] = Field(min_length=1)
     expected_result: NonEmptyText
-    verifies: list[ArtifactKey] = Field(min_length=1)
+    verifies: list[ArtifactKey] = Field(
+        min_length=1, json_schema_extra={"uniqueItems": True}
+    )
 
     @field_validator("verifies")
     @classmethod
@@ -144,7 +148,9 @@ class ArtifactBase(ContractModel):
     title: Title
     status: LifecycleStatus
     summary: NonEmptyText | None = None
-    relationships: list[ArtifactRelationship] = Field(default_factory=list)
+    relationships: list[ArtifactRelationship] = Field(
+        default_factory=list, json_schema_extra={"uniqueItems": True}
+    )
     extensions: dict[ExtensionKey, JsonValue] = Field(
         default_factory=dict,
         json_schema_extra={"propertyNames": {"pattern": EXTENSION_KEY_RE}},
@@ -182,6 +188,9 @@ class ArtifactBase(ContractModel):
 
 class Requirement(ArtifactBase):
     artifact_type: Literal[ArtifactType.REQUIREMENT]
+    id: ArtifactId = Field(
+        json_schema_extra={"pattern": r"^REQ-[A-Z0-9][A-Z0-9-]*-[0-9]{3,}$"}
+    )
     statement: NonEmptyText
     acceptance_criteria: list[NonEmptyText] = Field(min_length=1)
     rationale: NonEmptyText | None = None
@@ -190,6 +199,9 @@ class Requirement(ArtifactBase):
 
 class NonFunctionalRequirement(ArtifactBase):
     artifact_type: Literal[ArtifactType.NON_FUNCTIONAL_REQUIREMENT]
+    id: ArtifactId = Field(
+        json_schema_extra={"pattern": r"^NFR-[A-Z0-9][A-Z0-9-]*-[0-9]{3,}$"}
+    )
     statement: NonEmptyText
     quality_attribute: str = Field(pattern=r"^[a-z][a-z0-9_-]*$")
     measurement: Measurement
@@ -200,6 +212,9 @@ class NonFunctionalRequirement(ArtifactBase):
 
 class ArchitectureDecision(ArtifactBase):
     artifact_type: Literal[ArtifactType.ARCHITECTURE_DECISION]
+    id: ArtifactId = Field(
+        json_schema_extra={"pattern": r"^ADR-[A-Z0-9][A-Z0-9-]*-[0-9]{3,}$"}
+    )
     context: NonEmptyText
     decision: NonEmptyText
     consequences: list[NonEmptyText] = Field(min_length=1)
@@ -208,6 +223,9 @@ class ArchitectureDecision(ArtifactBase):
 
 class DesignDocument(ArtifactBase):
     artifact_type: Literal[ArtifactType.DESIGN_DOCUMENT]
+    id: ArtifactId = Field(
+        json_schema_extra={"pattern": r"^DES-[A-Z0-9][A-Z0-9-]*-[0-9]{3,}$"}
+    )
     overview: NonEmptyText
     components: list[DesignComponent] = Field(min_length=1)
     interfaces: list[DesignInterface] = Field(default_factory=list)
@@ -215,6 +233,9 @@ class DesignDocument(ArtifactBase):
 
 class TestPlan(ArtifactBase):
     artifact_type: Literal[ArtifactType.TEST_PLAN]
+    id: ArtifactId = Field(
+        json_schema_extra={"pattern": r"^TST-[A-Z0-9][A-Z0-9-]*-[0-9]{3,}$"}
+    )
     objective: NonEmptyText
     scope: NonEmptyText
     test_cases: list[TestCase] = Field(min_length=1)

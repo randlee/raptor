@@ -85,8 +85,13 @@ def test_shared_pydantic_json_schema_constraint_matrix(
 
     source_case("unsupported-major-zero", ("schema_version",), "0.9.0")
     source_case("unsupported-major-two", ("schema_version",), "2.0.0")
+    for index, wrong_id in enumerate(
+        ["NFR-RAP-099", "REQ-RAP-099", "DES-RAP-099", "TST-RAP-099", "ADR-RAP-099"]
+    ):
+        source_case(f"family-id-prefix-{index}", ("artifacts", index, "id"), wrong_id)
     source_case("absolute-origin-path", ("provenance", "origin", "initial_repository_path"), "/requirements.md")
     source_case("parent-materialization-path", ("provenance", "materialization", "repository_path"), "../requirements.md")
+    source_case("trailing-slash-path", ("provenance", "materialization", "repository_path"), "docs/requirements.md/")
     source_case("blank-text", ("artifacts", 0, "statement"), "   ")
     source_case("blank-title", ("artifacts", 0, "title"), "   ")
     source_case("extension-key", ("artifacts", 0, "extensions"), {"NotNamespaced": True})
@@ -95,6 +100,29 @@ def test_shared_pydantic_json_schema_constraint_matrix(
     source_case("location-missing-end-line", ("artifacts", 0, "source_location"), {"start_line": 1, "start_column": 1, "end_column": 2})
     source_case("imported-parent", ("provenance", "materialization", "parent_content_sha256"), "b" * 64)
     source_case("imported-template", ("provenance", "materialization", "template_set"), "templates")
+
+    duplicate_relationship = deepcopy(document_dict)
+    relationships = duplicate_relationship["artifacts"][0]["relationships"]  # type: ignore[index]
+    relationships.append(deepcopy(relationships[0]))  # type: ignore[index,union-attr]
+    source_cases.append(("duplicate-relationship", duplicate_relationship))
+    duplicate_dependency = deepcopy(document_dict)
+    dependencies = duplicate_dependency["artifacts"][3]["components"][0]["dependencies"]  # type: ignore[index]
+    dependencies.append(deepcopy(dependencies[0]))  # type: ignore[index,union-attr]
+    source_cases.append(("duplicate-dependency", duplicate_dependency))
+    duplicate_verifies = deepcopy(document_dict)
+    verifies = duplicate_verifies["artifacts"][4]["test_cases"][0]["verifies"]  # type: ignore[index]
+    verifies.append(deepcopy(verifies[0]))  # type: ignore[index,union-attr]
+    source_cases.append(("duplicate-verifies", duplicate_verifies))
+
+    for name, uri in (
+        ("uri-space", "https://example.test/a b"),
+        ("uri-control", "https://example.test/a\x00b"),
+        ("urn-missing-nid", "urn::value"),
+        ("urn-missing-nss", "urn:raptor:"),
+        ("urn-nid-trailing-hyphen", "urn:raptor-:value"),
+        ("urn-space", "urn:bad namespace:value"),
+    ):
+        source_case(name, ("artifacts", 0, "relationships", 0, "target", "target_uri"), uri)
 
     rendered = deepcopy(document_dict)
     materialization = rendered["provenance"]["materialization"]  # type: ignore[index]
