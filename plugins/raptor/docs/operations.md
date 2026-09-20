@@ -1,8 +1,9 @@
 # Raptor plugin operations
 
-Sprint A4 activates six routes: Markdown→JSON, JSON→SQLite, SQLite→JSON, and
-validation for each of those three representations. Every command validates by
-default; pass `--apply` to authorize its single file or database mutation.
+Sprint A5 provides eight routes: Markdown→JSON, JSON→SQLite, SQLite→JSON,
+JSON→Markdown, migration round-trip, and validation for Markdown, JSON, and
+SQLite. Every command validates by default; pass `--apply` to authorize its
+declared mutation.
 
 Markdown repositories register durable identities in `.raptor/identity.json`:
 
@@ -39,5 +40,12 @@ Test-plan bodies use `Objective:`, `Scope:`, `Test Case:`
 (`id | title | semicolon-separated steps | expected result`), `Verifies:`, and
 `Exit Criteria:`. There is no embedded-canonical-JSON escape hatch.
 
-JSON→Markdown, semantic round-trip, and all Dolt routes remain unsupported until
-their owning phases. No template or Dolt implementation is included here.
+JSON→Markdown uses the five inventoried strict templates and requires
+`sc-compose >=1.6.1,<2.0.0`. Stored-document rendering uses the bounded journal
+under `.raptor/transactions/`: pre-identity crashes roll back, while
+post-identity crashes retry the idempotent SQLite write. The immutable origin is
+preserved and the rendered materialization records the parent content hash and
+template identity. Consumer template sets live under
+`.raptor/template-sets/`; see [template-sets.md](template-sets.md).
+
+All Dolt routes remain unsupported. No Dolt implementation is included here.

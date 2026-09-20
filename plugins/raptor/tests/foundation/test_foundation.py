@@ -30,7 +30,7 @@ def test_dual_manifests_expose_exact_commands() -> None:
     assert discovered == COMMANDS
 
 
-def test_six_a4_routes_are_active_and_later_routes_remain_unsupported(
+def test_eight_a5_routes_are_active_and_dolt_remains_unsupported(
     monkeypatch: pytest.MonkeyPatch,
     tmp_path: Path,
 ) -> None:
@@ -63,6 +63,14 @@ def test_six_a4_routes_are_active_and_later_routes_remain_unsupported(
         ("validate", "markdown", None): ("markdown-validate", "scripts/validate.py"),
         ("validate", "json", None): ("json-validate", "scripts/validate.py"),
         ("validate", "sqlite", None): ("sqlite-validate", "scripts/validate.py"),
+        ("export", "json", "markdown"): (
+            "json-markdown-export",
+            "scripts/json_to_markdown.py",
+        ),
+        ("round-trip", "migration", None): (
+            "migration-round-trip",
+            "scripts/render_transaction.py",
+        ),
     }
     for backend in (claude, codex):
         for (command, source, target), (agent, script) in supported.items():
@@ -79,10 +87,8 @@ def test_six_a4_routes_are_active_and_later_routes_remain_unsupported(
             assert script in (ROOT / f"agents/{agent}.md").read_text()
     cases = [
         ("import", "json", "dolt"),
-        ("export", "json", "markdown"),
         ("export", "dolt", "json"),
         ("validate", "dolt", None),
-        ("round-trip", "migration", None),
         ("round-trip", "dolt", None),
     ]
     for command, source, target in cases:
@@ -95,7 +101,7 @@ def test_six_a4_routes_are_active_and_later_routes_remain_unsupported(
         )
         assert result["error"]["code"] == expected
         assert result["metadata"]["tool_calls"] == 0
-    assert len(invoked) == 12
+    assert len(invoked) == 16
 
 
 def test_dependency_failure_stops_before_route(
@@ -104,6 +110,33 @@ def test_dependency_failure_stops_before_route(
     failure = {"success": False, "error": {"code": "RAPTOR.DEPENDENCY.INCOMPATIBLE"}}
     monkeypatch.setattr(routes, "dependency_error", lambda: failure)
     assert route("import", "markdown", "json") is failure
+
+
+def test_sc_compose_preflight_aborts_before_agent_delegation(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    failure = {"success": False, "error": {"code": "RAPTOR.DEPENDENCY.SC_COMPOSE"}}
+    delegated = False
+
+    def dispatch(**_values: object) -> dict[str, object]:
+        nonlocal delegated
+        delegated = True
+        return {"success": True}
+
+    monkeypatch.setattr(routes, "dependency_error", lambda: None)
+    monkeypatch.setattr(routes, "sc_compose_error", lambda: failure)
+    monkeypatch.setattr(routes, "run_agent", dispatch)
+    assert (
+        route(
+            "export",
+            "json",
+            "markdown",
+            backend=ClaudeBackend("claude"),
+            repository_root=tmp_path,
+        )
+        is failure
+    )
+    assert delegated is False
 
 
 def test_plugin_validator() -> None:
@@ -131,9 +164,7 @@ def test_ci_wires_complete_case_insensitive_exclusion_gates() -> None:
     workflow = (REPO / ".github/workflows/ci.yml").read_text().lower()
     for value in (
         "if test -e schema/sql/dolt",
-        "test -e plugins/raptor/templates; then exit 1",
         "-iname 'marketplace.json'",
-        "-iname 'templates'",
         "grep -eqi '/(import|export|render|round[-_]?trip|transform|convert).*\\.py$'",
         "rg -ni",
         "p3" + "-documentation",
@@ -142,7 +173,6 @@ def test_ci_wires_complete_case_insensitive_exclusion_gates() -> None:
         "adr" + "-p3-",
         "\\b" + "n" + "ft\\b",
         "sql" + "x",
-        "sc" + "-compose",
         "__pycache__",
         "*.pyc",
         "then exit 1",
@@ -163,7 +193,7 @@ def test_ci_exclusion_step_returns_nonzero_for_injected_artifact(
     tmp_path: Path, relative: str
 ) -> None:
     workflow = (REPO / ".github/workflows/ci.yml").read_text()
-    block = workflow.split("- name: Enforce Phase A4 exclusions", 1)[1]
+    block = workflow.split("- name: Enforce Phase A5 exclusions", 1)[1]
     block = block.split("\n      - name:", 1)[0].split("run: |", 1)[1]
     script = textwrap.dedent(block)
     (tmp_path / "plugins/raptor/scripts").mkdir(parents=True)
@@ -190,7 +220,7 @@ def test_validator_rejects_marketplace_template_and_transformation_paths(
     path.write_text("forbidden")
     with pytest.raises(
         PluginValidationError,
-        match="marketplace, template, or transformation|thin-wrapper inventory",
+        match="marketplace, template, or transformation|thin-wrapper inventory|thin runtime wrappers|template inventory",
     ):
         validate_plugin(
             plugin,

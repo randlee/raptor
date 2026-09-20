@@ -132,9 +132,7 @@ def _marked_processes(token: str | None) -> set[int]:
             if not name.isdigit():
                 continue
             try:
-                environment = open(
-                    f"{proc}/{name}/environ", "rb", buffering=0
-                ).read()
+                environment = open(f"{proc}/{name}/environ", "rb", buffering=0).read()
             except (OSError, PermissionError):
                 continue
             if marker.encode() in environment.split(b"\0"):

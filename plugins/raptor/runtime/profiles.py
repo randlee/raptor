@@ -1,7 +1,9 @@
 from __future__ import annotations
 
+import base64
 import hashlib
 import re
+from collections.abc import Mapping
 from pathlib import Path
 from typing import cast
 
@@ -27,6 +29,7 @@ from raptor_schema import (
 from raptor_schema.profiles import (
     ArtifactSnapshot,
     ComparableDocument,
+    FrozenJsonObject,
     ParsedDocument,
     ParsedSection,
     ProfileDescriptor,
@@ -40,6 +43,9 @@ from .io import read_repository_bytes
 _HEADING = re.compile(
     r"^###\s+((?:REQ|NFR|ADR|DES|TST)-[A-Z0-9][A-Z0-9-]*-[0-9]{3,})\s+[—-]\s+(.+?)\s*$",
     re.MULTILINE,
+)
+_PROVENANCE_BLOCK = re.compile(
+    r"<!--\s*raptor-provenance-v1:([A-Za-z0-9_-]+)\s*-->", re.MULTILINE
 )
 
 
@@ -95,6 +101,19 @@ class RaptorMarkdownProfile:
             text = source.content.decode("utf-8")
         except UnicodeDecodeError as error:
             raise ValueError("RAPTOR.PROFILE.PARSE: Markdown must be UTF-8") from error
+        blocks = _PROVENANCE_BLOCK.findall(text)
+        if len(blocks) > 1:
+            raise ValueError("RAPTOR.PROVENANCE.BLOCK: multiple provenance blocks")
+        frontmatter: JsonObject = {}
+        if blocks:
+            try:
+                padded = blocks[0] + "=" * (-len(blocks[0]) % 4)
+                value = loads(base64.urlsafe_b64decode(padded).decode("utf-8"))
+                frontmatter = validate_json_object({"raptor_provenance": value})
+            except Exception as error:
+                raise ValueError(
+                    "RAPTOR.PROVENANCE.BLOCK: invalid provenance block"
+                ) from error
         sections: list[ParsedSection] = []
         for match in _HEADING.finditer(text):
             next_match = _HEADING.search(text, match.end())
@@ -130,12 +149,80 @@ class RaptorMarkdownProfile:
                 )
         if not sections:
             raise ValueError("RAPTOR.PROFILE.PARSE: no Raptor artifacts found")
-        return ParsedDocument(source=source, frontmatter={}, sections=tuple(sections))
+        return ParsedDocument(
+            source=source,
+            frontmatter=cast(FrozenJsonObject, frontmatter),
+            sections=tuple(sections),
+        )
 
     def validate(self, parsed: ParsedDocument) -> list[Diagnostic]:
         return []
 
     def canonicalize(self, parsed: ParsedDocument) -> SourceDocument:
+        rendered = parsed.frontmatter.get("raptor_provenance")
+        if rendered is not None:
+            if not isinstance(rendered, Mapping):
+                raise ValueError("RAPTOR.PROVENANCE.BLOCK: invalid provenance payload")
+            required = {
+                "schema_version",
+                "origin",
+                "artifacts",
+                "parent_content_sha256",
+                "parser_profile",
+                "parser_profile_version",
+                "template_set",
+                "template_version",
+            }
+            if set(rendered) != required:
+                raise ValueError("RAPTOR.PROVENANCE.BLOCK: invalid provenance payload")
+            origin = OriginProvenance.model_validate(rendered["origin"])
+            if (
+                origin.repository_id != parsed.source.repository_id
+                or origin.document_id != parsed.source.document_id
+            ):
+                raise ValueError(
+                    "RAPTOR.PROVENANCE.ORIGIN_MUTATION: rendered origin is immutable"
+                )
+            locations = {
+                str(section.attributes["artifact_id"]): section.location.model_dump(
+                    mode="json"
+                )
+                for section in parsed.sections
+            }
+            rendered_artifacts: list[object] = []
+            raw_artifacts = rendered["artifacts"]
+            if not isinstance(raw_artifacts, tuple):
+                raise ValueError("RAPTOR.PROVENANCE.BLOCK: invalid artifact payload")
+            for item in raw_artifacts:
+                if not isinstance(item, Mapping) or not isinstance(item.get("id"), str):
+                    raise ValueError(
+                        "RAPTOR.PROVENANCE.BLOCK: invalid artifact payload"
+                    )
+                artifact = dict(item)
+                artifact["source_location"] = locations.get(str(item["id"]))
+                rendered_artifacts.append(artifact)
+            digest = hashlib.sha256(parsed.source.content).hexdigest()
+            return SourceDocument.model_validate(
+                {
+                    "schema_version": rendered["schema_version"],
+                    "provenance": {
+                        "origin": origin,
+                        "materialization": {
+                            "repository_path": parsed.source.repository_path.as_posix(),
+                            "content_sha256": digest,
+                            "operation": "rendered",
+                            "parent_content_sha256": rendered["parent_content_sha256"],
+                            "parser_profile": rendered["parser_profile"],
+                            "parser_profile_version": rendered[
+                                "parser_profile_version"
+                            ],
+                            "template_set": rendered["template_set"],
+                            "template_version": rendered["template_version"],
+                        },
+                    },
+                    "artifacts": rendered_artifacts,
+                }
+            )
         artifacts: list[object] = []
         repository_id = parsed.source.repository_id
         for section in parsed.sections:

@@ -1,0 +1,17 @@
+---
+name: raptor-design-document
+version: 1.0.0
+format: markdown
+required_variables:
+  - provenance_block
+  - artifacts
+---
+{{ provenance_block }}
+{% for artifact in artifacts %}### {{ artifact.id }} — {{ artifact.title }}
+Overview: {{ artifact.overview }}
+Components: {{ artifact.components_json }}
+Interfaces: {{ artifact.interfaces_json }}
+Status: {{ artifact.status }}
+Relationships: {{ artifact.relationships_json }}
+Extensions: {{ artifact.extensions_json }}
+{% endfor %}

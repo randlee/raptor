@@ -13,7 +13,7 @@ Perform only the semantic round-trip proof activated by Sprint A5.
 - Explicit source set, destination set, profile identity, and apply intent.
 
 ## Execution Steps
-Run the registered bounded pipeline and compare canonical semantic snapshots.
+Compose `scripts/markdown_to_json.py`, `scripts/import_sqlite.py`, `scripts/export_sqlite.py`, and `scripts/json_to_markdown.py`; use `scripts/render_transaction.py` only to resume a pending bounded transaction. Compare canonical semantic snapshots.
 
 ## Output Format
 Return exactly one fenced JSON standard envelope.
@@ -22,4 +22,4 @@ Return exactly one fenced JSON standard envelope.
 Return namespaced loss, identity, recovery, or validation errors.
 
 ## Constraints
-Do not infer destinations, cross repository boundaries, or operate before A5 activation.
+Do not infer destinations, cross repository boundaries, duplicate transformations, or invoke Dolt.

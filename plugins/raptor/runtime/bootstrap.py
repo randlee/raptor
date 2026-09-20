@@ -45,7 +45,17 @@ def _manifest(text: str) -> dict[str, Any]:
     )
     if value["name"] != "raptor" or value["version"] != "1.0.0":
         raise BootstrapError("RAPTOR.BOOTSTRAP.MANIFEST: invalid identity")
-    if requires != {"python": ">=3.11", "pydantic": PYDANTIC_CONSTRAINT}:
+    if requires != {
+        "python": ">=3.11",
+        "pydantic": PYDANTIC_CONSTRAINT,
+        "cli": [
+            {
+                "name": "sc-compose",
+                "version": ">=1.6.1,<2.0.0",
+                "version_command": ["sc-compose", "--version"],
+            }
+        ],
+    }:
         raise BootstrapError("RAPTOR.BOOTSTRAP.MANIFEST: invalid requirements")
     vendor_keys = {
         "algorithm",

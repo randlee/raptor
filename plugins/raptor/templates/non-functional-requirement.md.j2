@@ -1,0 +1,18 @@
+---
+name: raptor-non-functional-requirement
+version: 1.0.0
+format: markdown
+required_variables:
+  - provenance_block
+  - artifacts
+---
+{{ provenance_block }}
+{% for artifact in artifacts %}### {{ artifact.id }} — {{ artifact.title }}
+{{ artifact.statement }}
+Quality Attribute: {{ artifact.quality_attribute }}
+Measurement: {{ artifact.measurement_json }}
+Acceptance: {{ artifact.acceptance_criteria | join('; ') }}
+Status: {{ artifact.status }}
+Relationships: {{ artifact.relationships_json }}
+Extensions: {{ artifact.extensions_json }}
+{% endfor %}

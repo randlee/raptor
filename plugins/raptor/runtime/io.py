@@ -6,9 +6,10 @@ import os
 import secrets
 import stat
 import tempfile
+from contextlib import contextmanager
 from collections.abc import Mapping
 from pathlib import Path
-from typing import Any, cast
+from typing import Any, Iterator, cast
 
 
 def repository_parts(value: str) -> tuple[str, ...]:
@@ -90,6 +91,125 @@ def atomic_repository_bytes(repository_root: Path, relative: str, value: bytes) 
         except FileNotFoundError:
             pass
         os.close(descriptor)
+
+
+def remove_repository_file(repository_root: Path, relative: str) -> None:
+    """Remove one regular repository file through its retained parent handle."""
+    parts = repository_parts(relative)
+    if _is_windows():
+        parent = _windows_open_checked(
+            repository_root, write=True, directory=True, create=False
+        )
+        try:
+            for part in parts[:-1]:
+                child = _windows_open_relative(
+                    parent, part, write=True, directory=True, create=False
+                )
+                os.close(parent)
+                parent = child
+            try:
+                descriptor = _windows_open_relative(
+                    parent, parts[-1], write=True, directory=False, create=False
+                )
+            except FileNotFoundError:
+                return
+            try:
+                _discard_windows_file(descriptor)
+            finally:
+                os.close(descriptor)
+        finally:
+            os.close(parent)
+        return
+    flags = os.O_RDONLY | os.O_DIRECTORY | getattr(os, "O_NOFOLLOW", 0)
+    parent = os.open(repository_root, flags)
+    try:
+        for part in parts[:-1]:
+            child = os.open(part, flags, dir_fd=parent)
+            os.close(parent)
+            parent = child
+        try:
+            info = os.stat(parts[-1], dir_fd=parent, follow_symlinks=False)
+        except FileNotFoundError:
+            return
+        if not stat.S_ISREG(info.st_mode):
+            raise ValueError("RAPTOR.PATH.OUTSIDE_ROOT: removal target is unsafe")
+        os.unlink(parts[-1], dir_fd=parent)
+        os.fsync(parent)
+    finally:
+        os.close(parent)
+
+
+@contextmanager
+def repository_lock(repository_root: Path, relative: str) -> Iterator[None]:
+    """Hold a process-scoped lock; a crash releases it without stale lock state."""
+    parts = repository_parts(relative)
+    if _is_windows():
+        import msvcrt
+
+        parent = _windows_open_checked(
+            repository_root, write=True, directory=True, create=False
+        )
+        try:
+            for part in parts[:-1]:
+                try:
+                    child = _windows_open_relative(
+                        parent, part, write=True, directory=True, create=True
+                    )
+                except OSError:
+                    child = _windows_open_relative(
+                        parent, part, write=True, directory=True, create=False
+                    )
+                os.close(parent)
+                parent = child
+            try:
+                descriptor = _windows_open_relative(
+                    parent, parts[-1], write=True, directory=False, create=True
+                )
+            except OSError:
+                descriptor = _windows_open_relative(
+                    parent, parts[-1], write=True, directory=False, create=False
+                )
+            try:
+                if os.fstat(descriptor).st_size == 0:
+                    os.write(descriptor, b"0")
+                os.lseek(descriptor, 0, os.SEEK_SET)
+                try:
+                    locking = cast(Any, getattr(msvcrt, "locking"))
+                    locking(descriptor, getattr(msvcrt, "LK_NBLCK"), 1)
+                except OSError as error:
+                    raise BlockingIOError from error
+                yield
+            finally:
+                os.close(descriptor)
+        finally:
+            os.close(parent)
+        return
+    flags = os.O_RDONLY | os.O_DIRECTORY | getattr(os, "O_NOFOLLOW", 0)
+    parent = os.open(repository_root, flags)
+    try:
+        for part in parts[:-1]:
+            try:
+                os.mkdir(part, mode=0o700, dir_fd=parent)
+            except FileExistsError:
+                pass
+            child = os.open(part, flags, dir_fd=parent)
+            os.close(parent)
+            parent = child
+        descriptor = os.open(
+            parts[-1],
+            os.O_RDWR | os.O_CREAT | getattr(os, "O_NOFOLLOW", 0),
+            0o600,
+            dir_fd=parent,
+        )
+        try:
+            import fcntl
+
+            fcntl.flock(descriptor, fcntl.LOCK_EX | fcntl.LOCK_NB)
+            yield
+        finally:
+            os.close(descriptor)
+    finally:
+        os.close(parent)
 
 
 def fsync_directory(path: Path) -> None:
@@ -564,4 +684,14 @@ def _discard_windows_file(descriptor: int) -> None:
     )
 
 
-__all__ = ["atomic_json", "fsync_directory", "fsync_tree", "secure_repository_json"]
+__all__ = [
+    "atomic_json",
+    "atomic_repository_bytes",
+    "fsync_directory",
+    "fsync_tree",
+    "read_repository_bytes",
+    "remove_repository_file",
+    "repository_lock",
+    "repository_parts",
+    "secure_repository_json",
+]

@@ -4,8 +4,11 @@ import ast
 import hashlib
 import json
 import re
+import subprocess
+import tempfile
 from pathlib import Path
 from typing import cast
+from .rendering import SC_COMPOSE_RANGE, resolve_sc_compose
 from .vendor import check
 from .routes import unsupported_envelope
 from .strict_json import loads
@@ -16,6 +19,13 @@ COMMANDS = {
     "raptor:export": "./skills/export/SKILL.md",
     "raptor:validate": "./skills/validate/SKILL.md",
     "raptor:round-trip": "./skills/round-trip/SKILL.md",
+}
+_TEMPLATE_INVENTORY = {
+    "requirement.md.j2",
+    "non-functional-requirement.md.j2",
+    "architecture-decision.md.j2",
+    "design-document.md.j2",
+    "test-plan.md.j2",
 }
 REQUIRED_AGENT_SECTIONS = {
     "## Purpose",
@@ -297,11 +307,45 @@ SCRIPT_CONTRACTS.update(
             lambdas=3,
             top=_OPERATION_TOP[:-2] + ("FunctionDef", "FunctionDef", "If"),
         ),
+        "json_to_markdown.py": _operation_contract(
+            {"runtime.rendering.json_to_markdown"},
+            {"json_to_markdown"},
+            calls={"mode.add_argument", "parser.add_mutually_exclusive_group"},
+        ),
+        "render_transaction.py": _operation_contract(
+            {
+                "raptor_schema.DocumentKey",
+                "runtime.transactions.recover_render_transaction",
+            },
+            {"DocumentKey", "recover_render_transaction"},
+            assignments=(
+                "PLUGIN_ROOT",
+                "arguments",
+                "parser",
+                "sys.dont_write_bytecode",
+            ),
+        ),
     }
 )
 SCRIPT_CONTRACTS["identity.py"]["calls"] = frozenset(
     cast(frozenset[str], SCRIPT_CONTRACTS["identity.py"]["calls"])
     - {"parser.add_argument"}
+)
+SCRIPT_CONTRACTS["render_transaction.py"]["top"] = (
+    "ImportFrom",
+    "Import",
+    "Import",
+    "ImportFrom",
+    "Assign",
+    "Assign",
+    "Expr",
+    "ImportFrom",
+    "Expr",
+    "ImportFrom",
+    "ImportFrom",
+    "ImportFrom",
+    "FunctionDef",
+    "If",
 )
 
 
@@ -384,7 +428,14 @@ def _validate_scripts(root: Path) -> None:
             raise PluginValidationError("scripts must remain thin runtime wrappers")
 
 
-def validate_plugin(plugin_root: Path, guideline: Path) -> None:
+def validate_plugin(
+    plugin_root: Path,
+    guideline: Path,
+    *,
+    check_cli: str | None = None,
+    expected_range: str | None = None,
+    check_templates: bool = False,
+) -> None:
     root = plugin_root.resolve()
     guideline_text = guideline.resolve().read_text(encoding="utf-8")
     if "Document version: 0.7" not in guideline_text:
@@ -438,6 +489,17 @@ def validate_plugin(plugin_root: Path, guideline: Path) -> None:
                     f"skill version constraint is incompatible: {skill}/{agent}"
                 )
     manifest = json.loads((root / "plugin-manifest.json").read_text())
+    cli_requirement = {
+        "name": "sc-compose",
+        "version": SC_COMPOSE_RANGE,
+        "version_command": ["sc-compose", "--version"],
+    }
+    if manifest.get("requires", {}).get("cli") != [cli_requirement]:
+        raise PluginValidationError("manifest sc-compose requirement drifted")
+    if check_cli is not None:
+        if check_cli != "sc-compose" or expected_range != SC_COMPOSE_RANGE:
+            raise PluginValidationError("CLI check differs from manifest requirement")
+        resolve_sc_compose()
     for name, entry in registry["agents"].items():
         path = (root / entry["path"]).resolve()
         if path.parent != (root / "agents").resolve() or not path.is_file():
@@ -475,18 +537,8 @@ def validate_plugin(plugin_root: Path, guideline: Path) -> None:
                 raise PluginValidationError(
                     f"broken skill reference: {name}/{reference}"
                 )
-        if name in {"import", "export", "validate"}:
-            if "Agent Runner" not in text:
-                raise PluginValidationError(
-                    f"active skill omits the shared runner: {name}"
-                )
-        elif (
-            "Do not invoke an agent" not in text
-            and "without invoking an agent" not in text
-        ):
-            raise PluginValidationError(
-                f"unsupported skill can delegate unexpectedly: {name}"
-            )
+        if "Agent Runner" not in text:
+            raise PluginValidationError(f"active skill omits the shared runner: {name}")
     preflight = (root / "skills/runtime-preflight.md").read_text(encoding="utf-8")
     for location in (
         "$HOME/.local/bin/python3",
@@ -505,17 +557,15 @@ def validate_plugin(plugin_root: Path, guideline: Path) -> None:
     ]
     unsupported_names = {
         "json-dolt.md",
-        "json-markdown.md",
         "dolt-json.md",
         "dolt.md",
-        "migration.md",
     }
     unsupported_references = [
         path for path in route_references if path.name in unsupported_names
     ]
     if (
         len(route_references) != 12
-        or len(unsupported_references) != 6
+        or len(unsupported_references) != 4
         or any(
             "../../unsupported-responses.md" not in path.read_text(encoding="utf-8")
             for path in unsupported_references
@@ -545,14 +595,37 @@ def validate_plugin(plugin_root: Path, guideline: Path) -> None:
         for path in root.rglob("*")
     ):
         raise PluginValidationError("plugin inventory contains bytecode artifacts")
+    templates = {
+        path.relative_to(root / "templates").as_posix()
+        for path in (root / "templates").glob("*.j2")
+    }
+    if templates != set(_TEMPLATE_INVENTORY):
+        raise PluginValidationError("template inventory is incomplete")
+    if check_templates:
+        for relative in sorted(templates):
+            path = root / "templates" / relative
+            with tempfile.TemporaryDirectory() as directory:
+                result = subprocess.run(
+                    [
+                        str(resolve_sc_compose()),
+                        "validate",
+                        "--root",
+                        str(root),
+                        "--file",
+                        f"templates/{relative}",
+                    ],
+                    capture_output=True,
+                    cwd=directory,
+                )
+            if result.returncode not in {0, 2}:
+                raise PluginValidationError(f"template is not parseable: {relative}")
     forbidden_paths = [
         path
         for path in root.rglob("*")
-        if path.name.casefold() in {"marketplace.json", "templates"}
+        if path.name.casefold() == "marketplace.json"
         or (
             path.parent == root / "scripts"
-            and path.name
-            not in {"markdown_to_json.py", "import_sqlite.py", "export_sqlite.py"}
+            and path.name not in SCRIPT_CONTRACTS
             and re.search(
                 r"(?:import|export|render|round[-_]?trip|transform|convert)",
                 path.stem,

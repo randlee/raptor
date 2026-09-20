@@ -16,14 +16,28 @@ def dependency_error() -> dict[str, Any] | None:
     return None if compatible else _error("Pydantic >=2.10,<3 is required.")
 
 
-def _error(message: str) -> dict[str, Any]:
+def sc_compose_error() -> dict[str, Any] | None:
+    from .rendering import resolve_sc_compose
+
+    try:
+        resolve_sc_compose()
+    except ValueError as error:
+        message = str(error)
+        code = message.split(":", 1)[0]
+        return _error(message, code=code)
+    return None
+
+
+def _error(
+    message: str, *, code: str = "RAPTOR.DEPENDENCY.INCOMPATIBLE"
+) -> dict[str, Any]:
     return {
         "success": False,
         "canceled": False,
         "aborted_by": None,
         "data": None,
         "error": {
-            "code": "RAPTOR.DEPENDENCY.INCOMPATIBLE",
+            "code": code,
             "message": message,
             "recoverable": False,
             "suggested_action": "Read references/installation-and-troubleshooting.md.",
@@ -32,4 +46,4 @@ def _error(message: str) -> dict[str, Any]:
     }
 
 
-__all__ = ["dependency_error"]
+__all__ = ["dependency_error", "sc_compose_error"]

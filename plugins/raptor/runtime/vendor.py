@@ -17,6 +17,11 @@ from .registry import parse_registry
 TREE_ALGORITHM = "sha256:path-nul-bytes-nul:v1"
 PYDANTIC_CONSTRAINT = ">=2.10,<3"
 SCHEMA_VERSION = "1.0.0"
+SC_COMPOSE_REQUIREMENT = {
+    "name": "sc-compose",
+    "version": ">=1.6.1,<2.0.0",
+    "version_command": ["sc-compose", "--version"],
+}
 
 
 class VendorError(RuntimeError):
@@ -275,9 +280,7 @@ def _recover_impl(
             registry,
             manifest,
         )
-        _write_marker(
-            marker, value, "complete", "promoted" if promote else "restored"
-        )
+        _write_marker(marker, value, "complete", "promoted" if promote else "restored")
     _remove(stage)
     _remove(backup)
     _remove(registry_stage)
@@ -533,7 +536,11 @@ def refresh(plugin_root: Path, *, fail_at: str | None = None) -> dict[str, Any]:
         publication = {
             "name": "raptor",
             "version": "1.0.0",
-            "requires": {"python": python_constraint, "pydantic": pydantic_constraint},
+            "requires": {
+                "python": python_constraint,
+                "pydantic": pydantic_constraint,
+                "cli": [SC_COMPOSE_REQUIREMENT],
+            },
             "vendor": {
                 "algorithm": TREE_ALGORITHM,
                 "tree_sha256": post_hash,
@@ -653,7 +660,11 @@ def check(plugin_root: Path) -> None:
         or vendor.get("canonical_schema_version") != SCHEMA_VERSION
         or vendor.get("package_version") != package_version
         or manifest.get("requires")
-        != {"python": python_constraint, "pydantic": pydantic_constraint}
+        != {
+            "python": python_constraint,
+            "pydantic": pydantic_constraint,
+            "cli": [SC_COMPOSE_REQUIREMENT],
+        }
     ):
         raise VendorError("RAPTOR.VENDOR.DRIFT", "source, vendor, or metadata differs")
     if manifest.get("agents") != _agent_hashes(plugin_root):

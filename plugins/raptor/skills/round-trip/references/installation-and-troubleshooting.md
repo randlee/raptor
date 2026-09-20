@@ -1,22 +1,22 @@
 # Installation and troubleshooting
 
 ## Check First
-Run `which python3 && python3 --version` and `python3 -c 'import pydantic; print(pydantic.__version__)'`.
+Run `which sc-compose && sc-compose --version`, `which python3 && python3 --version`, and `python3 -c 'import pydantic; print(pydantic.__version__)'`.
 
 ## Find Existing Install
-Check the active virtual environment, Python user-base, `/usr/local/bin`, and `/opt/homebrew/bin`.
+Check `$HOME/.local/bin/sc-compose`, `$HOME/.venvs/sc-compose/bin/sc-compose`, the Python user-base `bin`, and `/opt/homebrew/bin/sc-compose`.
 
 ## Install
-Create and activate a virtual environment (`python3 -m venv .venv` on macOS/Linux; `py -3.11 -m venv .venv` on Windows), then install `pydantic>=2.10,<3`.
+Install sc-compose using its supported package or release. Create and activate a virtual environment (`python3 -m venv .venv` on macOS/Linux; `py -3.11 -m venv .venv` on Windows), then install `pydantic>=2.10,<3`.
 
 ## Minimum Version
-Require Python 3.11+ and Pydantic `>=2.10,<3`.
+Require the sc-compose range declared by `plugin-manifest.json`, Python 3.11+, and Pydantic `>=2.10,<3`.
 
 ## PATH Troubleshooting
-Hosted shells may omit interactive PATH additions; activate the environment or add its executable directory.
+Hosted shells may omit interactive PATH additions; use the discovered full sc-compose path or add its directory.
 
 ## Validation
-Repeat both checks and run the vendor check. Vendored `raptor_schema` is mandatory.
+Repeat all checks and run the vendor check. Vendored `raptor_schema` is mandatory.
 
 ## Known Issues
-Pydantic 1.x and ambient `raptor_schema` imports fail closed.
+Missing, unparseable, pre-1.6.1, and 2.x sc-compose versions fail closed. Pydantic 1.x and ambient `raptor_schema` imports fail closed.

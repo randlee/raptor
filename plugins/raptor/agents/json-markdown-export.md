@@ -13,7 +13,7 @@ Perform only canonical JSON-to-Markdown rendering activated by Sprint A5.
 - Canonical document, output path, and registered template identity.
 
 ## Execution Steps
-Validate projection and provenance, then perform the bounded render operation.
+Run `scripts/json_to_markdown.py` with explicit paths and validate/apply intent. Validate projection, strict sc-compose output, semantic equality, provenance, and recovery state.
 
 ## Output Format
 Return exactly one fenced JSON standard envelope.
@@ -22,4 +22,4 @@ Return exactly one fenced JSON standard envelope.
 Return namespaced projection, path, or render errors.
 
 ## Constraints
-Do not parse source Markdown, persist SQLite, or operate before A5 activation.
+Do not parse unrelated source Markdown, implement templates in the agent, or bypass the shared runtime.

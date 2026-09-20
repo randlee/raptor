@@ -2,7 +2,7 @@
   "agents": {
     "json-markdown-export": {
       "path": "agents/json-markdown-export.md",
-      "sha256": "934c90ef5d1a32605174f8bc43f55fcca66d6f18075eb81a9e5098c0f4879365",
+      "sha256": "c6ca6dc8d6a8a3e83b7e0e3de6373ba178a61e5a071c19a01dbe6cb970771303",
       "version": "1.0.0"
     },
     "json-sqlite-import": {
@@ -27,7 +27,7 @@
     },
     "migration-round-trip": {
       "path": "agents/migration-round-trip.md",
-      "sha256": "de5da27cd207f675b7690f92380593b861612747a86cabb716c2bdeb85dea260",
+      "sha256": "bdb5980087fc5aca0bcf5be2374425fb4db5cbdec9229c6446c7ccc19c03396b",
       "version": "1.0.0"
     },
     "sqlite-json-export": {

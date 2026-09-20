@@ -5,13 +5,18 @@ from pathlib import Path
 from typing import Any
 
 from .agent_runner import AgentBackend, JsonValue, run_agent
-from .dependencies import dependency_error
+from .dependencies import dependency_error, sc_compose_error
 
 _SUPPORTED: dict[tuple[str, str | None, str | None], tuple[str, str]] = {
     ("import", "markdown", "json"): ("markdown-json-import", "markdown_to_json.py"),
     ("import", "md", "json"): ("markdown-json-import", "markdown_to_json.py"),
     ("import", "json", "sqlite"): ("json-sqlite-import", "import_sqlite.py"),
     ("export", "sqlite", "json"): ("sqlite-json-export", "export_sqlite.py"),
+    ("export", "json", "markdown"): ("json-markdown-export", "json_to_markdown.py"),
+    ("round-trip", "migration", None): (
+        "migration-round-trip",
+        "render_transaction.py",
+    ),
     ("validate", "markdown", None): ("markdown-validate", "validate.py"),
     ("validate", "json", None): ("json-validate", "validate.py"),
     ("validate", "sqlite", None): ("sqlite-validate", "validate.py"),
@@ -39,6 +44,10 @@ def route(
         return unsupported_envelope("Dolt")
     supported = _SUPPORTED.get((command, normalized_source, normalized_target))
     if supported is not None:
+        if supported[0] in {"json-markdown-export", "migration-round-trip"}:
+            cli_failure = sc_compose_error()
+            if cli_failure is not None:
+                return cli_failure
         agent, _ = supported
         if backend is None or repository_root is None:
             return _unsupported(
@@ -52,13 +61,7 @@ def route(
             backend=backend,
             repository_root=repository_root,
         )
-    owner = (
-        "A5"
-        if command == "round-trip"
-        or (command == "export" and normalized_target == "markdown")
-        else "A4"
-    )
-    return unsupported_envelope(f"Sprint {owner}")
+    return unsupported_envelope("Sprint A5")
 
 
 def unsupported_envelope(policy: str) -> dict[str, Any]:
