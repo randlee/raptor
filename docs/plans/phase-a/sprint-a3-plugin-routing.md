@@ -1,10 +1,10 @@
-# Sprint A3 — Claude + Codex Transformation Routers
+# Sprint A3 — Claude + Codex Operation Routing
 
 ## Objective
 
 Package the Phase A schema contracts as a self-contained `raptor` plugin with stable import, export, validate, and round-trip command routers for Claude and Codex, backed by one shared Python implementation.
 
-- Branch: `phase-a/03-plugin-ingest`
+- Branch: `phase-a/03-plugin-routing`
 - Stack relation: `must_follow A2`
 - Merge-forward trigger: A2 development is pushed; merge A2 into A3 before every development/fix round.
 - PR-completion trigger: A2 PR merges first.
@@ -15,7 +15,7 @@ A3 establishes every public router and implements the Phase A ingest/storage pat
 
 External consumers own and test their source profiles in their repositories. Raptor ships only its dogfood profile and consumer-neutral routing boundaries.
 
-Normative design reference: `../synaptic-canvas/docs/claude-code-skills-agents-guidelines.md` v0.7. The implementation must carry the applicable contracts into plugin-local docs and CI; runtime or CI must not depend on that sibling checkout.
+Normative design reference: [`references/claude-code-skills-agents-guidelines-v0.7.md`](references/claude-code-skills-agents-guidelines-v0.7.md). Its provenance header records the sibling source and commit, but the committed copy is the sole normative contract; implementation and CI must not read the sibling checkout.
 
 ## Stable public surface and layout
 
@@ -112,7 +112,7 @@ Unsupported results have a stable machine-readable code, requested operation, ph
 | A3-D6 | External consumer guide for supplying a profile and running consumer-owned fixtures/tests without copying them into Raptor. | plugin docs |
 | A3-D7 | Deterministic schema-vendor refresh/check contract and manifest schema version/hash; CI proves an exact copy of authoritative source. | `_vendor/raptor_schema/`, `plugin-manifest.json`, drift gate |
 | A3-D8 | Six focused execution agents and plugin-local registry with path/version constraints for every A3-supported route. | declared `agents/` inventory, registry, frontmatter validation |
-| A3-D9 | Plugin contract validator covering registries, frontmatter, manifests, inventories, reference links, response schemas, and both client packages. | shared validation script and CI gate |
+| A3-D9 | Plugin contract validator covering the pinned v0.7 normative reference, registries, frontmatter, manifests, inventories, reference links, response schemas, and both client packages. | shared validation script and CI gate |
 
 ## Authoritative acceptance criteria
 
@@ -132,6 +132,7 @@ Unsupported results have a stable machine-readable code, requested operation, ph
 | A3-AC12 | First-step CLI preflights and installation/troubleshooting references cover every external dependency; missing/old CLIs halt before delegation. |
 | A3-AC13 | Path traversal/out-of-root paths are rejected; mutation defaults to validation/dry-run, explicit apply is required, and file/database changes are atomic. |
 | A3-AC14 | Both client manifests package the identical complete A3 skill, focused-reference, agent, registry, script, and vendor inventory; CI fails any omission or extra unregistered agent. |
+| A3-AC15 | CI validates implemented skill/agent/plugin invariants against the committed pinned v0.7 reference and never reads the mutable sibling checkout. |
 
 ## Authoritative validation
 
@@ -140,7 +141,7 @@ The README records the schema-vendor refresh/check operation without requiring a
 ```sh
 python -m pip install -e 'schema[test]'
 python -m pytest plugins/raptor/tests
-python plugins/raptor/scripts/validate_plugin.py --check-frontmatter --check-registry --check-manifests --check-inventory
+python plugins/raptor/scripts/validate_plugin.py --guideline docs/plans/phase-a/references/claude-code-skills-agents-guidelines-v0.7.md --check-frontmatter --check-registry --check-manifests --check-inventory
 git diff --exit-code -- plugins/raptor/_vendor/raptor_schema plugins/raptor/plugin-manifest.json
 mkdir -p plugins/raptor/tests/.tmp
 python plugins/raptor/scripts/validate.py markdown --profile raptor --input plugins/raptor/tests/fixtures/raptor --format json
@@ -152,7 +153,11 @@ python plugins/raptor/scripts/import_sqlite.py --database plugins/raptor/tests/.
 python plugins/raptor/scripts/validate.py sqlite --database plugins/raptor/tests/.tmp/phase-a.sqlite --format json
 python plugins/raptor/scripts/export_sqlite.py --database plugins/raptor/tests/.tmp/phase-a.sqlite --source docs/requirements.md --output plugins/raptor/tests/.tmp/raptor-export.json --validate
 test ! -e schema/sql/dolt
-rg -n 'dolt-sql|doltpy|mysql.connector|pymysql|sqlx' plugins/raptor schema && exit 1 || true
+test ! -e plugins/raptor/tests/fixtures/dolt
+rg --files plugins/raptor/tests | rg '(?i)(^|/)dolt([^/]*)(integration|fixture)|(^|/)(integration|fixture)[^/]*dolt' && exit 1 || true
+rg -n '\b(doltpy|mysqlclient|pymysql|mysql-connector|sqlx)\b' schema/pyproject.toml Cargo.toml plugins/raptor/plugin-manifest.json && exit 1 || true
+rg -n '^\s*(from|import)\s+(dolt|doltpy|mysql)|dolt://|mysql://' plugins/raptor/scripts schema/src && exit 1 || true
+rg -n 'unsupported|RAPTOR\.UNSUPPORTED\.DOLT' plugins/raptor/skills/import/references/json-dolt.md plugins/raptor/skills/export/references/dolt-json.md plugins/raptor/skills/validate/references/dolt.md
 ```
 
 Tests own and clean the repository-root `.tmp/` directory. Discovery/routing tests assert exact public command strings, every support-matrix cell, path rejection, validate/apply behavior, atomic failure behavior, fenced envelopes, redaction, registry mismatch, missing CLI handling, and package inventory equality.

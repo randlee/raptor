@@ -13,7 +13,7 @@ Add sc-compose templates for every canonical family, expose JSON-to-Markdown ren
 
 Templates under `plugins/raptor/templates/` accept only A1-valid canonical JSON projected through the source-profile contract. The sprint adds shared `scripts/json_to_markdown.py` and semantic comparison support beside the A3 scripts, changes the export router's `json-md` route from unsupported to supported, and makes `/raptor:round-trip` compose import, validate, export, and comparison operations. No transformation logic moves into router skills. No external repository template, fixture, or compatibility suite is imported.
 
-Normative design reference: `../synaptic-canvas/docs/claude-code-skills-agents-guidelines.md` v0.7. A4 preserves A3's thin-skill/focused-agent, versioned-frontmatter, registry, fenced-envelope, namespaced-error, progressive-disclosure, repo-root allowlist, dry-run/apply, atomic-write, redaction, and dual-client inventory contracts.
+Normative design reference: [`references/claude-code-skills-agents-guidelines-v0.7.md`](references/claude-code-skills-agents-guidelines-v0.7.md). This committed copy is the sole contract. A4 preserves A3's thin-skill/focused-agent, versioned-frontmatter, registry, fenced-envelope, namespaced-error, progressive-disclosure, repo-root allowlist, dry-run/apply, atomic-write, redaction, and dual-client inventory contracts.
 
 A4 adds exactly two focused agents:
 
@@ -94,7 +94,7 @@ python -m pip install -e 'schema[test]'
 which sc-compose && sc-compose --version
 python -m pytest plugins/raptor/tests/render plugins/raptor/tests/round_trip
 python -m pytest plugins/raptor/tests/round_trip -k 'requirement or non_functional or architecture_decision or design_document or test_plan'
-python plugins/raptor/scripts/validate_plugin.py --check-frontmatter --check-registry --check-manifests --check-inventory --check-templates
+python plugins/raptor/scripts/validate_plugin.py --guideline docs/plans/phase-a/references/claude-code-skills-agents-guidelines-v0.7.md --check-frontmatter --check-registry --check-manifests --check-inventory --check-templates
 mkdir -p plugins/raptor/tests/.tmp
 sc-compose render --root plugins/raptor/templates --file requirement.md.j2 --var-file plugins/raptor/tests/fixtures/raptor/requirement.json --output plugins/raptor/tests/.tmp/REQ-RAP-rendered.md
 python plugins/raptor/scripts/json_to_markdown.py --profile raptor --template-set raptor --input plugins/raptor/tests/fixtures/raptor/requirement.json --output plugins/raptor/tests/.tmp/REQ-RAP-script-rendered.md --validate
@@ -102,8 +102,12 @@ python plugins/raptor/scripts/json_to_markdown.py --profile raptor --template-se
 find plugins/raptor/templates -name '*.j2' -print | sort
 git diff --exit-code -- plugins/raptor/_vendor/raptor_schema plugins/raptor/plugin-manifest.json
 test ! -e schema/sql/dolt
-rg -n 'dolt-sql|doltpy|mysql.connector|pymysql|sqlx' plugins/raptor schema && exit 1 || true
-rg -n '\bNFT\b|p3-documentation|REQ-P3-|NFR-P3-|ADR-P3-|\b(sqlx|mysql|dolt)\b' plugins/raptor schema/tests && exit 1 || true
+test ! -e plugins/raptor/tests/fixtures/dolt
+rg --files plugins/raptor/tests | rg '(?i)(^|/)dolt([^/]*)(integration|fixture)|(^|/)(integration|fixture)[^/]*dolt' && exit 1 || true
+rg -n '\b(doltpy|mysqlclient|pymysql|mysql-connector|sqlx)\b' schema/pyproject.toml Cargo.toml plugins/raptor/plugin-manifest.json && exit 1 || true
+rg -n '^\s*(from|import)\s+(dolt|doltpy|mysql)|dolt://|mysql://' plugins/raptor/scripts schema/src && exit 1 || true
+rg -n 'unsupported|RAPTOR\.UNSUPPORTED\.DOLT' plugins/raptor/skills/import/references/json-dolt.md plugins/raptor/skills/export/references/dolt-json.md plugins/raptor/skills/validate/references/dolt.md
+rg -n '\bNFT\b|p3-documentation|REQ-P3-|NFR-P3-|ADR-P3-' plugins/raptor schema/tests && exit 1 || true
 ```
 
 Tests own and clean repository-root `.tmp/` paths. Integration tests cover exact public command discovery, route composition, CLI preflight ordering/failure, registry mismatch, fenced envelopes, namespaced errors, path rejection, validate/apply behavior, atomic failure, redaction, and client inventory equality. Generated Markdown is test output unless a Raptor dogfood document is intentionally updated and reviewed.

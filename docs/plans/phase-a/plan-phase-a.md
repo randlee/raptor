@@ -66,7 +66,7 @@ This establishes the contract needed to migrate 30–50 repositories without put
 |---|---|---|---|---|
 | A1 | [Canonical models and JSON Schema](sprint-a1-models-and-json-schema.md) | `phase-a/01-models-and-json-schema` | root; follows `develop` | Freeze the contract in Raptor dogfood artifacts and publish the five Pydantic families, provenance types, canonical JSON, and generated schemas. |
 | A2 | [SQLite reference persistence](sprint-a2-sqlite-reference.md) | `phase-a/02-sqlite-reference` | `must_follow` A1 | Prove model-compatible storage and recovery with minimal reusable tests. |
-| A3 | [Claude + Codex ingest plugin](sprint-a3-plugin-ingest.md) | `phase-a/03-plugin-ingest` | `must_follow` A2 | Package validation and Markdown-to-canonical-JSON operations for both clients. |
+| A3 | [Claude + Codex operation routing](sprint-a3-plugin-routing.md) | `phase-a/03-plugin-routing` | `must_follow` A2 | Package validation, import, and export operation routers for both clients. |
 | A4 | [sc-compose rendering and round-trip](sprint-a4-render-and-roundtrip.md) | `phase-a/04-render-and-roundtrip` | `must_follow` A3 | Render all five families and prove semantic reparse equivalence. |
 
 All relations are `must_follow`. The public contract or generated artifact produced by each parent is consumed by its child. Parent development must be merged forward before every child development or fix round, and parent PRs merge before child PRs.
@@ -144,7 +144,7 @@ plugins/raptor/
   _vendor/raptor_schema/
 ```
 
-The four skills are thin routers over focused reference pages; they contain no transformation logic. Focused single-responsibility execution agents perform implemented routes, with versioned YAML frontmatter and plugin-local registry path/version constraints. Shared Python implementation lives only in `plugins/raptor/scripts/`, and shared sc-compose templates live only in `plugins/raptor/templates/`. `round-trip` composes the other routers to prove semantic migration rather than reimplementing their operations. The architecture follows `../synaptic-canvas/docs/claude-code-skills-agents-guidelines.md` v0.7; the applicable contract is copied into plugin-local docs so the sibling checkout is not a runtime dependency.
+The four skills are thin routers over focused reference pages; they contain no transformation logic. Focused single-responsibility execution agents perform implemented routes, with versioned YAML frontmatter and plugin-local registry path/version constraints. Shared Python implementation lives only in `plugins/raptor/scripts/`, and shared sc-compose templates live only in `plugins/raptor/templates/`. `round-trip` composes the other routers to prove semantic migration rather than reimplementing their operations. The sole normative plugin-architecture contract is the committed [`references/claude-code-skills-agents-guidelines-v0.7.md`](references/claude-code-skills-agents-guidelines-v0.7.md); its sibling-repository path is provenance only.
 
 The plugin namespace and stable public command surface are exactly:
 
@@ -192,7 +192,7 @@ An external repository may supply Markdown adapters, profile rules, and its own 
 | PA-REQ-002 | A1, A2 | provenance contract, models, persisted recovery test |
 | PA-REQ-004 | A3 | structured diagnostic tests and CLI/script contract |
 | PA-REQ-005 | A2 | SQL migration plus store/load tests |
-| PA-REQ-006 | A3 | dual discovery manifests resolving one shared implementation |
+| PA-REQ-006 | A3 | dual discovery manifests resolving the same four operation routers and shared implementation |
 | PA-REQ-007 | A4 | five sc-compose templates and render tests |
 | PA-REQ-008 | A4 | semantic round-trip tests for all five families |
 | PA-REQ-009 | A1–A4 | fixture-origin audit tied to Raptor artifact IDs |

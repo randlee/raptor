@@ -72,7 +72,8 @@ python -m pytest schema/tests/storage
 python -m pytest schema/tests/storage -k 'round_trip or rollback or foreign_key or schema_version or conformance'
 rg -n 'CREATE TABLE|FOREIGN KEY|UNIQUE' schema/sql/sqlite/0001_initial.sql
 test ! -e schema/sql/dolt
-rg -n '\b(sqlalchemy|sqlx|mysql|dolt)\b|p3-documentation|REQ-P3-|NFR-P3-|ADR-P3-|\bNFT\b' schema/src schema/tests schema/sql/sqlite && exit 1 || true
+rg -n '\b(sqlalchemy|sqlx|mysqlclient|pymysql|mysql-connector|doltpy)\b|p3-documentation|REQ-P3-|NFR-P3-|ADR-P3-|\bNFT\b' schema/src schema/tests schema/sql/sqlite schema/pyproject.toml && exit 1 || true
+rg -n '^\s*(from|import)\s+(dolt|doltpy|mysql)|dolt://|mysql://' schema/src && exit 1 || true
 ```
 
 Tests create temporary databases and never commit generated database files.
