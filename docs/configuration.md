@@ -77,3 +77,56 @@ even if a future configuration declaration would otherwise match them.
 The resulting inventory is de-duplicated and sorted by repository-relative POSIX
 path before parsing. A file not matched by exactly one validated source
 declaration is unauthorized and must not be read by a scan operation.
+
+## Source routing
+
+`.raptor/routing.toml` binds every named scan source to the source profile and
+canonical artifact families permitted for that source. It decodes to
+`RepositoryRoutingConfig` and validates against
+`schema/json/v1/repository-routing-config.schema.json`.
+
+```toml
+schema_version = "1.0.0"
+
+[[routes]]
+source = "product-requirements"
+artifact_types = ["requirement", "non_functional_requirement"]
+
+[routes.profile]
+profile_id = "raptor"
+profile_version = "1.0.0"
+
+[[routes]]
+source = "architecture-decisions"
+artifact_types = ["architecture_decision"]
+
+[routes.profile]
+profile_id = "raptor"
+profile_version = "1.0.0"
+```
+
+### Routing field requirements
+
+| Field | Required | Requirements |
+|---|---:|---|
+| `schema_version` | yes | Semantic version with supported major `1`. |
+| `routes` | yes | Non-empty array; every source declared in `sources.toml` appears exactly once and no undeclared source appears. |
+| `routes[].source` | yes | Exact stable name of one scan source. Routing never matches raw folder strings independently. |
+| `routes[].profile.profile_id` | yes | Lowercase Raptor source-profile identifier. |
+| `routes[].profile.profile_version` | yes | Exact semantic version; ranges and floating labels are invalid. |
+| `routes[].artifact_types` | yes | Non-empty unique allowlist drawn from `requirement`, `non_functional_requirement`, `architecture_decision`, `design_document`, and `test_plan`. |
+
+JSON Schema enforces structural constraints and identical route duplication.
+Duplicate source names with otherwise different route values, and cross-file
+source coverage, are runtime Pydantic comparisons.
+
+The scan and routing files are validated together before reading source content.
+Missing routes, unknown sources, duplicate routes, unavailable profiles, and
+artifacts outside a route's family allowlist are hard errors. Declaration order
+does not define precedence. Resolved routes follow scan-source declaration order
+to keep processing deterministic.
+
+Routing selects a declared profile; it does not define executable entrypoints or
+trust policy. Profile installation and availability are runtime responsibilities.
+Repository-specific Markdown conventions remain in the selected profile rather
+than becoming Raptor canonical fields.

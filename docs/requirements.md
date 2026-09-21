@@ -90,6 +90,15 @@ source lists, traversal, absolute paths, ambiguous glob syntax, duplicates, and
 overlapping roots; matching tests prove that unlisted and excluded files are not
 authorized.
 
+### REQ-RAP-011 — Complete source routing
+
+Raptor shall bind every authorized scan source to exactly one versioned source
+profile and a non-empty allowlist of canonical artifact families before parsing.
+
+Acceptance: executable validation rejects missing, unknown, or duplicate source
+routes, invalid or floating profile identities, empty or duplicate family lists,
+and unsupported artifact-family values.
+
 ## Non-functional requirements
 
 ### NFR-RAP-001 — Consumer neutrality

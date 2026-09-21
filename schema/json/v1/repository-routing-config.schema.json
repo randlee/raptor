@@ -1,0 +1,88 @@
+{
+  "$defs": {
+    "ArtifactType": {
+      "enum": [
+        "requirement",
+        "non_functional_requirement",
+        "architecture_decision",
+        "design_document",
+        "test_plan"
+      ],
+      "title": "ArtifactType",
+      "type": "string"
+    },
+    "ProfileSelection": {
+      "additionalProperties": false,
+      "properties": {
+        "profile_id": {
+          "pattern": "^[a-z][a-z0-9_-]*$",
+          "title": "Profile Id",
+          "type": "string"
+        },
+        "profile_version": {
+          "pattern": "^[1-9][0-9]*\\.[0-9]+\\.[0-9]+$",
+          "title": "Profile Version",
+          "type": "string"
+        }
+      },
+      "required": [
+        "profile_id",
+        "profile_version"
+      ],
+      "title": "ProfileSelection",
+      "type": "object"
+    },
+    "SourceRoute": {
+      "additionalProperties": false,
+      "properties": {
+        "artifact_types": {
+          "items": {
+            "$ref": "#/$defs/ArtifactType"
+          },
+          "minItems": 1,
+          "title": "Artifact Types",
+          "type": "array",
+          "uniqueItems": true
+        },
+        "profile": {
+          "$ref": "#/$defs/ProfileSelection"
+        },
+        "source": {
+          "pattern": "^[a-z][a-z0-9_-]{0,63}$",
+          "title": "Source",
+          "type": "string"
+        }
+      },
+      "required": [
+        "source",
+        "profile",
+        "artifact_types"
+      ],
+      "title": "SourceRoute",
+      "type": "object"
+    }
+  },
+  "additionalProperties": false,
+  "properties": {
+    "routes": {
+      "items": {
+        "$ref": "#/$defs/SourceRoute"
+      },
+      "minItems": 1,
+      "title": "Routes",
+      "type": "array",
+      "uniqueItems": true
+    },
+    "schema_version": {
+      "pattern": "^1\\.[0-9]+\\.[0-9]+$",
+      "title": "Schema Version",
+      "type": "string"
+    }
+  },
+  "required": [
+    "schema_version",
+    "routes"
+  ],
+  "title": "RepositoryRoutingConfig",
+  "type": "object"
+}

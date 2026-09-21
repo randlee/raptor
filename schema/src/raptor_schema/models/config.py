@@ -12,7 +12,14 @@ from pydantic import (
     model_validator,
 )
 
-from .base import ContractModel, RepositoryPath, SchemaVersion
+from .base import (
+    ContractModel,
+    ProfileId,
+    ProfileVersion,
+    RepositoryPath,
+    SchemaVersion,
+)
+from .common import ArtifactType
 
 
 def _glob_pattern(value: str) -> str:
@@ -65,6 +72,11 @@ ScanRoot = Annotated[
     AfterValidator(_scan_root),
 ]
 
+SourceName = Annotated[
+    str,
+    StringConstraints(pattern=r"^[a-z][a-z0-9_-]{0,63}$"),
+]
+
 
 def _compile_glob(pattern: str) -> re.Pattern[str]:
     expression: list[str] = ["^"]
@@ -91,10 +103,7 @@ def _compile_glob(pattern: str) -> re.Pattern[str]:
 
 
 class ScanSource(ContractModel):
-    name: Annotated[
-        str,
-        StringConstraints(pattern=r"^[a-z][a-z0-9_-]{0,63}$"),
-    ]
+    name: SourceName
     root: ScanRoot
     include: list[GlobPattern] = Field(
         min_length=1, json_schema_extra={"uniqueItems": True}
@@ -154,4 +163,65 @@ class RepositoryScanConfig(ContractModel):
         return matches[0] if matches else None
 
 
-__all__ = ["GlobPattern", "RepositoryScanConfig", "ScanRoot", "ScanSource"]
+class ProfileSelection(ContractModel):
+    profile_id: ProfileId
+    profile_version: ProfileVersion
+
+
+class SourceRoute(ContractModel):
+    source: SourceName
+    profile: ProfileSelection
+    artifact_types: list[ArtifactType] = Field(
+        min_length=1, json_schema_extra={"uniqueItems": True}
+    )
+
+    @model_validator(mode="after")
+    def unique_artifact_types(self) -> "SourceRoute":
+        if len(self.artifact_types) != len(set(self.artifact_types)):
+            raise ValueError("artifact types must be unique")
+        return self
+
+
+class RepositoryRoutingConfig(ContractModel):
+    schema_version: SchemaVersion
+    routes: list[SourceRoute] = Field(
+        min_length=1, json_schema_extra={"uniqueItems": True}
+    )
+
+    @model_validator(mode="after")
+    def unique_sources(self) -> "RepositoryRoutingConfig":
+        sources = [route.source for route in self.routes]
+        if len(sources) != len(set(sources)):
+            raise ValueError("each source must have exactly one route")
+        return self
+
+
+def validate_source_routing(
+    scan: RepositoryScanConfig, routing: RepositoryRoutingConfig
+) -> tuple[SourceRoute, ...]:
+    scan_sources = {source.name for source in scan.sources}
+    routed_sources = {route.source for route in routing.routes}
+    missing = sorted(scan_sources - routed_sources)
+    unknown = sorted(routed_sources - scan_sources)
+    if missing or unknown:
+        details: list[str] = []
+        if missing:
+            details.append(f"missing routes: {', '.join(missing)}")
+        if unknown:
+            details.append(f"unknown sources: {', '.join(unknown)}")
+        raise ValueError("RAPTOR.CONFIG.ROUTING: " + "; ".join(details))
+    routes = {route.source: route for route in routing.routes}
+    return tuple(routes[source.name] for source in scan.sources)
+
+
+__all__ = [
+    "GlobPattern",
+    "ProfileSelection",
+    "RepositoryRoutingConfig",
+    "RepositoryScanConfig",
+    "ScanRoot",
+    "ScanSource",
+    "SourceName",
+    "SourceRoute",
+    "validate_source_routing",
+]

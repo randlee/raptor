@@ -52,7 +52,16 @@ from .common import (
     SourceLocation,
     UriTarget,
 )
-from .config import GlobPattern, RepositoryScanConfig, ScanSource
+from .config import (
+    GlobPattern,
+    ProfileSelection,
+    RepositoryRoutingConfig,
+    RepositoryScanConfig,
+    ScanSource,
+    SourceName,
+    SourceRoute,
+    validate_source_routing,
+)
 from .document import SourceDocument
 from .identity import (
     IDENTITY_DOCUMENT_CONFLICT,
@@ -117,6 +126,7 @@ __all__ = [
     "NonFunctionalRequirement",
     "OriginProvenance",
     "Priority",
+    "ProfileSelection",
     "ProfileId",
     "ProfileVersion",
     "RelationshipTarget",
@@ -125,11 +135,14 @@ __all__ = [
     "RepositoryPath",
     "Requirement",
     "RepositoryScanConfig",
+    "RepositoryRoutingConfig",
     "SchemaVersion",
     "ScanSource",
     "Sha256",
     "SourceDocument",
     "SourceLocation",
+    "SourceName",
+    "SourceRoute",
     "SourceProvenance",
     "TestCase",
     "TestCaseId",
@@ -138,4 +151,5 @@ __all__ = [
     "UriTarget",
     "validate_identity_registration",
     "validate_provenance_transition",
+    "validate_source_routing",
 ]
