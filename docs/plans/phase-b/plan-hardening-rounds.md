@@ -6,6 +6,8 @@ This ledger records review of [`plan-phase-b.md`](plan-phase-b.md) and all Phase
 |---|---|---|---|---|---:|---:|---:|---|---|---|
 | 1 | 1 | plan author | WORKTREE | READY_FOR_SCOPE_REVIEW | 0 | 0 | 0 | initial-phase-b-authoring | — | Five-sprint initial plan grounded in requirements commit d65599f and Phase A contracts; no reviewer result claimed. |
 | 1 | 1 | arch-ctm | c55471f6f4a34315e77b78ab1447ecdf8870c0ea | PASS | 0 | 0 | 0 | step1-guidelines-pass | initial-phase-b-authoring | Ratified the three open contracts, removed operation/CLI ambiguity, and split overloaded closures into eight production-bounded sprints; the following metadata-only commit records this reviewed content commit. |
+| 1 | 2 | plan-scope-reviewer | c4e48421d40413798d1d426d29bdc8548819bd97 | FAIL | 0 | 6 | 0 | cfe785faf5044ea40d6274a00675d95d788a61075c81237d4282653f731d81c0 | step1-guidelines-pass | PB-SCOPE-001..006: complete B1/B6/B8 contracts, identity architecture authority, revision ownership, and B8 split. |
+| 2 | 1 | arch-ctm | WORKTREE | READY_FOR_REREVIEW | 0 | 0 | 0 | step1-r2-correction | cfe785faf5044ea40d6274a00675d95d788a61075c81237d4282653f731d81c0 | Applied all six scope corrections and split non-mutating certification from apply/recovery as B8/B9. |
 
 ## Initial author handoff
 
@@ -77,6 +79,44 @@ This ledger records review of [`plan-phase-b.md`](plan-phase-b.md) and all Phase
   "docs_removed_or_renamed": [
     "docs/plans/phase-b/sprint-b4-projection-lineage-reconciliation.md",
     "docs/plans/phase-b/sprint-b5-external-evidence-certification.md"
+  ],
+  "ready_for_next_step": true,
+  "errors": []
+}
+```
+
+## Step 1 round 2 correction handoff
+
+```json
+{
+  "status": "PASS",
+  "mode": "plan-hardening-guidelines-pass",
+  "round_id": "STEP1-R2",
+  "round_index": 2,
+  "reviewed_commit": "WORKTREE",
+  "previous_reviewed_commit": "c4e48421d40413798d1d426d29bdc8548819bd97",
+  "findings_hash": "cfe785faf5044ea40d6274a00675d95d788a61075c81237d4282653f731d81c0",
+  "iterations": 1,
+  "findings_resolved": [
+    "PB-SCOPE-001",
+    "PB-SCOPE-002",
+    "PB-SCOPE-003",
+    "PB-SCOPE-004",
+    "PB-SCOPE-005",
+    "PB-SCOPE-006"
+  ],
+  "sprint_count": 9,
+  "docs_modified": [
+    "docs/plans/phase-b/plan-phase-b.md",
+    "docs/plans/phase-b/plan-hardening-rounds.md",
+    "docs/plans/phase-b/sprint-b1-migration-evidence-contracts.md",
+    "docs/plans/phase-b/sprint-b2-manifest-corpus-ingress.md",
+    "docs/plans/phase-b/sprint-b6-corpus-reconciliation.md",
+    "docs/plans/phase-b/sprint-b7-compatibility-evidence.md",
+    "docs/plans/phase-b/sprint-b8-corpus-certification.md"
+  ],
+  "docs_created": [
+    "docs/plans/phase-b/sprint-b9-apply-recovery-handoff.md"
   ],
   "ready_for_next_step": true,
   "errors": []

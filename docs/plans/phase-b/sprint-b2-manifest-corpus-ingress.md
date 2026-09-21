@@ -20,7 +20,7 @@ def prepare_corpus_ingress(
 ) -> IngressSnapshot: ...
 ```
 
-It loads `.raptor/raptor.toml`, then exactly its selected scan, routing, and identity files; verifies repository-ID agreement; resolves every route to `.raptor/profiles/<profile-id>/<profile-version>/profile.json` and the adjacent hash-pinned declaration it names; records the caller-declared `input_revision` for B6 verification; snapshots and hashes all configuration before traversal; inventories only regular no-follow files matched by exactly one source; joins every file to one route and identity entry; sorts by normalized repository-relative POSIX path; and emits the initial ledger and `IngressSnapshot`. All configuration/inventory errors are returned together in deterministic path/code order before any Markdown bytes are passed to a profile.
+It loads `.raptor/raptor.toml`, then exactly its selected scan, routing, and identity files; verifies repository-ID agreement; resolves every route to `.raptor/profiles/<profile-id>/<profile-version>/profile.json` and the adjacent hash-pinned declaration it names; records the caller-declared `input_revision` for B7 verification; snapshots and hashes all configuration before traversal; inventories only regular no-follow files matched by exactly one source; joins every file to one route and identity entry; sorts by normalized repository-relative POSIX path; and emits the initial ledger and `IngressSnapshot`. All configuration/inventory errors are returned together in deterministic path/code order before any Markdown bytes are passed to a profile.
 
 B2 resolves the Phase A profile ambiguity explicitly: routed profiles are declarations selecting a registered implementation by exact `(profile_id, profile_version, api_version, module_sha256)`. Built-in Raptor and explicitly trusted repository-local implementations use the existing A4 registry/loader; the declaration never names an arbitrary import string. Repository-local executable code still requires the existing explicit trust opt-in and hash check. No network discovery or installed-package fallback is allowed.
 
@@ -32,21 +32,22 @@ The manifest-selected identity path is threaded through identity lookup/registra
 |---|---|
 | B2-D1 | `runtime/corpus.py` (or equivalent shared runtime module) implementing manifest/config/profile snapshot and deterministic authorized inventory. |
 | B2-D2 | Exact profile declaration/registry/loading contract plus configuration and architecture documentation resolving the current disagreement. |
-| B2-D3 | Selected identity-path propagation through existing identity, lock, rendering, transaction, and recovery APIs without changing Phase A identity semantics. |
+| B2-D3 | Selected identity-path propagation through existing identity, lock, rendering, transaction, and recovery APIs, plus correction of `docs/architecture.md` RULE-003 so the manifest-selected identity artifact—not literal `.raptor/identity.json`—is the sole authority. |
 | B2-D4 | Initial B1 ledger/source/route/config receipts and structured pre-parse diagnostics. |
-| B2-D5 | Direct runtime tests and plugin inventory update for the new shared corpus module; public migration CLI/agent activation remains B7-owned. |
+| B2-D5 | Direct runtime tests and plugin inventory update for the new shared corpus module; public migration CLI/agent activation remains B8-owned. |
 
 ## Authoritative acceptance criteria
 
 | ID | Criterion |
 |---|---|
-| B2-AC1 | One runtime validation from the repository root loads only the literal root manifest and its selected files, operation input, trust policy metadata, declared revision, and routed profile declarations; missing, floating, or invalid inputs produce no fallback. Actual Git revision/tool verification is explicitly deferred to B6 and cannot be treated as satisfied earlier. |
+| B2-AC1 | One runtime validation from the repository root loads only the literal root manifest and its selected files, operation input, trust policy metadata, declared revision, and routed profile declarations; missing, floating, or invalid inputs produce no fallback. B2 records but does not verify the revision; B7 is the sole Git revision verification owner. |
 | B2-AC2 | Inventory equals the sorted authorized corpus exactly; symlinks, control/state/stage/backup files, unmatched/unregistered/multiply matched files, overlapping roots, unavailable routes, and family mismatch fail before parsing. |
 | B2-AC3 | Every inventory entry binds repository/document key, path, source declaration, exact profile ID/version/hash, byte length, and content digest in the initial ledger. |
 | B2-AC4 | A spy profile proves no parse/canonicalize call occurs until all configuration, identity, profile, path, inventory, operation-input, and output-path checks pass. |
 | B2-AC5 | Non-default manifest-selected identity paths work through lookup, lock, render planning, transaction, and restart recovery; tests fail any production hardcode of `.raptor/identity.json`. |
 | B2-AC6 | Exact built-in and temporary neutral external profiles load through the existing trust/hash mechanism; ambiguity, floating/unsupported versions, API/entrypoint/hash/trust mismatch, path escape, and network/install fallback fail with stable codes. |
 | B2-AC7 | Validate mode changes no source, configuration, identity, database, or stage path; its ledger/evidence output is deterministic when explicitly requested. |
+| B2-AC8 | Architecture RULE-003, configuration docs, runtime calls, and tests agree that `files.identity` selects the authority; the conventional literal path appears only in labeled examples/legacy-rejection fixtures, never as production authority or fallback. |
 
 ## Required validation
 
@@ -54,7 +55,8 @@ The manifest-selected identity path is threaded through identity lookup/registra
 python -m pytest plugins/raptor/tests/migration/test_ingress.py plugins/raptor/tests/profiles plugins/raptor/tests/recovery
 python -m pytest schema/tests/models -k 'repository_config or scan_config or routing_config or identity'
 python plugins/raptor/scripts/validate_plugin.py --check-frontmatter --check-registry --check-manifests --check-inventory --check-vendor --check-templates
-rg -n '"?\.raptor/identity\.json"?' plugins/raptor/runtime plugins/raptor/scripts && exit 1 || true
+rg -n 'Repository identity comes only from `?\.raptor/identity\.json' docs/architecture.md && exit 1 || true
+rg -n -e 'IDENTITY_PATH\s*=.*\.raptor/identity\.json' -e '"\.raptor/identity\.json"' -e "'\.raptor/identity\.json'" plugins/raptor/runtime plugins/raptor/scripts && exit 1 || true
 rg -n '\bNFT\b|sqlx|dolt://' plugins/raptor/runtime/corpus.py plugins/raptor/tests/migration && exit 1 || true
 ```
 

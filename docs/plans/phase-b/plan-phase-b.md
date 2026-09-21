@@ -106,8 +106,10 @@ apply does not silently rerun or refresh evidence.
 The guidelines pass ratifies three contracts rather than leaving them to
 implementation:
 
-1. Phase B is Git-only. The exact revision is resolved by one policy-pinned Git
-   tool; another source-control system requires a later versioned resolver.
+1. Phase B is Git-only. B2 records the declared revision; B7 alone resolves and
+   verifies it with the policy-pinned Git tool. Other sprints consume the B7
+   revision evidence and never recreate that boundary. Another source-control
+   system requires a later versioned resolver.
 2. Split/combine requires `IdentityManifest` `2.0.0` retired-document records.
    This is necessary to prevent reuse after an input document ceases to be an
    active output.
@@ -134,7 +136,7 @@ to `last_path`, non-empty `replacement_document_ids`, `operation_id`, and
 written as version 2 only by a validated B4 identity transition. Active and
 retired IDs are disjoint, and retirement is irreversible.
 
-B1 defines the evidence/transition models. B4 implements lineage planning, B5 renders the plan, B6 reconciles it, and B8 applies it. Until B8 merges, split/combine apply returns a structured unsupported error; no earlier sprint may partially mutate source/identity/database state.
+B1 defines the evidence/transition models. B4 implements lineage planning, B5 renders the plan, B6 reconciles it, B8 certifies it, and B9 applies it. Until B9 merges, split/combine apply returns a structured unsupported error; no earlier sprint may partially mutate source/identity/database state.
 
 ## Sprint stack
 
@@ -147,7 +149,8 @@ B1 defines the evidence/transition models. B4 implements lineage planning, B5 re
 | B5 | [Projection, render, and reparse](sprint-b5-projection-render-reparse.md) | `phase-b/05-projection-render-reparse` | `must_follow B4` | Total leaf/lineage projection and sc-compose-only render/reparse proof. |
 | B6 | [Corpus reconciliation](sprint-b6-corpus-reconciliation.md) | `phase-b/06-corpus-reconciliation` | `must_follow B5` | Exact 100% reconciliation, immutable stage, and apply mutation plan. |
 | B7 | [Trusted compatibility evidence](sprint-b7-compatibility-evidence.md) | `phase-b/07-compatibility-evidence` | `must_follow B6` | Policy-pinned input/output validator and site-build execution evidence. |
-| B8 | [Full-corpus certification](sprint-b8-corpus-certification.md) | `phase-b/08-corpus-certification` | `must_follow B7` | Composed validate/apply/recover workflow and consumer-neutral certification handoff. |
+| B8 | [Full-corpus certification](sprint-b8-corpus-certification.md) | `phase-b/08-corpus-certification` | `must_follow B7` | Non-mutating certification and validate-mode public activation. |
+| B9 | [Certified apply and recovery](sprint-b9-apply-recovery-handoff.md) | `phase-b/09-apply-recovery-handoff` | `must_follow B8` | Journaled apply/recovery and consumer-owned pilot handoff. |
 
 All relations are `must_follow`: each child consumes a versioned public contract and evidence digest produced by its parent. None is `parallel_safe` because adjacent sprints intersect the same ledger schema and orchestration path. Parent development is merged forward when pushed, not after QA; PR completion remains parent-first.
 
@@ -175,14 +178,14 @@ Names below these boundaries may be refined in the owning sprint, but ownership 
 | PB-REQ-003 | B3 | byte coverage, transform/derivation replay, SQLite receipt tests |
 | PB-REQ-004 / REQ-RAP-014 | B4, B5 | lineage-aware leaf inventory and sc-compose render/reparse trace |
 | PB-REQ-003, PB-REQ-004 / REQ-RAP-015 | B3–B6 | exact 100% ledger, lineage, and negative-mutation verification |
-| PB-REQ-005 / REQ-RAP-016 | B7, B8 | Raptor-captured compatibility records and composed certification |
-| NFR-RAP-008 | B1–B8 | digest-linked boundary records and fail-closed apply tests |
+| PB-REQ-005 / REQ-RAP-016 | B7–B9 | Raptor-captured compatibility records, certification, and apply enforcement |
+| NFR-RAP-008 | B1–B9 | digest-linked boundary records and fail-closed apply/recovery tests |
 
 ## Phase acceptance
 
 Phase B is complete only when:
 
-1. All eight stacked PRs satisfy their sprint acceptance criteria and merge in order.
+1. All nine stacked PRs satisfy their sprint acceptance criteria and merge in order.
 2. One Raptor-owned multi-document corpus completes validate mode with exact 100% byte, unit, authority, leaf, persistence, lineage, render/reparse, and external-gate reconciliation.
 3. One-to-one, split, and combine corpus fixtures exercise successful lineage; unregistered IDs, reused retired IDs, missing origins, duplicate/lost artifacts, and ambiguous mappings fail before apply.
 4. Mutation tests independently change every evidence-chain binding and prove apply fails closed.

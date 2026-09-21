@@ -14,11 +14,21 @@ site-build tools.
 ## Execution contract
 
 ```python
+def verify_current_revision(
+    *, policy: MigrationTrustPolicy, operation: MigrationOperationInput,
+    repository_root: Path,
+) -> CompatibilityEvidence: ...
+
 def run_compatibility_gates(
     *, policy: MigrationTrustPolicy, corpus_role: Literal["input", "staged"],
     bound_tree: CorpusTree, operation: MigrationOperationInput,
 ) -> tuple[CompatibilityEvidence, ...]: ...
 ```
+
+`verify_current_revision` is the sole Git invocation boundary. B8 certification
+consumes its evidence; B9 calls this same B7 API immediately before apply to
+recompute current revision and compares the new evidence with the certification.
+No caller constructs Git argv or interprets its output.
 
 For every policy tool and required corpus role, the runtime opens declared
 bundle/executable/interpreter components as no-follow regular files, copies them
@@ -57,6 +67,7 @@ responses. Remote tools are unsupported.
 | B7-AC4 | Imported/self-reported, remote, stale, replayed-for-another-tree, partial, or warning-bearing evidence is rejected. |
 | B7-AC5 | Evidence and diagnostics contain no secrets or raw tool traces; retained raw output follows the documented operation-state lifecycle. |
 | B7-AC6 | External profiles/templates/tool bundles used by tests exist only in temporary neutral repositories and are never packaged as Raptor assets. |
+| B7-AC7 | B7 is the sole exact Git revision-verification owner: its public API invokes the one policy-pinned revision tool, compares its commit to `MigrationOperationInput.input_revision`, and emits evidence consumed by B8/B9; no caller recreates argv, execution, parsing, or evidence logic. |
 
 ## Required validation
 

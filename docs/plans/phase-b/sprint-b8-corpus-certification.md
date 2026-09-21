@@ -1,95 +1,122 @@
-# Sprint B8 — Full-Corpus Certification
+# Sprint B8 — Full-Corpus Certification and Validate Activation
 
 ## Objective and stack
 
-Compose the existing Phase A routes and B1–B7 evidence into the complete
-one-time migration validate/apply/recover workflow and external-consumer handoff.
+Compose Phase A routes and B1–B7 evidence into a complete non-mutating
+full-corpus certification workflow and activate validate mode through the
+existing public round-trip route.
 
 - `gh-stack` branch: `phase-b/08-corpus-certification`
 - Relation: `must_follow B7`
 - Merge-forward: merge pushed B7 development before every B8 development/fix round; B7 PR merges first.
-- Parallel safety: not `parallel_safe`; B8 is the sole final decision and mutation point for every upstream record.
+- Parallel safety: not `parallel_safe`; B8 is the sole certification decision point and B9 consumes its exact record.
 
 ## Certification contract
 
 ```python
+class CertificationPredicate(Model):
+    name: Literal[
+        "reconciliation", "revision", "input_compatibility",
+        "staged_compatibility", "apply_plan_binding",
+    ]
+    evidence_sha256: Sha256
+    passed: bool
+
+class MigrationCertification(Model):
+    certification_version: Literal["1.0.0"]
+    certification_id: EvidenceId
+    operation_id: OperationId
+    repository_id: RepositoryId
+    operation_input_sha256: Sha256
+    trust_policy_sha256: Sha256
+    ledger_sha256: Sha256
+    reconciliation_result_sha256: Sha256
+    apply_plan_sha256: Sha256
+    input_revision: str
+    input_tree_sha256: Sha256
+    staged_tree_sha256: Sha256
+    compatibility_evidence_ids: tuple[EvidenceId, ...]
+    predicates: tuple[CertificationPredicate, ...]
+    diagnostics: tuple[Diagnostic, ...]
+    certified_at: AwareDatetime | None
+    verdict: Literal["certified", "rejected", "stale"]
+
+class ValidationResult(Model):
+    result_version: Literal["1.0.0"]
+    operation_id: OperationId
+    certification: MigrationCertification
+    ledger_path: RepositoryPath
+    evidence_directory: RepositoryPath
+    stage_root: RepositoryPath
+    success: bool
+
 def certify_migration(
     operation: MigrationOperationInput, ledger: ReconciliationLedger,
+    reconciliation: ReconciliationResult, apply_plan: CorpusApplyPlan,
     compatibility: tuple[CompatibilityEvidence, ...],
 ) -> MigrationCertification: ...
-def execute_migration(
+def validate_migration(
     repository_root: Path, operation_input: RepositoryPath,
-) -> MigrationResult: ...
+) -> ValidationResult: ...
 ```
 
-`execute_migration` is the one public runtime entry point. The operation input's
-`mode` is authoritative: `validate` runs the complete pipeline and emits a
-certification candidate without changing source, selected identity, or target
-SQLite; `apply` accepts only a current certified ledger/evidence chain. It
-rechecks every upstream digest, exact revision/tree, staged tree, trust policy,
-tool evidence, proposed identity transition, and database receipt. Drift returns
-a stable stale/conflict error and never silently refreshes evidence.
+Predicate order is the literal order shown; compatibility IDs sort by corpus
+role then trust-policy tool order. `certified` requires all predicates true,
+zero diagnostics, and `certified_at`; `rejected` requires at least one false
+predicate and diagnostics; later binding drift creates `stale`. Verdict
+transitions are one-way `certified -> stale`; rejected/stale records cannot be
+re-certified. A rerun creates a new operation/certification. The certification
+digest covers all fields including verdict and evidence IDs.
 
-Apply extends the existing journal to replace the B6 output set and selected
-identity file at their own rename boundaries, then performs ordinary idempotent
-SQLite puts/deletes. Marker states bind the complete file inventory/hashes,
-identity transition, database receipt, certification, and ledger. Recovery rolls
-back before identity commit and rolls forward afterward; path-only moves remain
-forbidden.
-
-The existing `/raptor:round-trip migration` route and focused
-`migration-round-trip` agent call this shared runtime through the existing
-runner. `migrate_corpus.py` only parses repository root and the literal operation
-input path, serializes the standard envelope, and maps exit status. Recovery is
-an explicit `--recover <operation-id>` wrapper action over the same journal; it
-cannot create a new migration or change operation inputs.
+`validate_migration` accepts only operation mode `validate`, runs the complete
+B1–B7 pipeline, and writes only generated operation-state stage/evidence. It
+does not change source, selected identity, or target SQLite. The existing
+`/raptor:round-trip migration` route and `migration-round-trip` agent call this
+shared runtime through the existing runner. `migrate_corpus.py` initially accepts
+only repository root and the literal validate operation input, serializes the
+standard envelope, and maps exit status.
 
 ## Authoritative deliverables
 
 | ID | Deliverable |
 |---|---|
-| B8-D1 | Full-chain certification verifier and versioned `MigrationCertification`. |
-| B8-D2 | Shared validate/apply orchestration plus existing-journal extension and bounded restart recovery. |
-| B8-D3 | Existing `/raptor:round-trip migration` agent/router activation with identical Claude/Codex behavior. |
-| B8-D4 | Thin `migrate_corpus.py` operation/recovery wrapper and wrapper-thinness enforcement. |
-| B8-D5 | Raptor-owned end-to-end corpus plus temporary neutral external-repository public-hook test. |
-| B8-D6 | Operator documentation for preparation, evidence review, apply/recovery, and consumer-owned pilot handoff. |
+| B8-D1 | Complete `MigrationCertification`, predicate, and `ValidationResult` models plus certification verifier. |
+| B8-D2 | Non-mutating shared validate orchestration composing existing routes and B1–B7 runtimes. |
+| B8-D3 | Existing `/raptor:round-trip migration` agent/router activation for validate mode with identical Claude/Codex behavior. |
+| B8-D4 | Validate-only thin `migrate_corpus.py` wrapper and wrapper-thinness enforcement. |
+| B8-D5 | Raptor-owned full-corpus validate suite plus temporary neutral external-repository public-hook test. |
 
 ## Authoritative acceptance criteria
 
 | ID | Criterion |
 |---|---|
-| B8-AC1 | Validate mode completes all five families, cross-document references, byte units, canonical/SQLite proof, lineage, projection/reparse, exact reconciliation, and input/output gates without changing source, selected identity, or target SQLite. |
-| B8-AC2 | Certification succeeds only with complete current B1–B7 records, exactly 100% reconciliation, and successful zero-warning input/output gates; changing any upstream byte/digest invalidates it. |
-| B8-AC3 | Apply rechecks revision, input/staged trees, policy/tool bytes, certification, identity transition, and database receipt immediately before replacing only certified staged bytes. |
-| B8-AC4 | Failure injection at every journal boundary proves rollback/roll-forward, selected identity-path use, staged-tree binding, idempotent SQLite retry/delete, lock exclusion, and no cross-resource atomicity claim. |
-| B8-AC5 | A temporary neutral repository supplies its own profile, templates, operation inputs, validator/build bundle, and corpus; Raptor invokes public hooks and packages none of those names/assets. |
-| B8-AC6 | Claude and Codex resolve the unchanged `/raptor:round-trip` command to the same agent/runtime; skills, agents, scripts, templates, schema vendor, manifests, and inventories remain complete and hash-aligned. |
-| B8-AC7 | Scripts contain no transformation/orchestration logic, and no Rust CLI/SQLx, Dolt/MySQL, remote gate, fleet scheduler, shell invocation, secret, or raw tool trace is introduced. |
+| B8-AC1 | Validate completes all five families, cross-document references, byte units, canonical/SQLite proof, lineage, projection/reparse, exact reconciliation, revision, and input/output gates without target mutation. |
+| B8-AC2 | Certification succeeds only with complete current B1–B7 records, exact 100% reconciliation, matching Git revision, and zero-warning input/output gates. |
+| B8-AC3 | Every certification field, fixed predicate/evidence ordering, digest link, and legal/illegal verdict transition has direct tests; changing any upstream byte/digest yields rejected or stale, never certified. |
+| B8-AC4 | Validate route/CLI rejects operation mode `apply` and has no journal, replacement, SQLite target-write, or recovery behavior. |
+| B8-AC5 | A temporary neutral repository supplies its own profile, templates, operation inputs, validator/build bundle, and corpus; Raptor packages none of its names/assets. |
+| B8-AC6 | Claude and Codex resolve the unchanged `/raptor:round-trip` command to the same agent/runtime; plugin/schema/template/vendor inventories remain hash-aligned. |
 
 ## Required validation
 
 ```sh
-python -m pytest schema/tests plugins/raptor/tests
-python -m pytest plugins/raptor/tests/migration/test_certification.py plugins/raptor/tests/migration/test_full_corpus.py plugins/raptor/tests/recovery
+python -m pytest schema/tests/migration plugins/raptor/tests/migration/test_certification.py plugins/raptor/tests/migration/test_full_corpus_validate.py
 python -m mypy --strict schema/src/raptor_schema plugins/raptor/runtime
 python plugins/raptor/scripts/validate_plugin.py --check-frontmatter --check-registry --check-manifests --check-inventory --check-vendor --check-templates --check-cli sc-compose --expected-range '>=1.6.1,<2.0.0'
 python plugins/raptor/scripts/migrate_corpus.py --repo-root . --operation-input .raptor/operation-input/migration.json
 git diff --exit-code -- schema/json/v1 plugins/raptor/_vendor/raptor_schema plugins/raptor/plugin-manifest.json
 ```
 
-Apply/recovery tests operate only in temporary repositories. The repository-root
-command uses a `validate` operation input and does not replace working-tree docs.
+The repository operation fixture has mode `validate` and cannot replace working
+tree content.
 
 ## Traceability and non-closure
 
-- B8-D1–D6 close PB-REQ-005, REQ-RAP-016, and NFR-RAP-008 at full-corpus scope.
-- No production migration of an external repository occurs in Raptor CI; consumers retain and run their own assets.
-- No Rust CLI/SQLx, Dolt/MySQL, remote attestation, continuous synchronization, service, or fleet orchestration.
+- B8-D1–D5 own non-mutating PB-REQ-005 certification/validate activation and NFR-RAP-008 full-chain evidence verification.
+- No apply, source/identity/target-SQLite replacement, journal mutation/recovery, production external migration, Rust CLI/SQLx, Dolt/MySQL, remote gate, or fleet orchestration.
 
-## Phase handoff
+## Handoff
 
-After B8, a consumer may prepare its own repository-local assets, run the Python
-validate workflow, review Raptor's canonical evidence, switch the explicit
-operation input to apply, and recover by operation ID if interrupted. A later
-phase may add fleet coordination or Dolt only without weakening these contracts.
+B9 receives only a current `certified` record and its exact immutable
+`CorpusApplyPlan`. It may reverify and apply those bindings but may not rerun,
+repair, or refresh certification.
