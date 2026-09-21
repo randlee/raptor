@@ -53,7 +53,6 @@ from .common import (
     UriTarget,
 )
 from .config import (
-    ConfigArtifactPath,
     GlobPattern,
     ProfileSelection,
     RepositoryConfigFiles,
@@ -109,7 +108,6 @@ __all__ = [
     "ArtifactTarget",
     "ArtifactType",
     "ContractModel",
-    "ConfigArtifactPath",
     "DesignComponent",
     "DesignDocument",
     "DesignInterface",

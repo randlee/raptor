@@ -93,17 +93,18 @@ def _config_artifact_path(value: str) -> str:
     return path
 
 
-ConfigArtifactPath = Annotated[
-    str,
-    WithJsonSchema(
-        {
-            "type": "string",
-            "minLength": 1,
-            "pattern": r"^(?!/)(?!\.{1,2}(?:/|$))(?!.*(?:/\.{1,2})(?:/|$))(?!.*//)(?!.*/$)(?!.*\\)(?!(?:\.git|\.raptor)(?:/|$)).+(?![\s\S])",
-        }
-    ),
-    AfterValidator(_config_artifact_path),
-]
+_CONFIG_PATH_PREFIX = (
+    r"^(?!/)(?!\.{1,2}(?:/|$))(?!.*(?:/\.{1,2})(?:/|$))"
+    r"(?!.*//)(?!.*\\)(?!(?:\.git|\.raptor)(?:/|$)).+"
+)
+
+
+def _typed_config_path_schema(extension: str) -> dict[str, object]:
+    return {
+        "type": "string",
+        "minLength": len(extension) + 2,
+        "pattern": rf"{_CONFIG_PATH_PREFIX}\.{extension}(?![\s\S])",
+    }
 
 
 def _toml_config_path(value: str) -> str:
@@ -120,26 +121,14 @@ def _json_config_path(value: str) -> str:
 
 _TomlConfigPath = Annotated[
     str,
-    WithJsonSchema(
-        {
-            "type": "string",
-            "minLength": 6,
-            "pattern": r"^(?!/)(?!\.{1,2}(?:/|$))(?!.*(?:/\.{1,2})(?:/|$))(?!.*//)(?!.*\\)(?!(?:\.git|\.raptor)(?:/|$)).+\.toml(?![\s\S])",
-        }
-    ),
+    WithJsonSchema(_typed_config_path_schema("toml")),
     AfterValidator(_config_artifact_path),
     AfterValidator(_toml_config_path),
 ]
 
 _JsonConfigPath = Annotated[
     str,
-    WithJsonSchema(
-        {
-            "type": "string",
-            "minLength": 6,
-            "pattern": r"^(?!/)(?!\.{1,2}(?:/|$))(?!.*(?:/\.{1,2})(?:/|$))(?!.*//)(?!.*\\)(?!(?:\.git|\.raptor)(?:/|$)).+\.json(?![\s\S])",
-        }
-    ),
+    WithJsonSchema(_typed_config_path_schema("json")),
     AfterValidator(_config_artifact_path),
     AfterValidator(_json_config_path),
 ]
@@ -316,7 +305,6 @@ def validate_repository_manifest_identity(
 __all__ = [
     "GlobPattern",
     "ProfileSelection",
-    "ConfigArtifactPath",
     "RepositoryConfigFiles",
     "RepositoryConfigManifest",
     "RepositoryRoutingConfig",
