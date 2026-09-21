@@ -1,0 +1,70 @@
+{
+  "agents": {
+    "json-markdown-export": {
+      "path": "agents/json-markdown-export.md",
+      "sha256": "c6ca6dc8d6a8a3e83b7e0e3de6373ba178a61e5a071c19a01dbe6cb970771303",
+      "version": "1.0.0"
+    },
+    "json-sqlite-import": {
+      "path": "agents/json-sqlite-import.md",
+      "sha256": "75f14e3231e875afd236e5cea61a7e4d81b2a928a8750321425044c35caec1de",
+      "version": "1.0.0"
+    },
+    "json-validate": {
+      "path": "agents/json-validate.md",
+      "sha256": "12bfb75c9387d0dd420c1156bab26e0c229c4964aced30d1586d909a7e4a63fb",
+      "version": "1.0.0"
+    },
+    "markdown-json-import": {
+      "path": "agents/markdown-json-import.md",
+      "sha256": "7c8d5ad55a37d957b110a93c25a9c10c60d6f26a6b003f74280054179e50b0c9",
+      "version": "1.0.0"
+    },
+    "markdown-validate": {
+      "path": "agents/markdown-validate.md",
+      "sha256": "1b7fc5604738ebf02eabef44c4a9a0231099b49ec475940605d8145cb5eb41bb",
+      "version": "1.0.0"
+    },
+    "migration-round-trip": {
+      "path": "agents/migration-round-trip.md",
+      "sha256": "bdb5980087fc5aca0bcf5be2374425fb4db5cbdec9229c6446c7ccc19c03396b",
+      "version": "1.0.0"
+    },
+    "sqlite-json-export": {
+      "path": "agents/sqlite-json-export.md",
+      "sha256": "fc9d1918fe75eaf2ab58fafc4bb4ea1641e3d60d1a84df3895353b3521e7380b",
+      "version": "1.0.0"
+    },
+    "sqlite-validate": {
+      "path": "agents/sqlite-validate.md",
+      "sha256": "df4cac47a124fd670597646f37f954bc6c0812c76d48628dc2fb05fe1a1ade9d",
+      "version": "1.0.0"
+    }
+  },
+  "skills": {
+    "export": {
+      "depends_on": {
+        "json-markdown-export": "1.x",
+        "sqlite-json-export": "1.x"
+      }
+    },
+    "import": {
+      "depends_on": {
+        "json-sqlite-import": "1.x",
+        "markdown-json-import": "1.x"
+      }
+    },
+    "round-trip": {
+      "depends_on": {
+        "migration-round-trip": "1.x"
+      }
+    },
+    "validate": {
+      "depends_on": {
+        "json-validate": "1.x",
+        "markdown-validate": "1.x",
+        "sqlite-validate": "1.x"
+      }
+    }
+  }
+}

@@ -64,7 +64,7 @@ The original Step 1 work was committed, but the coordinator handoff omitted the 
 {
   "status": "PASS",
   "mode": "plan-hardening-sprint-scope",
-  "round_id": "STEP3-R1",
+  "round_id": "STEP-3-R1",
   "round_index": 1,
   "reviewed_commit": "28499639777293f08c555be5098d50bcc48c073b",
   "previous_reviewed_commit": "fca037aa1473730c6200c056bfb0644564713a8d",

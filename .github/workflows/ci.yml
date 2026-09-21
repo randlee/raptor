@@ -7,6 +7,87 @@ on:
     branches: [develop, main]
 
 jobs:
+  schema:
+    name: Python schema contract
+    runs-on: ubuntu-latest
+    env:
+      PYTHONDONTWRITEBYTECODE: "1"
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+          cache: pip
+          cache-dependency-path: schema/pyproject.toml
+
+      - name: Install schema package and test dependencies
+        run: |
+          python -m pip install -e 'schema[test]'
+          python -m pip install 'sc-compose==1.6.1'
+          mkdir -p "$RUNNER_TEMP/raptor-test-bin"
+          printf '#!/bin/sh\nexec "%s" "%s" "$@"\n' \
+            "$(command -v python)" \
+            "$GITHUB_WORKSPACE/plugins/raptor/tests/support/sc_compose_cli.py" \
+            > "$RUNNER_TEMP/raptor-test-bin/sc-compose"
+          chmod +x "$RUNNER_TEMP/raptor-test-bin/sc-compose"
+          echo "$RUNNER_TEMP/raptor-test-bin" >> "$GITHUB_PATH"
+
+      - name: Run schema tests
+        run: python -m pytest schema/tests/models schema/tests/json_schema schema/tests/storage
+
+      - name: Type-check public package
+        run: >-
+          python -m mypy --strict
+          schema/src/raptor_schema
+          schema/tests/typing/protocol_contract.py
+
+      - name: Verify generated schemas
+        run: |
+          python -m raptor_schema.generate --check --output schema/json/v1
+          git diff --exit-code -- schema/json/v1
+
+      - name: Verify built wheel outside repository
+        run: |
+          python -m pip wheel --no-deps ./schema --wheel-dir "$RUNNER_TEMP/raptor-wheel"
+          python -m venv "$RUNNER_TEMP/raptor-wheel-venv"
+          "$RUNNER_TEMP/raptor-wheel-venv/bin/python" -m pip install "$RUNNER_TEMP"/raptor-wheel/*.whl
+          cd "$RUNNER_TEMP"
+          "$RUNNER_TEMP/raptor-wheel-venv/bin/python" "$GITHUB_WORKSPACE/schema/tests/storage/wheel_smoke.py"
+
+      - name: Validate plugin operations
+        run: |
+          python -m pytest plugins/raptor/tests
+          python -m mypy --strict plugins/raptor/runtime plugins/raptor/scripts
+          python plugins/raptor/scripts/validate_plugin.py \
+            --guideline docs/plans/phase-a/references/claude-code-skills-agents-guidelines-v0.7.md \
+            --check-frontmatter --check-registry --check-manifests --check-inventory --check-vendor --check-templates
+          python plugins/raptor/scripts/validate_plugin.py \
+            --check-cli sc-compose --expected-range '>=1.6.1,<2.0.0'
+
+      - name: Verify clean plugin environment
+        run: python -m pytest plugins/raptor/tests/vendor/test_clean_environment.py
+
+      - name: Enforce Phase A5 exclusions
+        run: |
+          if test -e schema/sql/dolt; then exit 1; fi
+          if find plugins/raptor -type f -iname 'marketplace.json' -print | grep -q .; then exit 1; fi
+          if find plugins/raptor/scripts -type f | grep -Evi '/(import_sqlite|export_sqlite|markdown_to_json|json_to_markdown|render_transaction)\.py$' | grep -Eqi '/(import|export|render|round[-_]?trip|transform|convert).*\.py$'; then exit 1; fi
+          if find plugins/raptor -type f \( -name '*.pyc' -o -name '*.pyo' \) -print | grep -q .; then exit 1; fi
+          if find plugins/raptor -type d -name '__pycache__' -print | grep -q .; then exit 1; fi
+          if rg -ni '\bnft\b|sqlx|sqlalchemy' plugins/raptor; then exit 1; fi
+
+      - name: Enforce repository neutrality
+        run: |
+          if rg -ni --hidden --glob '!.git/**' --glob '!.sc/**' '[p]3' .; then exit 1; fi
+
+      - name: Verify deterministic schema vendor
+        run: |
+          python plugins/raptor/scripts/vendor_schema.py
+          git diff --exit-code -- plugins/raptor/_vendor/raptor_schema plugins/raptor/plugin-manifest.json plugins/raptor/agents/registry.yaml
+          python plugins/raptor/scripts/vendor_schema.py --check
+
   fmt:
     name: Format check
     runs-on: ubuntu-latest

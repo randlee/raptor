@@ -1,0 +1,71 @@
+{
+  "$defs": {
+    "ScanSource": {
+      "additionalProperties": false,
+      "properties": {
+        "exclude": {
+          "items": {
+            "minLength": 1,
+            "pattern": "^(?!\\s)(?!.*\\s$)(?![!/])(?!.*\\\\)(?!.*(?:^|/)(?:\\.|\\.\\.)(?:/|$))(?!.*\\*\\*\\*)(?!.*[\\[\\]{}])[^/]+(?:/[^/]+)*$",
+            "type": "string"
+          },
+          "title": "Exclude",
+          "type": "array",
+          "uniqueItems": true
+        },
+        "include": {
+          "items": {
+            "minLength": 1,
+            "pattern": "^(?!\\s)(?!.*\\s$)(?![!/])(?!.*\\\\)(?!.*(?:^|/)(?:\\.|\\.\\.)(?:/|$))(?!.*\\*\\*\\*)(?!.*[\\[\\]{}])[^/]+(?:/[^/]+)*$",
+            "type": "string"
+          },
+          "minItems": 1,
+          "title": "Include",
+          "type": "array",
+          "uniqueItems": true
+        },
+        "name": {
+          "pattern": "^[a-z][a-z0-9_-]{0,63}(?![\\s\\S])",
+          "title": "Name",
+          "type": "string"
+        },
+        "root": {
+          "minLength": 1,
+          "pattern": "^(?!/)(?!\\.{1,2}(?:/|$))(?!.*(?:/\\.{1,2})(?:/|$))(?!.*//)(?!.*/$)(?!.*\\\\)(?!(?:\\.git|\\.raptor)(?:/|$)).+$",
+          "title": "Root",
+          "type": "string"
+        }
+      },
+      "required": [
+        "name",
+        "root",
+        "include"
+      ],
+      "title": "ScanSource",
+      "type": "object"
+    }
+  },
+  "additionalProperties": false,
+  "properties": {
+    "schema_version": {
+      "pattern": "^1\\.(?:0|[1-9][0-9]*)\\.(?:0|[1-9][0-9]*)(?![\\s\\S])",
+      "title": "Schema Version",
+      "type": "string"
+    },
+    "sources": {
+      "items": {
+        "$ref": "#/$defs/ScanSource"
+      },
+      "minItems": 1,
+      "title": "Sources",
+      "type": "array",
+      "uniqueItems": true
+    }
+  },
+  "required": [
+    "schema_version",
+    "sources"
+  ],
+  "title": "RepositoryScanConfig",
+  "type": "object"
+}

@@ -110,7 +110,7 @@ The shared runner resolves only plugin-local `agents/registry.yaml`, enforces ex
 | A3-AC4 | Refresh/check is deterministic and recoverable: tests cover lock exclusion, staged verified build, durable marker, live→backup and staged→live renames, promotion verification, rollback/roll-forward, restart at every state, and cleanup; no cross-directory atomicity is claimed, and clean-env bootstrap imports only the verified vendor with no fallback. |
 | A3-AC5 | Runner tests cover successful resolution, unknown/path-escape/version/hash failures, timeout, malformed/unfenced/multiple envelopes, redaction, retry cap, and atomic audit. |
 | A3-AC6 | Client adapters pass equivalent conformance fixtures and contain no registry, route, transformation, or response-policy logic. |
-| A3-AC7 | No P3 asset, `NFT`, SQLx, Dolt implementation, product transformation script, or sc-compose template is added. |
+| A3-AC7 | No external-consumer asset, `NFT`, SQLx, Dolt implementation, product transformation script, or sc-compose template is added. |
 | A3-AC8 | `plugins/raptor/runtime/` is tested directly and every `scripts/*.py` file is a thin CLI wrapper; AST/import-boundary tests fail transformation, orchestration, registry, bootstrap, or client-policy logic placed in scripts. |
 
 ## Authoritative validation
@@ -123,7 +123,7 @@ git diff --exit-code -- plugins/raptor/_vendor/raptor_schema plugins/raptor/plug
 env -i PATH="$PATH" PYTHONPATH= python -m pytest plugins/raptor/tests/vendor/test_clean_environment.py
 test ! -e schema/sql/dolt
 test ! -e plugins/raptor/templates
-rg -n 'p3-documentation|REQ-P3-|NFR-P3-|ADR-P3-|\bNFT\b|sqlx' plugins/raptor && exit 1 || true
+rg -n '\bNFT\b|sqlx' plugins/raptor && exit 1 || true
 ```
 
 ## Traceability

@@ -1,0 +1,52 @@
+{
+  "$defs": {
+    "IdentityDocument": {
+      "additionalProperties": false,
+      "properties": {
+        "path": {
+          "minLength": 1,
+          "pattern": "^(?!/)(?!\\.{1,2}(?:/|$))(?!.*(?:/\\.{1,2})(?:/|$))(?!.*//)(?!.*\\/$)(?!.*\\\\).+$",
+          "title": "Path",
+          "type": "string"
+        }
+      },
+      "required": [
+        "path"
+      ],
+      "title": "IdentityDocument",
+      "type": "object"
+    }
+  },
+  "additionalProperties": false,
+  "properties": {
+    "documents": {
+      "patternProperties": {
+        "^DOC-[A-Z0-9][A-Z0-9-]*-[0-9]{3,}$": {
+          "$ref": "#/$defs/IdentityDocument"
+        }
+      },
+      "propertyNames": {
+        "pattern": "^DOC-[A-Z0-9][A-Z0-9-]*-[0-9]{3,}$"
+      },
+      "title": "Documents",
+      "type": "object"
+    },
+    "identity_version": {
+      "pattern": "^1\\.(?:0|[1-9][0-9]*)\\.(?:0|[1-9][0-9]*)(?![\\s\\S])",
+      "title": "Identity Version",
+      "type": "string"
+    },
+    "repository_id": {
+      "pattern": "^urn:raptor:repo:[a-z0-9][a-z0-9._-]{2,127}(?![\\s\\S])",
+      "title": "Repository Id",
+      "type": "string"
+    }
+  },
+  "required": [
+    "identity_version",
+    "repository_id",
+    "documents"
+  ],
+  "title": "IdentityManifest",
+  "type": "object"
+}

@@ -1,0 +1,18 @@
+{
+  "name": "raptor",
+  "version": "1.0.0",
+  "description": "Validate, import, export, and round-trip Raptor artifacts.",
+  "author": {
+    "name": "Raptor"
+  },
+  "skills": "./skills/",
+  "interface": {
+    "displayName": "Raptor",
+    "shortDescription": "Raptor artifact workflows.",
+    "longDescription": "Routes Raptor validation, import, export, and round-trip workflows through one verified runtime.",
+    "developerName": "Raptor",
+    "category": "Productivity",
+    "capabilities": [],
+    "defaultPrompt": "Use the appropriate Raptor command for this artifact workflow."
+  }
+}
