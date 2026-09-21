@@ -14,7 +14,7 @@ This ledger records review of [`plan-phase-b.md`](plan-phase-b.md) and all Phase
 | 3 | 3 | arch-ctm | 05ed3987884359ab37ad9f543066372cb0fea48b | CORRECTED_FOR_REREVIEW | 0 | 0 | 0 | 684f746adf12cd6b961fc4fda6dbef24ead4ec4c2a69295b66d6958c2f3f6ba3 | 8d41c412+19e4f033 | Deduplicated six reviewer reports into TRIAGE-001..005 (PB-SCOPE-001 and PLAN-CRIT-001 overlap) and corrected all five contracts without another review claim. |
 | 3 | 2 | plan-scope-reviewer | fc0e1d3ae9cb486151f15ca1564c855ea3ebf360 | FAIL | 0 | 1 | 0 | a7c25a215c723765850060adffc6b98a4950affd2fe8d89c0601c96a9c3a0965 | 684f746a | PLAN-SCOPE-008: final compatibility/certification receipt ownership and bindings. Hash is over the retained finding ID. |
 | 3 | 4 | critical-plan-reviewer | fc0e1d3ae9cb486151f15ca1564c855ea3ebf360 | FAIL | 0 | 1 | 0 | f2c08a807158cbed78a2f1765231e1d14365eb3eb9105319216b145e5140112b | 684f746a | PLAN-CRIT-005: effective gate-workspace collision invariants and bindings. Hash is over the retained finding ID. Critical cycle 2 of 2 is final. |
-| 4 | 5 | arch-ctm | WORKTREE | CORRECTED_CAP_TRANSITION | 0 | 0 | 0 | 753ce61bb5af26e0e218553e6d9300c1b0a4aa1b9e7bd5540a462d8ae251b633 | a7c25a21+f2c08a80 | Corrected FINAL-001/002; both reviewer caps are exhausted, so workflow advances to bounded consistency hardening and final QA without another scope/critical review. |
+| 4 | 5 | arch-ctm | cc30bcab10ead28378a95c1923c47fb36c4011bf | CORRECTED_CAP_TRANSITION | 0 | 0 | 0 | 753ce61bb5af26e0e218553e6d9300c1b0a4aa1b9e7bd5540a462d8ae251b633 | a7c25a21+f2c08a80 | Corrected FINAL-001/002; both reviewer caps are exhausted, so workflow advances to bounded consistency hardening and final QA without another scope/critical review. |
 
 ## Initial author handoff
 
@@ -112,7 +112,7 @@ must proceed directly through consistency checks and final QA.
 {
   "status": "PASS",
   "mode": "plan-hardening-consistency-handoff",
-  "reviewed_commit": "WORKTREE",
+  "reviewed_commit": "cc30bcab10ead28378a95c1923c47fb36c4011bf",
   "previous": "fc0e1d3ae9cb486151f15ca1564c855ea3ebf360",
   "findings_resolved": 2,
   "ready_for_qa": true
