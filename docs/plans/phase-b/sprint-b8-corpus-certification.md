@@ -27,6 +27,7 @@ class MigrationCertification(Model):
     certification_id: EvidenceId
     operation_id: OperationId
     repository_id: RepositoryId
+    operation_mode: Literal["validate", "apply"]
     operation_input_sha256: Sha256
     trust_policy_sha256: Sha256
     ledger_sha256: Sha256
@@ -44,6 +45,7 @@ class MigrationCertification(Model):
 class ValidationResult(Model):
     result_version: Literal["1.0.0"]
     operation_id: OperationId
+    prepared_mode: Literal["validate", "apply"]
     certification: MigrationCertification
     ledger_path: RepositoryPath
     evidence_directory: RepositoryPath
@@ -68,9 +70,13 @@ transitions are one-way `certified -> stale`; rejected/stale records cannot be
 re-certified. A rerun creates a new operation/certification. The certification
 digest covers all fields including verdict and evidence IDs.
 
-`validate_migration` accepts only operation mode `validate`, runs the complete
-B1–B7 pipeline, and writes only generated operation-state stage/evidence. It
-does not change source, selected identity, or target SQLite. The existing
+`validate_migration` accepts either declared intent but is always non-mutating.
+For `validate`, it produces a reviewable certification. For `apply`, it reruns
+the complete B1–B7 pipeline and produces a distinct apply-mode certification
+whose operation-input digest includes `mode="apply"`; B9 requires that exact
+unchanged input and certification. It writes only generated operation-state
+stage/evidence and never changes source, selected identity, or target SQLite.
+The existing
 `/raptor:round-trip migration` route and `migration-round-trip` agent call this
 shared runtime through the existing runner. `migrate_corpus.py` initially accepts
 only repository root and the literal validate operation input, serializes the
@@ -92,8 +98,8 @@ standard envelope, and maps exit status.
 |---|---|
 | B8-AC1 | Validate completes all five families, cross-document references, byte units, canonical/SQLite proof, lineage, projection/reparse, exact reconciliation, revision, and input/output gates without target mutation. |
 | B8-AC2 | Certification succeeds only with complete current B1–B7 records, exact 100% reconciliation, matching Git revision, and zero-warning input/output gates. |
-| B8-AC3 | Every certification field, fixed predicate/evidence ordering, digest link, and legal/illegal verdict transition has direct tests; changing any upstream byte/digest yields rejected or stale, never certified. |
-| B8-AC4 | Validate route/CLI rejects operation mode `apply` and has no journal, replacement, SQLite target-write, or recovery behavior. |
+| B8-AC3 | Every certification field, operation mode, fixed predicate/evidence ordering, digest link, and legal/illegal verdict transition has direct tests; changing any upstream byte/digest yields rejected or stale, never certified. |
+| B8-AC4 | Validate and apply intent both stop after certification in B8 and have no journal, replacement, SQLite target-write, or recovery behavior; their operation-input/certification digests differ. |
 | B8-AC5 | A temporary neutral repository supplies its own profile, templates, operation inputs, validator/build bundle, and corpus; Raptor packages none of its names/assets. |
 | B8-AC6 | Claude and Codex resolve the unchanged `/raptor:round-trip` command to the same agent/runtime; plugin/schema/template/vendor inventories remain hash-aligned. |
 
@@ -107,8 +113,8 @@ python plugins/raptor/scripts/migrate_corpus.py --repo-root . --operation-input 
 git diff --exit-code -- schema/json/v1 plugins/raptor/_vendor/raptor_schema plugins/raptor/plugin-manifest.json
 ```
 
-The repository operation fixture has mode `validate` and cannot replace working
-tree content.
+The repository operation fixture has mode `validate`; apply-mode certification
+is tested only in a temporary repository. Neither can replace content in B8.
 
 ## Traceability and non-closure
 
@@ -117,6 +123,6 @@ tree content.
 
 ## Handoff
 
-B9 receives only a current `certified` record and its exact immutable
+B9 receives only a current apply-mode `certified` record and its exact immutable
 `CorpusApplyPlan`. It may reverify and apply those bindings but may not rerun,
 repair, or refresh certification.

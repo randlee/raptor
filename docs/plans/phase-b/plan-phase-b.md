@@ -215,4 +215,10 @@ Phase B is complete only when:
 
 ## Handoff after Phase B
 
-Phase B yields a Python certification mechanism suitable for consumer-owned pilot repositories. A later phase may run those pilots at fleet scale or add a Dolt dialect, but it must consume the same evidence types and persistence conformance contract and may not weaken the fail-closed certification boundary.
+Phase B yields a Python certification mechanism suitable for consumer-owned
+pilot repositories. Validate-mode evidence cannot authorize apply: after review,
+the operator creates an apply-mode input and reruns B8 non-mutating certification;
+B9 consumes that exact unchanged input/certification. A later phase may run
+pilots at fleet scale or add a Dolt dialect, but it must consume the same
+evidence types and persistence conformance contract and may not weaken the
+fail-closed certification boundary.

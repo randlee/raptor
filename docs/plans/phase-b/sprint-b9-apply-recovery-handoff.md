@@ -104,7 +104,7 @@ path-only move. Recovery cannot alter operation inputs or create a new plan.
 
 | ID | Criterion |
 |---|---|
-| B9-AC1 | Apply accepts only mode `apply` plus a current B8 `certified` record whose complete digest chain and target before-state reverify immediately before mutation, including a fresh call to B7's sole revision-verification API. |
+| B9-AC1 | Apply accepts only an unchanged mode-`apply` operation input plus its current B8 apply-mode `certified` record whose complete digest chain and target before-state reverify immediately before mutation, including a fresh call to B7's sole revision-verification API. A validate-mode certification is never reusable for apply. |
 | B9-AC2 | Journal/result tests cover every required field, ordered path inventory, legal/illegal state transition, result status, omission rule, stale binding, and conflict diagnostic. |
 | B9-AC3 | Only certified staged bytes are installed; the selected IdentityManifest 2.0 transition and exact B6 SQLite mutation set follow in documented order. |
 | B9-AC4 | Failure injection before/after every marker and rename proves pre-identity rollback, post-identity roll-forward, db-pending retry, completed replay idempotence, lock exclusion, and terminal conflict without guessing. |
@@ -133,7 +133,8 @@ command appears in the validation block.
 
 ## Phase handoff
 
-After B9, a consumer prepares its repository-local assets, runs B8 validate,
-reviews Raptor's certification, switches the explicit operation input to apply,
-and uses B9 recovery by operation ID if interrupted. Later fleet or Dolt work
-must consume these contracts without weakening them.
+After B9, a consumer prepares its repository-local assets, runs B8 with validate
+intent, and reviews the certification. To apply, it creates an apply-mode
+operation input and reruns B8 non-mutating certification; B9 consumes that exact
+unchanged input/certification and provides recovery by operation ID. Later fleet
+or Dolt work must consume these contracts without weakening them.

@@ -83,7 +83,7 @@ and emit `[]` when empty. Optional values are omitted when `None`.
 | `BoundaryReceipt` | `stage`, `receipt_version`, `upstream_receipt_sha256`, `input_sha256`, `output_sha256`, `record_count >= 0`, `evidence_ids` | fixed stage order below; first receipt omits only `upstream_receipt_sha256`; evidence IDs sort |
 
 `BoundaryStage` is exactly `ingress`, `accounting`, `canonical_import`,
-`sqlite_import`, `sqlite_export`, `projection`, `render`, `reparse`, `lineage`,
+`sqlite_import`, `sqlite_export`, `lineage`, `projection`, `render`, `reparse`,
 `reconciliation`, `compatibility_input`, `compatibility_staged`, and
 `certification`. A receipt may consume only its immediate predecessor; stages
 cannot repeat, skip a required predecessor, or follow certification.
