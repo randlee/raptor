@@ -115,6 +115,8 @@ class ScanSource(ContractModel):
             path = _REPOSITORY_PATH_ADAPTER.validate_python(repository_path)
         except ValueError:
             return False
+        if {".git", ".raptor"}.intersection(path.split("/")):
+            return False
         prefix = f"{self.root}/"
         if not path.startswith(prefix):
             return False

@@ -111,6 +111,10 @@ def test_double_star_matches_zero_or_more_directories() -> None:
         "specifications/requirements/a\\outside.md",
         "",
         "specifications/requirements/",
+        "specifications/requirements/.git/config",
+        "specifications/requirements/nested/.git/config",
+        "specifications/requirements/.raptor/state",
+        "specifications/requirements/nested/.raptor/state/cache.json",
     ],
 )
 def test_matching_fails_closed_for_invalid_candidate_paths(candidate: str) -> None:
