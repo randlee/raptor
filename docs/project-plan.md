@@ -9,6 +9,7 @@ Sprint-specific implementation decisions remain in the linked plans under
 `docs/plans/phase-a/`; this file is only the stable project-level entry point.
 
 Post-Phase-A corpus migration requirements are defined in
-[the migration requirements](requirements-migration.md). They are planned
-requirements, not claims about the completed Phase A implementation, and require
-an approved implementation plan before work begins.
+[the migration requirements](requirements-migration.md). Their proposed Python
+implementation sequence, production boundaries, and verification gates are in
+[the Phase B plan](plans/phase-b/plan-phase-b.md). Phase B remains planning work
+until its plan-hardening ledger records the required reviews and final QA.
