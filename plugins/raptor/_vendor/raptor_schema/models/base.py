@@ -10,6 +10,7 @@ _SCHEMA_VERSION_BODY = (
 )
 _CANONICAL_SCHEMA_VERSION_BODY = r"1\.(?:0|[1-9][0-9]*)\.(?:0|[1-9][0-9]*)"
 _PROFILE_ID_BODY = r"[a-z][a-z0-9_-]*"
+_REPOSITORY_ID_BODY = r"urn:raptor:repo:[a-z0-9][a-z0-9._-]{2,127}"
 
 
 def _python_pattern(body: str) -> str:
@@ -30,7 +31,7 @@ CANONICAL_SCHEMA_VERSION_RE = _python_pattern(_CANONICAL_SCHEMA_VERSION_BODY)
 CANONICAL_SCHEMA_VERSION_JSON_RE = _json_schema_pattern(
     _CANONICAL_SCHEMA_VERSION_BODY
 )
-REPOSITORY_ID_RE = r"^urn:raptor:repo:[a-z0-9][a-z0-9._-]{2,127}$"
+REPOSITORY_ID_RE = _python_pattern(_REPOSITORY_ID_BODY)
 DOCUMENT_ID_RE = r"^DOC-[A-Z0-9][A-Z0-9-]*-[0-9]{3,}$"
 ARTIFACT_ID_RE = r"^(REQ|NFR|ADR|DES|TST)-[A-Z0-9][A-Z0-9-]*-[0-9]{3,}$"
 SHA256_RE = r"^[0-9a-f]{64}$"
@@ -66,7 +67,13 @@ ProfileVersion = Annotated[
     StringConstraints(pattern=_pydantic_pattern(_SCHEMA_VERSION_BODY)),
     WithJsonSchema({"type": "string", "pattern": SCHEMA_VERSION_JSON_RE}),
 ]
-RepositoryId = Annotated[str, StringConstraints(pattern=REPOSITORY_ID_RE)]
+RepositoryId = Annotated[
+    str,
+    StringConstraints(pattern=_pydantic_pattern(_REPOSITORY_ID_BODY)),
+    WithJsonSchema(
+        {"type": "string", "pattern": _json_schema_pattern(_REPOSITORY_ID_BODY)}
+    ),
+]
 DocumentId = Annotated[str, StringConstraints(pattern=DOCUMENT_ID_RE)]
 ArtifactId = Annotated[str, StringConstraints(pattern=ARTIFACT_ID_RE)]
 Sha256 = Annotated[str, StringConstraints(pattern=SHA256_RE)]

@@ -40,6 +40,7 @@ This establishes the contract needed to migrate 30–50 repositories without put
 | PA-REQ-009 | Derive in-repository examples and fixtures only from Raptor-owned `REQ-RAP-*`, `NFR-RAP-*`, and `ADR-RAP-*` artifacts. |
 | PA-REQ-010 | Authorize repository scans only through a valid Raptor-owned configuration of non-overlapping roots and include/exclude filters. |
 | PA-REQ-011 | Route every authorized scan source through exactly one versioned source profile and canonical artifact-family allowlist. |
+| PA-REQ-012 | Discover repository configuration through an explicit root manifest whose repository identity agrees with its identity registry. |
 
 ## Quality requirements
 
@@ -73,6 +74,7 @@ This establishes the contract needed to migrate 30–50 repositories without put
 | A5 | [sc-compose rendering and round-trip](sprint-a5-render-and-roundtrip.md) | `phase-a/05-render-and-roundtrip` | `must_follow` A4 | Render all five families and prove identity/provenance-aware semantic reparse equivalence. |
 | A6 | [Repository scan configuration](sprint-a6-repository-scan-config.md) | `phase-a/06-repository-scan-config` | `must_follow` A5 | Publish the explicit file-scan authorization contract before adding repository traversal or routing rules. |
 | A7 | [Source routing configuration](sprint-a7-source-routing-config.md) | `phase-a/07-source-routing-config` | `must_follow` A6 | Bind each authorized source to an exact profile and canonical artifact-family allowlist. |
+| A8 | [Repository configuration manifest](sprint-a8-repository-manifest-config.md) | `phase-a/08-repository-manifest-config` | `must_follow` A7 | Publish the explicit root manifest and cross-file repository-identity invariant. |
 
 All relations are `must_follow`. The public contract or generated artifact produced by each parent is consumed by its child. Parent development must be merged forward before every child development or fix round, and parent PRs merge before child PRs.
 
@@ -232,9 +234,10 @@ An external repository may supply Markdown adapters, profile rules, and its own 
 | PA-REQ-009 | A1–A5 | fixture-origin audit tied to Raptor artifact IDs |
 | PA-REQ-010 | A6 | scan configuration models, generated schema, normative requirements, and allowlist matching tests |
 | PA-REQ-011 | A7 | routing models, generated schema, cross-file coverage validation, and neutral configuration examples |
+| PA-REQ-012 | A8 | root manifest model/schema, typed artifact paths, and identity agreement validation |
 | PA-NFR-001, PA-NFR-002 | every sprint | repository-wide forbidden-content gates |
 | PA-NFR-003 | A1, A2 | bounded Python implementation; no SQLx dependency |
-| PA-NFR-004, PA-NFR-005 | A1–A7 | deterministic-output and unsupported-version tests |
+| PA-NFR-004, PA-NFR-005 | A1–A8 | deterministic-output and unsupported-version tests |
 | PA-NFR-006 | every sprint | one reviewed stacked PR per sprint |
 
 ## Phase acceptance

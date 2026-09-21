@@ -17,9 +17,11 @@ from .base import (
     ProfileId,
     ProfileVersion,
     RepositoryPath,
+    RepositoryId,
     SchemaVersion,
 )
 from .common import ArtifactType
+from .identity import IdentityManifest
 
 
 def _glob_pattern(value: str) -> str:
@@ -81,6 +83,65 @@ SourceName = Annotated[
             "pattern": r"^[a-z][a-z0-9_-]{0,63}(?![\s\S])",
         }
     ),
+]
+
+
+def _config_artifact_path(value: str) -> str:
+    path = _REPOSITORY_PATH_ADAPTER.validate_python(value)
+    if path.split("/", 1)[0] in {".git", ".raptor"}:
+        raise ValueError("configuration artifact path is relative to .raptor")
+    return path
+
+
+ConfigArtifactPath = Annotated[
+    str,
+    WithJsonSchema(
+        {
+            "type": "string",
+            "minLength": 1,
+            "pattern": r"^(?!/)(?!\.{1,2}(?:/|$))(?!.*(?:/\.{1,2})(?:/|$))(?!.*//)(?!.*/$)(?!.*\\)(?!(?:\.git|\.raptor)(?:/|$)).+(?![\s\S])",
+        }
+    ),
+    AfterValidator(_config_artifact_path),
+]
+
+
+def _toml_config_path(value: str) -> str:
+    if not value.endswith(".toml"):
+        raise ValueError("configuration path must end in .toml")
+    return value
+
+
+def _json_config_path(value: str) -> str:
+    if not value.endswith(".json"):
+        raise ValueError("configuration path must end in .json")
+    return value
+
+
+_TomlConfigPath = Annotated[
+    str,
+    WithJsonSchema(
+        {
+            "type": "string",
+            "minLength": 6,
+            "pattern": r"^(?!/)(?!\.{1,2}(?:/|$))(?!.*(?:/\.{1,2})(?:/|$))(?!.*//)(?!.*\\)(?!(?:\.git|\.raptor)(?:/|$)).+\.toml(?![\s\S])",
+        }
+    ),
+    AfterValidator(_config_artifact_path),
+    AfterValidator(_toml_config_path),
+]
+
+_JsonConfigPath = Annotated[
+    str,
+    WithJsonSchema(
+        {
+            "type": "string",
+            "minLength": 6,
+            "pattern": r"^(?!/)(?!\.{1,2}(?:/|$))(?!.*(?:/\.{1,2})(?:/|$))(?!.*//)(?!.*\\)(?!(?:\.git|\.raptor)(?:/|$)).+\.json(?![\s\S])",
+        }
+    ),
+    AfterValidator(_config_artifact_path),
+    AfterValidator(_json_config_path),
 ]
 
 
@@ -222,9 +283,42 @@ def validate_source_routing(
     return tuple(routes[source.name] for source in scan.sources)
 
 
+class RepositoryConfigFiles(ContractModel):
+    scan: _TomlConfigPath
+    routing: _TomlConfigPath
+    identity: _JsonConfigPath
+
+    @model_validator(mode="after")
+    def distinct_typed_paths(self) -> "RepositoryConfigFiles":
+        paths = (self.scan, self.routing, self.identity)
+        if len(set(paths)) != len(paths):
+            raise ValueError("configuration artifact paths must be unique")
+        return self
+
+
+class RepositoryConfigManifest(ContractModel):
+    schema_version: SchemaVersion
+    repository_id: RepositoryId
+    files: RepositoryConfigFiles
+
+
+def validate_repository_manifest_identity(
+    manifest: RepositoryConfigManifest, identity: IdentityManifest
+) -> None:
+    manifest = RepositoryConfigManifest.model_validate(manifest.model_dump(mode="python"))
+    identity = IdentityManifest.model_validate(identity.model_dump(mode="python"))
+    if manifest.repository_id != identity.repository_id:
+        raise ValueError(
+            "RAPTOR.CONFIG.REPOSITORY_ID: repository manifest and identity manifest differ"
+        )
+
+
 __all__ = [
     "GlobPattern",
     "ProfileSelection",
+    "ConfigArtifactPath",
+    "RepositoryConfigFiles",
+    "RepositoryConfigManifest",
     "RepositoryRoutingConfig",
     "RepositoryScanConfig",
     "ScanRoot",
@@ -232,4 +326,5 @@ __all__ = [
     "SourceName",
     "SourceRoute",
     "validate_source_routing",
+    "validate_repository_manifest_identity",
 ]

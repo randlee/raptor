@@ -130,3 +130,34 @@ Routing selects a declared profile; it does not define executable entrypoints or
 trust policy. Profile installation and availability are runtime responsibilities.
 Repository-specific Markdown conventions remain in the selected profile rather
 than becoming Raptor canonical fields.
+
+## Repository manifest
+
+`.raptor/raptor.toml` is the required configuration entrypoint. It establishes
+the repository identity and explicitly names the scan, routing, and identity
+artifacts relative to `.raptor/`.
+
+```toml
+schema_version = "1.0.0"
+repository_id = "urn:raptor:repo:raptor"
+
+[files]
+scan = "sources.toml"
+routing = "routing.toml"
+identity = "identity.json"
+```
+
+| Field | Required | Requirements |
+|---|---:|---|
+| `schema_version` | yes | Supported Raptor configuration schema version. |
+| `repository_id` | yes | Stable Raptor repository URN; it must equal the identity manifest repository ID. |
+| `files.scan` | yes | Unique `.toml` path relative to `.raptor/`; no default is inferred. |
+| `files.routing` | yes | Unique `.toml` path relative to `.raptor/`; no default is inferred. |
+| `files.identity` | yes | Unique `.json` path relative to `.raptor/`; no default is inferred. |
+
+Artifact paths use normalized POSIX syntax and cannot be absolute, traverse with
+`.` or `..`, contain backslashes, or redundantly include `.raptor/`. Missing or
+invalid referenced files make the repository configuration invalid; implementations
+must not substitute conventional filenames or scan the repository implicitly.
+Path distinctness and repository-ID agreement are cross-field/cross-file runtime
+checks; JSON Schema enforces each individual path's syntax and required file type.

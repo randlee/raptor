@@ -53,14 +53,18 @@ from .common import (
     UriTarget,
 )
 from .config import (
+    ConfigArtifactPath,
     GlobPattern,
     ProfileSelection,
+    RepositoryConfigFiles,
+    RepositoryConfigManifest,
     RepositoryRoutingConfig,
     RepositoryScanConfig,
     ScanSource,
     SourceName,
     SourceRoute,
     validate_source_routing,
+    validate_repository_manifest_identity,
 )
 from .document import SourceDocument
 from .identity import (
@@ -105,6 +109,7 @@ __all__ = [
     "ArtifactTarget",
     "ArtifactType",
     "ContractModel",
+    "ConfigArtifactPath",
     "DesignComponent",
     "DesignDocument",
     "DesignInterface",
@@ -135,6 +140,8 @@ __all__ = [
     "RepositoryPath",
     "Requirement",
     "RepositoryScanConfig",
+    "RepositoryConfigFiles",
+    "RepositoryConfigManifest",
     "RepositoryRoutingConfig",
     "SchemaVersion",
     "ScanSource",
@@ -152,4 +159,5 @@ __all__ = [
     "validate_identity_registration",
     "validate_provenance_transition",
     "validate_source_routing",
+    "validate_repository_manifest_identity",
 ]

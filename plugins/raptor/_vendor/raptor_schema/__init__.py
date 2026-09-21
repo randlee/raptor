@@ -33,6 +33,7 @@ from .models import (
     ArtifactTarget,
     ArtifactType,
     ContractModel,
+    ConfigArtifactPath,
     DesignComponent,
     DesignDocument,
     DesignInterface,
@@ -60,6 +61,8 @@ from .models import (
     RelationshipTarget,
     RelationshipType,
     RepositoryId,
+    RepositoryConfigFiles,
+    RepositoryConfigManifest,
     RepositoryRoutingConfig,
     RepositoryPath,
     Requirement,
@@ -80,6 +83,7 @@ from .models import (
     validate_identity_registration,
     validate_provenance_transition,
     validate_source_routing,
+    validate_repository_manifest_identity,
 )
 from .profiles import (
     ArtifactSnapshot,
@@ -139,6 +143,7 @@ __all__ = [
     "ArtifactStore",
     "ComparableDocument",
     "ContractModel",
+    "ConfigArtifactPath",
     "DesignComponent",
     "DesignDocument",
     "DesignInterface",
@@ -173,6 +178,8 @@ __all__ = [
     "RelationshipTarget",
     "RelationshipType",
     "RepositoryId",
+    "RepositoryConfigFiles",
+    "RepositoryConfigManifest",
     "RepositoryRoutingConfig",
     "RepositoryPath",
     "Requirement",
@@ -207,4 +214,5 @@ __all__ = [
     "validate_json_object",
     "validate_provenance_transition",
     "validate_source_routing",
+    "validate_repository_manifest_identity",
 ]

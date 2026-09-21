@@ -99,6 +99,16 @@ Acceptance: executable validation rejects missing, unknown, or duplicate source
 routes, invalid or floating profile identities, empty or duplicate family lists,
 and unsupported artifact-family values.
 
+### REQ-RAP-012 — Explicit repository manifest
+
+Raptor shall discover repository configuration only through a validated
+`.raptor/raptor.toml` manifest that declares repository identity and explicit,
+distinct scan, routing, and identity artifact paths.
+
+Acceptance: the manifest model and generated schema reject missing, unknown,
+escaping, wrongly typed, or duplicate artifact paths, and cross-file validation
+rejects a repository ID that differs from the identity manifest.
+
 ## Non-functional requirements
 
 ### NFR-RAP-001 — Consumer neutrality

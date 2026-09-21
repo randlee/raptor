@@ -9,6 +9,7 @@ from pydantic import TypeAdapter
 from .models import (
     Artifact,
     IdentityManifest,
+    RepositoryConfigManifest,
     RepositoryRoutingConfig,
     RepositoryScanConfig,
     SourceDocument,
@@ -19,6 +20,7 @@ def _schemas() -> dict[str, dict[str, object]]:
     return {
         "artifact.schema.json": TypeAdapter(Artifact).json_schema(),
         "identity-manifest.schema.json": IdentityManifest.model_json_schema(),
+        "repository-config-manifest.schema.json": RepositoryConfigManifest.model_json_schema(),
         "repository-scan-config.schema.json": RepositoryScanConfig.model_json_schema(),
         "repository-routing-config.schema.json": RepositoryRoutingConfig.model_json_schema(),
         "source-document.schema.json": SourceDocument.model_json_schema(),
