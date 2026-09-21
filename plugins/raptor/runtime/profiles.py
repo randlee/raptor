@@ -48,6 +48,9 @@ _HEADING = re.compile(
 _PROVENANCE_BLOCK = re.compile(
     r"<!--\s*raptor-provenance-v1:([A-Za-z0-9_-]+)\s*-->", re.MULTILINE
 )
+_CANONICAL_ARTIFACT_LINE = re.compile(
+    r"^Canonical Artifact: ([^\r\n]*)\r?$", re.MULTILINE
+)
 
 
 def _paragraph(value: str) -> str:
@@ -201,31 +204,31 @@ class RaptorMarkdownProfile:
                 )
             rendered_artifacts: list[object] = []
             for section in parsed.sections:
-                lines = section.body.splitlines()
-                canonical = next(
-                    (
-                        line.removeprefix("Canonical Artifact: ")
-                        for line in lines
-                        if line.startswith("Canonical Artifact: ")
-                    ),
-                    None,
+                canonical_matches = list(
+                    _CANONICAL_ARTIFACT_LINE.finditer(section.body)
                 )
-                if canonical is None:
+                if not canonical_matches:
                     raise ValueError(
                         "RAPTOR.RENDER.VISIBLE_MISMATCH: canonical artifact is missing"
                     )
-                item = loads(canonical)
+                canonical_match = canonical_matches[-1]
+                item = loads(canonical_match.group(1))
                 if not isinstance(item, dict):
                     raise ValueError(
                         "RAPTOR.RENDER.VISIBLE_MISMATCH: canonical artifact is invalid"
                     )
                 artifact = dict(item)
                 expected_summary = _render_summary(artifact)
+                visible_summary = section.body[: canonical_match.start()]
+                if visible_summary.endswith("\r\n"):
+                    visible_summary = visible_summary[:-2]
+                elif visible_summary.endswith("\n"):
+                    visible_summary = visible_summary[:-1]
                 if (
                     artifact.get("id") != section.attributes["artifact_id"]
                     or artifact.get("title") != section.heading
-                    or not lines
-                    or lines[0] != expected_summary
+                    or canonical_match.end() != len(section.body)
+                    or visible_summary != expected_summary
                 ):
                     raise ValueError(
                         "RAPTOR.RENDER.VISIBLE_MISMATCH: visible artifact disagrees"

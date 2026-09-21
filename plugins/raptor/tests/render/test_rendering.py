@@ -69,6 +69,47 @@ def test_every_family_renders_deterministically_and_round_trips(index: int) -> N
     assert all(label in first.content for label in expected_labels[index])
 
 
+@pytest.mark.parametrize(
+    ("index", "field"),
+    [
+        (0, "statement"),
+        (1, "statement"),
+        (2, "decision"),
+        (3, "overview"),
+        (4, "objective"),
+    ],
+)
+@pytest.mark.parametrize("line_break", ["\n", "\r\n", "\r"])
+def test_multiline_visible_summary_round_trips(
+    index: int, field: str, line_break: str
+) -> None:
+    value = json.loads((REPO / "schema/tests/corpus/all-families.json").read_text())
+    artifact = value["artifacts"][index]
+    artifact[field] = (
+        "first visible line" + line_break + "Canonical Artifact: visible summary text"
+    )
+    value["artifacts"] = [artifact]
+    document = SourceDocument.model_validate(value)
+    profile = RaptorMarkdownProfile()
+    rendered = render_markdown(
+        document,
+        profile=profile,
+        template_set="raptor",
+        output_path="docs/rendered.md",
+        repository_root=REPO,
+        executable=resolve_sc_compose(),
+    )
+    assert compare_semantics(
+        document,
+        rendered.document,
+        profile=profile,
+        content=rendered.content,
+        expected_output_path="docs/rendered.md",
+        template_set="raptor",
+        template_version="1.0.0",
+    ).equal
+
+
 def test_comparator_reports_payload_mutation() -> None:
     value = json.loads((REPO / "schema/tests/corpus/all-families.json").read_text())
     value["artifacts"] = [value["artifacts"][0]]
