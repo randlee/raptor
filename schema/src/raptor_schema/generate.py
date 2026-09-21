@@ -6,13 +6,14 @@ from pathlib import Path
 
 from pydantic import TypeAdapter
 
-from .models import Artifact, IdentityManifest, SourceDocument
+from .models import Artifact, IdentityManifest, RepositoryScanConfig, SourceDocument
 
 
 def _schemas() -> dict[str, dict[str, object]]:
     return {
         "artifact.schema.json": TypeAdapter(Artifact).json_schema(),
         "identity-manifest.schema.json": IdentityManifest.model_json_schema(),
+        "repository-scan-config.schema.json": RepositoryScanConfig.model_json_schema(),
         "source-document.schema.json": SourceDocument.model_json_schema(),
     }
 

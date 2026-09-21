@@ -5,6 +5,10 @@ contains Pydantic v2 models, reference validation, canonical JSON helpers,
 identity-manifest validation, and the source-profile protocol. It contains no
 Markdown parser, persistence adapter, or client plugin.
 
+The package also owns the repository scan-authorization model used by
+`.raptor/sources.toml`. Its normative field and matching requirements are in
+[`docs/configuration.md`](../docs/configuration.md).
+
 ```python
 from raptor_schema import load_canonical_json, validate_document
 

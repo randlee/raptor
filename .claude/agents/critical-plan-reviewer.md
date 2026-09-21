@@ -44,7 +44,7 @@ Expected previous-step fenced JSON:
 {
   "status": "PASS",
   "mode": "plan-hardening-sprint-scope",
-  "round_id": "STEP3-R1",
+  "round_id": "STEP-3-R1",
   "round_index": 1,
   "reviewed_commit": "abc1234",
   "previous_reviewed_commit": "",
@@ -121,7 +121,7 @@ Return fenced JSON only.
   "status": "PASS | FAIL",
   "mode": "critical-plan-review",
   "reviewer": "critical-plan-reviewer",
-  "round_id": "STEP3-R1",
+  "round_id": "STEP-3-R1",
   "round_index": 1,
   "reviewed_commit": "abc1234",
   "previous_reviewed_commit": "",

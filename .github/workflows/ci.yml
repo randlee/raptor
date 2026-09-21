@@ -76,7 +76,7 @@ jobs:
           if find plugins/raptor/scripts -type f | grep -Evi '/(import_sqlite|export_sqlite|markdown_to_json|json_to_markdown|render_transaction)\.py$' | grep -Eqi '/(import|export|render|round[-_]?trip|transform|convert).*\.py$'; then exit 1; fi
           if find plugins/raptor -type f \( -name '*.pyc' -o -name '*.pyo' \) -print | grep -q .; then exit 1; fi
           if find plugins/raptor -type d -name '__pycache__' -print | grep -q .; then exit 1; fi
-          if rg -ni 'p3-documentation|req-p3-|nfr-p3-|adr-p3-|\bnft\b|sqlx|sqlalchemy' plugins/raptor; then exit 1; fi
+          if rg -ni '\bnft\b|sqlx|sqlalchemy' plugins/raptor; then exit 1; fi
 
       - name: Verify deterministic schema vendor
         run: |

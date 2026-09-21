@@ -79,6 +79,17 @@ requirements, non-functional requirements, and architecture decisions.
 Acceptance: every fixture has an origin-manifest entry naming a `REQ-RAP-*`,
 `NFR-RAP-*`, or `ADR-RAP-*` source artifact.
 
+### REQ-RAP-010 — Explicit scan authorization
+
+Raptor shall scan only files authorized by a valid, versioned repository scan
+configuration containing non-overlapping repository-relative source roots and
+include/exclude filters.
+
+Acceptance: the executable model and generated JSON Schema reject absent or empty
+source lists, traversal, absolute paths, ambiguous glob syntax, duplicates, and
+overlapping roots; matching tests prove that unlisted and excluded files are not
+authorized.
+
 ## Non-functional requirements
 
 ### NFR-RAP-001 — Consumer neutrality
@@ -127,3 +138,12 @@ separate stacked change.
 
 Acceptance: A1 passes its authoritative checks without relying on persistence,
 plugin, Markdown parser, or rendering implementation.
+
+### NFR-RAP-007 — Platform-independent scan matching
+
+Repository scan paths and globs shall have one case-sensitive POSIX interpretation
+on every supported operating system.
+
+Acceptance: the configuration contract specifies its complete glob dialect and
+tests root-level, nested, excluded, outside-root, and invalid-pattern cases without
+depending on host path matching behavior.

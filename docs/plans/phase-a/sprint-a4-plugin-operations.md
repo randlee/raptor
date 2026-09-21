@@ -73,7 +73,7 @@ The built-in Raptor profile is the only committed profile/fixture source. A temp
 | A4-AC6 | Apply uses atomic replacement for a single file or one SQLite transaction for a database; validation never mutates, and A4 makes no cross-resource atomicity claim. |
 | A4-AC7 | A3 vendor hash/bootstrap/registry/runner/client parity gates continue passing after scripts are added. |
 | A4-AC8 | JSON→Markdown, round-trip, and Dolt retain their exact structured unsupported responses; no templates or Dolt implementation appear. |
-| A4-AC9 | No P3 asset, `NFT`, Rust SQLx, duplicated client logic, secret, or raw tool trace is present. |
+| A4-AC9 | No external-consumer asset, `NFT`, Rust SQLx, duplicated client logic, secret, or raw tool trace is present. |
 | A4-AC10 | A4 alone implements identity registration and CLI tests covering validate versus apply, first/repeat import, clone/root-path change, repository/document/path conflict or reuse, and legacy missing identity without inference; A1 model/schema APIs are reused rather than duplicated. |
 | A4-AC11 | Route tests prove document, batch, structural, and store-backed reference modes with same-document, cyclic batch, existing-store, and missing cross-repository cases and exact diagnostics. |
 | A4-AC12 | Direct runtime tests cover transformations/orchestration; AST/import-boundary tests prove scripts are thin wrappers, and identity/profile tests prove A4 imports every boundary type from `raptor_schema.profiles` without redefining the protocol or data classes. |

@@ -20,6 +20,7 @@
     "_vendor/raptor_schema/models/artifacts.py",
     "_vendor/raptor_schema/models/base.py",
     "_vendor/raptor_schema/models/common.py",
+    "_vendor/raptor_schema/models/config.py",
     "_vendor/raptor_schema/models/document.py",
     "_vendor/raptor_schema/models/identity.py",
     "_vendor/raptor_schema/models/provenance.py",
@@ -127,6 +128,7 @@
       "models/artifacts.py",
       "models/base.py",
       "models/common.py",
+      "models/config.py",
       "models/document.py",
       "models/identity.py",
       "models/provenance.py",
@@ -138,7 +140,7 @@
       "storage/sqlite.py"
     ],
     "package_version": "1.0.0",
-    "tree_sha256": "4d1b6330fc126219bd2081caf598d292f07498ba873f36ee7974c0c57fad1b01"
+    "tree_sha256": "f39b7ed43350898bd2909696eb3334413c23171ce6ab90372286c6e560c213be"
   },
   "version": "1.0.0"
 }

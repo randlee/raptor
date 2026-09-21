@@ -37,7 +37,7 @@ Expected reviewer launch input shape:
   "previous_step_json": {
     "status": "PASS",
     "mode": "plan-hardening-sprint-scope",
-    "round_id": "STEP3-R1",
+    "round_id": "STEP-3-R1",
     "round_index": 1,
     "reviewed_commit": "abc1234",
     "previous_reviewed_commit": ""

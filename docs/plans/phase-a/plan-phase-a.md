@@ -5,7 +5,7 @@
 - Status: planning; no implementation sprint may start until plan hardening passes.
 - Source of truth: this file defines Phase A scope and ordering. Each linked sprint file is authoritative for that sprint's deliverables, acceptance criteria, and validation.
 - Branch model: one `gh-stack` PR per sprint in the order below, with the stack rooted at `develop`.
-- Product boundary: Raptor is a consumer-neutral system for requirements, non-functional requirements, architecture decisions, design documents, and test plans. P3 Documentation is only the first external consumer.
+- Product boundary: Raptor is a consumer-neutral system for requirements, non-functional requirements, architecture decisions, design documents, and test plans. Consumer migrations remain outside this repository.
 
 ## Outcome
 
@@ -38,12 +38,13 @@ This establishes the contract needed to migrate 30–50 repositories without put
 | PA-REQ-007 | Render Markdown through sc-compose templates that accept canonical model data. |
 | PA-REQ-008 | Prove semantic round-trip equivalence after render and reparse; byte-for-byte Markdown identity is not required. |
 | PA-REQ-009 | Derive in-repository examples and fixtures only from Raptor-owned `REQ-RAP-*`, `NFR-RAP-*`, and `ADR-RAP-*` artifacts. |
+| PA-REQ-010 | Authorize repository scans only through a valid Raptor-owned configuration of non-overlapping roots and include/exclude filters. |
 
 ## Quality requirements
 
 | ID | Requirement |
 |---|---|
-| PA-NFR-001 | Raptor remains consumer-neutral: no `p3-documentation` fixture, test, adapter, path convention, identifier range, or legacy spelling belongs in this repository. |
+| PA-NFR-001 | Raptor remains consumer-neutral: no external-consumer fixture, test, adapter, path convention, identifier range, or legacy spelling belongs in this repository. |
 | PA-NFR-002 | `NFR` is the only canonical abbreviation for non-functional requirement; `NFT` is invalid. |
 | PA-NFR-003 | Prefer a small Python reference implementation and standard-library SQLite; do not add Rust SQLx in Phase A. |
 | PA-NFR-004 | Canonical serialization, schema generation, persistence, rendering inputs, and comparison are deterministic. |
@@ -69,6 +70,7 @@ This establishes the contract needed to migrate 30–50 repositories without put
 | A3 | [Plugin foundation](sprint-a3-plugin-foundation.md) | `phase-a/03-plugin-foundation` | `must_follow` A2 | Deliver discovery, router/agent contracts, deterministic vendor/bootstrap, shared runner, and thin client adapters. |
 | A4 | [Validate/import/export operations](sprint-a4-plugin-operations.md) | `phase-a/04-plugin-operations` | `must_follow` A3 | Activate Markdown/JSON/SQLite validation, import, and export through six focused agents. |
 | A5 | [sc-compose rendering and round-trip](sprint-a5-render-and-roundtrip.md) | `phase-a/05-render-and-roundtrip` | `must_follow` A4 | Render all five families and prove identity/provenance-aware semantic reparse equivalence. |
+| A6 | [Repository scan configuration](sprint-a6-repository-scan-config.md) | `phase-a/06-repository-scan-config` | `must_follow` A5 | Publish the explicit file-scan authorization contract before adding repository traversal or routing rules. |
 
 All relations are `must_follow`. The public contract or generated artifact produced by each parent is consumed by its child. Parent development must be merged forward before every child development or fix round, and parent PRs merge before child PRs.
 
@@ -226,9 +228,10 @@ An external repository may supply Markdown adapters, profile rules, and its own 
 | PA-REQ-007 | A5 | five sc-compose templates and render tests |
 | PA-REQ-008 | A5 | semantic round-trip tests for all five families |
 | PA-REQ-009 | A1–A5 | fixture-origin audit tied to Raptor artifact IDs |
+| PA-REQ-010 | A6 | scan configuration models, generated schema, normative requirements, and allowlist matching tests |
 | PA-NFR-001, PA-NFR-002 | every sprint | repository-wide forbidden-content gates |
 | PA-NFR-003 | A1, A2 | bounded Python implementation; no SQLx dependency |
-| PA-NFR-004, PA-NFR-005 | A1–A5 | deterministic-output and unsupported-version tests |
+| PA-NFR-004, PA-NFR-005 | A1–A6 | deterministic-output and unsupported-version tests |
 | PA-NFR-006 | every sprint | one reviewed stacked PR per sprint |
 
 ## Phase acceptance
@@ -238,7 +241,7 @@ Phase A is complete only when:
 1. Every sprint PR has met its own acceptance criteria and merged in stack order.
 2. A Raptor-owned Markdown artifact can traverse the complete pipeline and return semantically equivalent canonical JSON.
 3. The same public interfaces can be invoked by an external consumer without adding consumer-specific code or test data to Raptor.
-4. Repository checks find no `NFT`, `p3-documentation`, P3-specific identifiers, Rust SQLx, Dolt integration, or bulk-migration implementation in Phase A artifacts.
+4. Repository checks find no `NFT`, external-consumer-specific identifiers, Rust SQLx, Dolt integration, or bulk-migration implementation in Phase A artifacts.
 5. Schema, SQL, templates, plugin assets, and tests are version-aligned and documented at their public entry points.
 6. Both client packages contain the same registered skills, focused references, agents, runtime modules, thin scripts, complete `.j2` inventory, schema vendor, and manifest metadata; CI fails omissions or version/path drift.
 
@@ -248,8 +251,8 @@ The following are intentionally deferred:
 
 - Dolt/MySQL DDL, drivers, operational topology, branching policy, and production migration.
 - Rust SQLx or any parallel Rust persistence implementation.
-- migration of P3 Documentation or any of the 30–50 source repositories.
-- P3 adapters, legacy `NRF` handling, identifier ranges, Markdown fixtures, or compatibility tests.
+- migration of external source repositories.
+- external-consumer adapters, legacy spelling handling, identifier ranges, Markdown fixtures, or compatibility tests.
 - byte-for-byte preservation of source Markdown formatting.
 - fleet orchestration, remote execution, registry service, web UI, authorization, and multi-tenant behavior.
 

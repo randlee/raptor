@@ -96,7 +96,7 @@ plugins/raptor/templates/
 | A5-AC7 | The first executable preflight runs `which sc-compose && sc-compose --version`, follows the pinned common-location/troubleshooting path when absent, and enforces the shared manifest's authoritative `>=1.6.1,<2.0.0` range; boundary tests cover missing, `1.6.0`, `1.6.1`, newer compatible 1.x, unparseable, and 2.x versions before delegation. |
 | A5-AC8 | Both client packages contain identical complete runtime, thin-script, eight-agent, and `.j2` inventories; omission/extra/hash/version drift fails CI. |
 | A5-AC9 | Dolt references still return structured unsupported and no Dolt implementation is added. |
-| A5-AC10 | No P3 asset, `NFT`, Rust SQLx, bulk rewrite/migration, secret, or raw tool trace is present. |
+| A5-AC10 | No external-consumer asset, `NFT`, Rust SQLx, bulk rewrite/migration, secret, or raw tool trace is present. |
 | A5-AC11 | Failure injection before and after every journal transition, including crash after SQLite commit but before marker advance, proves restart rollback for pre-identity states, roll-forward for identity/DB-pending states, idempotent retry, conflict detection, lock exclusion, and cleanup only after completion. |
 | A5-AC12 | Rendering/transaction/comparison behavior is tested through importable runtime APIs; scripts contain only argument parsing, runtime invocation, envelope serialization, and exit-code mapping. |
 

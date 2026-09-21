@@ -52,6 +52,7 @@ from .common import (
     SourceLocation,
     UriTarget,
 )
+from .config import GlobPattern, RepositoryScanConfig, ScanSource
 from .document import SourceDocument
 from .identity import (
     IDENTITY_DOCUMENT_CONFLICT,
@@ -104,6 +105,7 @@ __all__ = [
     "DocumentId",
     "DocumentKey",
     "ExtensionKey",
+    "GlobPattern",
     "IdentityConflict",
     "IdentityDocument",
     "IdentityManifest",
@@ -122,7 +124,9 @@ __all__ = [
     "RepositoryId",
     "RepositoryPath",
     "Requirement",
+    "RepositoryScanConfig",
     "SchemaVersion",
+    "ScanSource",
     "Sha256",
     "SourceDocument",
     "SourceLocation",

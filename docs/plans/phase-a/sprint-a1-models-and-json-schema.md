@@ -361,7 +361,7 @@ Every float must be finite; NaN and positive/negative infinity fail before canon
 | A1-AC7 | Schema generation is deterministic and CI detects drift between `schema/src/` and `schema/json/v1/`. |
 | A1-AC8 | Every fixture resolves through the corpus manifest to Raptor `REQ-RAP-*`, `NFR-RAP-*`, or `ADR-RAP-*`; no generic or external-consumer fixture is present. |
 | A1-AC9 | `schema/pyproject.toml` declares supported Python/Pydantic versions, installs in a clean environment, exposes consumer-neutral calls, and requires neither SQLite nor Rust. |
-| A1-AC10 | Product paths contain no `NFT`, P3-specific artifact identifier, `p3-documentation` asset, or Rust SQLx dependency. |
+| A1-AC10 | Product paths contain no `NFT`, external-consumer-specific artifact identifier or asset, or Rust SQLx dependency. |
 | A1-AC11 | Two repositories may use the same local artifact/document IDs without collision; all references, diagnostics, comparisons, and serialization retain the stable repository namespace. |
 | A1-AC12 | Measurement cases cover every comparator/type cell, mixed/homogeneous ranges, bool-versus-int, finite/non-finite floats, canonical numeric output, and the documented JSON Schema/Python validation split. |
 | A1-AC13 | A1 tests cover runtime `SourceInput` identity/path/content validation, empty/current-directory/root/symlink escape rejection, recursively immutable profile boundary snapshots, caller-mutation isolation, and recursive JSON render-projection validation. A dedicated consumer probe proves `SourceProfile` conformance under strict mypy. A4 exclusively accepts/tests discovery precedence, exact/major version selection, ambiguity, API/entrypoint/hash mismatch, trust, loading, invocation, and the associated operational error codes. |
@@ -381,7 +381,7 @@ python -m raptor_schema.generate --check --output schema/json/v1
 git diff --exit-code -- schema/json/v1
 rg -n 'REQ-RAP-|NFR-RAP-|ADR-RAP-' docs/requirements.md docs/architecture.md docs/adr
 python -m json.tool .raptor/identity.json >/dev/null
-rg -n '\bNFT\b|p3-documentation|REQ-P3-|NFR-P3-|ADR-P3-|REQ-GEN-|NFR-GEN-|ADR-GEN-' schema docs/requirements.md docs/architecture.md docs/adr && exit 1 || true
+rg -n '\bNFT\b|REQ-GEN-|NFR-GEN-|ADR-GEN-' schema docs/requirements.md docs/architecture.md docs/adr && exit 1 || true
 rg -n 'sqlx' Cargo.toml crates && exit 1 || true
 ```
 

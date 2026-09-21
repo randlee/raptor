@@ -484,6 +484,18 @@ def _plugin_inventory(plugin_root: Path) -> list[str]:
     )
 
 
+def _publication_inventory(
+    plugin_root: Path, vendor_inventory: list[str]
+) -> list[str]:
+    current = {
+        path
+        for path in _plugin_inventory(plugin_root)
+        if not path.startswith("_vendor/raptor_schema/")
+    }
+    current.update(f"_vendor/raptor_schema/{path}" for path in vendor_inventory)
+    return sorted(current)
+
+
 def refresh(plugin_root: Path, *, fail_at: str | None = None) -> dict[str, Any]:
     cli_requirement = load_sc_compose_requirement(plugin_root)
     plugin_root = plugin_root.resolve()
@@ -546,7 +558,7 @@ def refresh(plugin_root: Path, *, fail_at: str | None = None) -> dict[str, Any]:
                 "inventory": inventory,
             },
             "agents": hashes,
-            "inventory": _plugin_inventory(plugin_root),
+            "inventory": _publication_inventory(plugin_root, inventory),
         }
         atomic_json(manifest_stage, publication, indent=2)
         checkpoint("after_manifest_stage")
