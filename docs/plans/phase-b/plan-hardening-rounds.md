@@ -8,7 +8,7 @@ This ledger records review of [`plan-phase-b.md`](plan-phase-b.md) and all Phase
 | 1 | 1 | arch-ctm | c55471f6f4a34315e77b78ab1447ecdf8870c0ea | PASS | 0 | 0 | 0 | step1-guidelines-pass | initial-phase-b-authoring | Ratified the three open contracts, removed operation/CLI ambiguity, and split overloaded closures into eight production-bounded sprints; the following metadata-only commit records this reviewed content commit. |
 | 1 | 2 | plan-scope-reviewer | c4e48421d40413798d1d426d29bdc8548819bd97 | FAIL | 0 | 6 | 0 | cfe785faf5044ea40d6274a00675d95d788a61075c81237d4282653f731d81c0 | step1-guidelines-pass | PB-SCOPE-001..006: complete B1/B6/B8 contracts, identity architecture authority, revision ownership, and B8 split. |
 | 2 | 1 | arch-ctm | 86b09830685285a5ec1aed6b159558106d44a5d2 | PASS | 0 | 0 | 0 | step1-r2-correction | cfe785faf5044ea40d6274a00675d95d788a61075c81237d4282653f731d81c0 | Applied all six scope corrections and split non-mutating certification from apply/recovery as B8/B9. |
-| 2 | 3 | arch-ctm | WORKTREE | PASS | 0 | 0 | 0 | step3-sprint-scope-handoff | cfe785faf5044ea40d6274a00675d95d788a61075c81237d4282653f731d81c0 | Verified PB-SCOPE-001..006 closure and nine-sprint production boundaries; corrected receipt ordering and validate/apply certification binding. |
+| 2 | 3 | arch-ctm | 4fb9584520c90a76a10cf13768194a1c3c572e71 | PASS | 0 | 0 | 0 | step3-sprint-scope-handoff | cfe785faf5044ea40d6274a00675d95d788a61075c81237d4282653f731d81c0 | Verified PB-SCOPE-001..006 closure and nine-sprint production boundaries; corrected receipt ordering and validate/apply certification binding. |
 
 ## Initial author handoff
 
@@ -94,7 +94,7 @@ This ledger records review of [`plan-phase-b.md`](plan-phase-b.md) and all Phase
   "mode": "plan-hardening-sprint-scope",
   "round_id": "STEP-3-R1",
   "round_index": 1,
-  "reviewed_commit": "WORKTREE",
+  "reviewed_commit": "4fb9584520c90a76a10cf13768194a1c3c572e71",
   "previous_reviewed_commit": "86b09830685285a5ec1aed6b159558106d44a5d2",
   "findings_hash": "cfe785faf5044ea40d6274a00675d95d788a61075c81237d4282653f731d81c0",
   "iterations": 2,
