@@ -31,7 +31,10 @@ def test_generated_scan_config_schema_accepts_neutral_example() -> None:
     RepositoryScanConfig.model_validate(payload)
 
 
-@pytest.mark.parametrize("pattern", ["../*.md", "/**/*.md", "!draft/**", "*.{md,txt}"])
+@pytest.mark.parametrize(
+    "pattern",
+    ["../*.md", "/**/*.md", "!draft/**", "*.{md,txt}", " *.md", "*.md "],
+)
 def test_generated_scan_config_schema_rejects_invalid_globs(pattern: str) -> None:
     payload = {
         "schema_version": "1.0.0",
@@ -43,6 +46,49 @@ def test_generated_scan_config_schema_rejects_invalid_globs(pattern: str) -> Non
             }
         ],
     }
+    schema = json.loads(SCHEMA.read_text(encoding="utf-8"))
+
+    with pytest.raises(jsonschema.ValidationError):
+        jsonschema.validate(payload, schema)
+
+
+@pytest.mark.parametrize("root", [".git/objects", ".raptor/state"])
+def test_generated_scan_config_schema_rejects_control_roots(root: str) -> None:
+    payload = {
+        "schema_version": "1.0.0",
+        "sources": [
+            {"name": "requirements", "root": root, "include": ["**/*.md"]}
+        ],
+    }
+    schema = json.loads(SCHEMA.read_text(encoding="utf-8"))
+
+    with pytest.raises(jsonschema.ValidationError):
+        jsonschema.validate(payload, schema)
+
+
+@pytest.mark.parametrize("field", ["include", "exclude"])
+def test_generated_scan_config_schema_rejects_duplicate_patterns(field: str) -> None:
+    source = {
+        "name": "requirements",
+        "root": "specifications/requirements",
+        "include": ["**/*.md"],
+        "exclude": [],
+    }
+    source[field] = ["**/*.md", "**/*.md"]
+    payload = {"schema_version": "1.0.0", "sources": [source]}
+    schema = json.loads(SCHEMA.read_text(encoding="utf-8"))
+
+    with pytest.raises(jsonschema.ValidationError):
+        jsonschema.validate(payload, schema)
+
+
+def test_generated_scan_config_schema_rejects_identical_sources() -> None:
+    source = {
+        "name": "requirements",
+        "root": "specifications/requirements",
+        "include": ["**/*.md"],
+    }
+    payload = {"schema_version": "1.0.0", "sources": [source, source]}
     schema = json.loads(SCHEMA.read_text(encoding="utf-8"))
 
     with pytest.raises(jsonschema.ValidationError):

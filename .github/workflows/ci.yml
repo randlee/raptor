@@ -78,6 +78,10 @@ jobs:
           if find plugins/raptor -type d -name '__pycache__' -print | grep -q .; then exit 1; fi
           if rg -ni '\bnft\b|sqlx|sqlalchemy' plugins/raptor; then exit 1; fi
 
+      - name: Enforce repository neutrality
+        run: |
+          if rg -ni --hidden --glob '!.git/**' --glob '!.sc/**' '[p]3' .; then exit 1; fi
+
       - name: Verify deterministic schema vendor
         run: |
           python plugins/raptor/scripts/vendor_schema.py

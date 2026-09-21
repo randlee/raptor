@@ -188,6 +188,8 @@ def test_ci_wires_complete_case_insensitive_exclusion_gates() -> None:
         "-iname 'marketplace.json'",
         "grep -eqi '/(import|export|render|round[-_]?trip|transform|convert).*\\.py$'",
         "rg -ni",
+        "--hidden",
+        "[p]3",
         "\\b" + "n" + "ft\\b",
         "sql" + "x",
         "__pycache__",

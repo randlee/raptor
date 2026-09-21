@@ -101,3 +101,19 @@ def test_double_star_matches_zero_or_more_directories() -> None:
     assert scan.matching_source("specifications/requirements/REQ-RAP-010.md")
     assert scan.matching_source("specifications/requirements/a/b/REQ-RAP-010.md")
     assert scan.matching_source("specifications/requirements/REQ-RAP-010.txt") is None
+
+
+@pytest.mark.parametrize(
+    "candidate",
+    [
+        "specifications/requirements/../secret.md",
+        "specifications/requirements/a/../../secret.md",
+        "specifications/requirements/a\\outside.md",
+        "",
+        "specifications/requirements/",
+    ],
+)
+def test_matching_fails_closed_for_invalid_candidate_paths(candidate: str) -> None:
+    scan = config(source(include=["**/*.md"]))
+
+    assert scan.matching_source(candidate) is None

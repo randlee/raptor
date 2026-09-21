@@ -3,7 +3,14 @@ from __future__ import annotations
 import re
 from typing import Annotated
 
-from pydantic import AfterValidator, Field, StringConstraints, WithJsonSchema, model_validator
+from pydantic import (
+    AfterValidator,
+    Field,
+    StringConstraints,
+    TypeAdapter,
+    WithJsonSchema,
+    model_validator,
+)
 
 from .base import ContractModel, RepositoryPath, SchemaVersion
 
@@ -30,10 +37,32 @@ GlobPattern = Annotated[
         {
             "type": "string",
             "minLength": 1,
-            "pattern": r"^(?![!/])(?!.*\\)(?!.*(?:^|/)(?:\.|\.\.)(?:/|$))(?!.*\*\*\*)(?!.*[\[\]{}])[^/]+(?:/[^/]+)*$",
+            "pattern": r"^(?!\s)(?!.*\s$)(?![!/])(?!.*\\)(?!.*(?:^|/)(?:\.|\.\.)(?:/|$))(?!.*\*\*\*)(?!.*[\[\]{}])[^/]+(?:/[^/]+)*$",
         }
     ),
     AfterValidator(_glob_pattern),
+]
+
+_REPOSITORY_PATH_ADAPTER = TypeAdapter(RepositoryPath)
+
+
+def _scan_root(value: str) -> str:
+    root = _REPOSITORY_PATH_ADAPTER.validate_python(value)
+    if root.split("/", 1)[0] in {".git", ".raptor"}:
+        raise ValueError("Raptor control directories may not be scan roots")
+    return root
+
+
+ScanRoot = Annotated[
+    str,
+    WithJsonSchema(
+        {
+            "type": "string",
+            "minLength": 1,
+            "pattern": r"^(?!/)(?!\.{1,2}(?:/|$))(?!.*(?:/\.{1,2})(?:/|$))(?!.*//)(?!.*/$)(?!.*\\)(?!(?:\.git|\.raptor)(?:/|$)).+$",
+        }
+    ),
+    AfterValidator(_scan_root),
 ]
 
 
@@ -66,21 +95,26 @@ class ScanSource(ContractModel):
         str,
         StringConstraints(pattern=r"^[a-z][a-z0-9_-]{0,63}$"),
     ]
-    root: RepositoryPath
-    include: list[GlobPattern] = Field(min_length=1)
-    exclude: list[GlobPattern] = Field(default_factory=list)
+    root: ScanRoot
+    include: list[GlobPattern] = Field(
+        min_length=1, json_schema_extra={"uniqueItems": True}
+    )
+    exclude: list[GlobPattern] = Field(
+        default_factory=list, json_schema_extra={"uniqueItems": True}
+    )
 
     @model_validator(mode="after")
     def unique_patterns(self) -> "ScanSource":
-        if self.root.split("/", 1)[0] in {".git", ".raptor"}:
-            raise ValueError("Raptor control directories may not be scan roots")
         for label, patterns in (("include", self.include), ("exclude", self.exclude)):
             if len(patterns) != len(set(patterns)):
                 raise ValueError(f"{label} patterns must be unique")
         return self
 
     def matches(self, repository_path: RepositoryPath | str) -> bool:
-        path = str(repository_path)
+        try:
+            path = _REPOSITORY_PATH_ADAPTER.validate_python(repository_path)
+        except ValueError:
+            return False
         prefix = f"{self.root}/"
         if not path.startswith(prefix):
             return False
@@ -92,7 +126,9 @@ class ScanSource(ContractModel):
 
 class RepositoryScanConfig(ContractModel):
     schema_version: SchemaVersion
-    sources: list[ScanSource] = Field(min_length=1)
+    sources: list[ScanSource] = Field(
+        min_length=1, json_schema_extra={"uniqueItems": True}
+    )
 
     @model_validator(mode="after")
     def unique_non_overlapping_sources(self) -> "RepositoryScanConfig":
@@ -116,4 +152,4 @@ class RepositoryScanConfig(ContractModel):
         return matches[0] if matches else None
 
 
-__all__ = ["GlobPattern", "RepositoryScanConfig", "ScanSource"]
+__all__ = ["GlobPattern", "RepositoryScanConfig", "ScanRoot", "ScanSource"]

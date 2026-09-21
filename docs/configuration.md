@@ -44,6 +44,10 @@ exclude = ["README.md"]
 
 Unknown fields are errors. Configuration values are not environment-expanded,
 shell-expanded, URL-decoded, or interpreted as regular expressions.
+JSON Schema enforces structural and per-value constraints, including identical
+array-item duplication. Cross-source name uniqueness and ancestor/descendant root
+overlap are runtime Pydantic checks because those comparisons are not generally
+expressible in standard JSON Schema.
 
 ### Glob dialect
 
