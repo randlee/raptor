@@ -4,10 +4,70 @@ Raptor repository configuration is owned and versioned by Raptor. A consuming
 repository stores committed configuration below `.raptor/`; consumer-specific
 conventions must not be added to the Raptor schema, examples, or tests.
 
+## Ingress configuration inventory
+
+Version 1 ingress starts at the repository root and reads
+`.raptor/raptor.toml`. The following table exhaustively defines the committed
+configuration selected by that manifest. An ingress operation must not infer an
+omitted file or scan an undeclared path.
+
+| Artifact | Format and model | Fields | Ownership and role |
+|---|---|---|---|
+| `.raptor/raptor.toml` | TOML decoded as `RepositoryConfigManifest` | `schema_version`, `repository_id`, `files.scan`, `files.routing`, `files.identity` | Required entrypoint. Names the three ingress artifacts relative to `.raptor/`; no conventional fallback is allowed. |
+| manifest-selected scan file (normally `sources.toml`) | TOML decoded as `RepositoryScanConfig` | `schema_version`; each `sources[]`: `name`, `root`, `include`, optional `exclude` | Required scan authorization. It determines the complete set of files ingress may read. |
+| manifest-selected routing file (normally `routing.toml`) | TOML decoded as `RepositoryRoutingConfig` | `schema_version`; each `routes[]`: `source`, `profile.profile_id`, `profile.profile_version`, `artifact_types` | Required source classification. It selects an exact format profile and the artifact families permitted for every scan source. |
+| manifest-selected identity file (normally `identity.json`) | JSON decoded as `IdentityManifest` | `identity_version`, `repository_id`; `documents` object keyed by document ID with `path` | Required durable identity state. Document IDs and paths are one-to-one within the repository and the repository ID must agree with the entrypoint. |
+
+Profile and template assets are committed repository data but are not yet named
+by `RepositoryConfigManifest`. The current runtime discovers a selected
+`.raptor/profiles/<profile-id>/<version>/profile.json` containing `profile_id`,
+`profile_version`, `api_version`, `entrypoint`, and `module_sha256`, then reads
+the hash-pinned adjacent JSON declaration named by `entrypoint`. The merged
+architecture and runtime disagree about whether this boundary supports an
+executable source profile or only a declaration selecting the built-in Markdown
+implementation. Corpus ingress must not rely on a non-built-in profile until an
+owning plan resolves that contract and updates the architecture, runtime, and
+tests together.
+
+Rendering is the reverse boundary, not ingress. A selected external template
+set is stored at `.raptor/template-sets/<name>/template-set.json` with exactly
+`name`, `version`, `templates`, and `sha256`. `templates` maps every canonical
+artifact family to one direct-child `.j2` entry template; `sha256` maps every
+inventoried template to its digest. Selection of a template set and staging
+destination is an explicit operation input until a versioned repository model
+defines otherwise.
+
+Database destinations, credentials, validate/apply mode, reference-resolution
+mode, temporary or staging paths, template-set selection, and the migration
+trust-policy path are explicit operation inputs. The trust policy is strict JSON
+containing `policy_version`, `authority_id`, and non-empty `tools`; each tool
+entry contains `role`, `tool_id`, exact `tool_version`, `tool_bundle_sha256`,
+`executable_sha256`, optional `interpreter_sha256`, exact normalized `argv`, and
+`working_directory_role`. These values are not repository content and must not
+be inferred from unrelated files or stored in the ingress artifacts above.
+
+## Generated runtime state
+
+Generated state is never source input and must be excluded from scans:
+
+| Namespace | Owner and lifecycle |
+|---|---|
+| `.raptor/state/logs/` | Agent-run audit output; append-only during an invocation and removable after evidence retention requirements are met. |
+| `.raptor/identity.lock` | Process lock for identity and render transactions; ephemeral and never committed. |
+| `.raptor/transactions/<id>.json` | Durable recovery journal; retained until the transaction reaches a verified terminal state. |
+| `.raptor/transactions/<id>.lock` and `database-<digest>.lock` | Ephemeral transaction/database locks; never committed. |
+| `<output>.raptor-<id>.stage` and `<output>.raptor-<id>.backup` | Path-scoped render stages and backups; removed only after verified completion or recovery. |
+| `<identity>.raptor-<id>.stage` and `<identity>.raptor-<id>.backup` | Identity stages and backups resolved from the manifest-selected identity path; removed only after verified completion or recovery. |
+
+The current runtime still hardcodes `.raptor/identity.json` in identity and
+transaction paths. Repository-root corpus ingress is not conformant until the
+manifest-selected identity path is propagated through those call sites.
+
 ## Scan authorization
 
-`.raptor/sources.toml` is the authoritative allowlist of files that Raptor may
-inspect. The file decodes to `RepositoryScanConfig` and must validate against
+The manifest-selected scan file (conventionally `.raptor/sources.toml`) is the
+authoritative allowlist of files that Raptor may inspect. The file decodes to
+`RepositoryScanConfig` and must validate against
 `schema/json/v1/repository-scan-config.schema.json` before filesystem traversal.
 The initial contract answers only which files may be inspected. Artifact-family,
 parser, mapping, and rendering rules are separate future configuration contracts.
@@ -80,8 +140,9 @@ declaration is unauthorized and must not be read by a scan operation.
 
 ## Source routing
 
-`.raptor/routing.toml` binds every named scan source to the source profile and
-canonical artifact families permitted for that source. It decodes to
+The manifest-selected routing file (conventionally `.raptor/routing.toml`)
+binds every named scan source to the source profile and canonical artifact
+families permitted for that source. It decodes to
 `RepositoryRoutingConfig` and validates against
 `schema/json/v1/repository-routing-config.schema.json`.
 
