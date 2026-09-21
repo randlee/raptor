@@ -5,24 +5,37 @@ from typing import Annotated, TypeAlias
 
 from pydantic import AfterValidator, BaseModel, ConfigDict, JsonValue, StringConstraints, WithJsonSchema
 
-SCHEMA_VERSION_RE = (
-    r"^(?:[1-9][0-9]*)\.(?:0|[1-9][0-9]*)\.(?:0|[1-9][0-9]*)\z"
+_SCHEMA_VERSION_BODY = (
+    r"(?:[1-9][0-9]*)\.(?:0|[1-9][0-9]*)\.(?:0|[1-9][0-9]*)"
 )
-SCHEMA_VERSION_JSON_RE = (
-    r"^(?:[1-9][0-9]*)\.(?:0|[1-9][0-9]*)\.(?:0|[1-9][0-9]*)(?![\s\S])"
-)
-CANONICAL_SCHEMA_VERSION_RE = (
-    r"^1\.(?:0|[1-9][0-9]*)\.(?:0|[1-9][0-9]*)\z"
-)
-CANONICAL_SCHEMA_VERSION_JSON_RE = (
-    r"^1\.(?:0|[1-9][0-9]*)\.(?:0|[1-9][0-9]*)(?![\s\S])"
+_CANONICAL_SCHEMA_VERSION_BODY = r"1\.(?:0|[1-9][0-9]*)\.(?:0|[1-9][0-9]*)"
+_PROFILE_ID_BODY = r"[a-z][a-z0-9_-]*"
+
+
+def _python_pattern(body: str) -> str:
+    return rf"^{body}\Z"
+
+
+def _pydantic_pattern(body: str) -> str:
+    return rf"^{body}\z"
+
+
+def _json_schema_pattern(body: str) -> str:
+    return rf"^{body}(?![\s\S])"
+
+
+SCHEMA_VERSION_RE = _python_pattern(_SCHEMA_VERSION_BODY)
+SCHEMA_VERSION_JSON_RE = _json_schema_pattern(_SCHEMA_VERSION_BODY)
+CANONICAL_SCHEMA_VERSION_RE = _python_pattern(_CANONICAL_SCHEMA_VERSION_BODY)
+CANONICAL_SCHEMA_VERSION_JSON_RE = _json_schema_pattern(
+    _CANONICAL_SCHEMA_VERSION_BODY
 )
 REPOSITORY_ID_RE = r"^urn:raptor:repo:[a-z0-9][a-z0-9._-]{2,127}$"
 DOCUMENT_ID_RE = r"^DOC-[A-Z0-9][A-Z0-9-]*-[0-9]{3,}$"
 ARTIFACT_ID_RE = r"^(REQ|NFR|ADR|DES|TST)-[A-Z0-9][A-Z0-9-]*-[0-9]{3,}$"
 SHA256_RE = r"^[0-9a-f]{64}$"
 EXTENSION_KEY_RE = r"^[a-z][a-z0-9]*(\.[a-z][a-z0-9_-]*)+$"
-PROFILE_ID_RE = r"^[a-z][a-z0-9_-]*$"
+PROFILE_ID_RE = _python_pattern(_PROFILE_ID_BODY)
 DIAGNOSTIC_CODE_RE = r"^[A-Z][A-Z0-9]*(\.[A-Z][A-Z0-9_]*)+$"
 TEST_CASE_ID_RE = r"^TC-[A-Z0-9][A-Z0-9-]*-[0-9]{3,}$"
 
@@ -45,12 +58,12 @@ def _repository_path(value: str) -> str:
 
 SchemaVersion = Annotated[
     str,
-    StringConstraints(pattern=CANONICAL_SCHEMA_VERSION_RE),
+    StringConstraints(pattern=_pydantic_pattern(_CANONICAL_SCHEMA_VERSION_BODY)),
     WithJsonSchema({"type": "string", "pattern": CANONICAL_SCHEMA_VERSION_JSON_RE}),
 ]
 ProfileVersion = Annotated[
     str,
-    StringConstraints(pattern=SCHEMA_VERSION_RE),
+    StringConstraints(pattern=_pydantic_pattern(_SCHEMA_VERSION_BODY)),
     WithJsonSchema({"type": "string", "pattern": SCHEMA_VERSION_JSON_RE}),
 ]
 RepositoryId = Annotated[str, StringConstraints(pattern=REPOSITORY_ID_RE)]
@@ -60,9 +73,9 @@ Sha256 = Annotated[str, StringConstraints(pattern=SHA256_RE)]
 ExtensionKey = Annotated[str, StringConstraints(pattern=EXTENSION_KEY_RE)]
 ProfileId = Annotated[
     str,
-    StringConstraints(pattern=r"^[a-z][a-z0-9_-]*\z"),
+    StringConstraints(pattern=_pydantic_pattern(_PROFILE_ID_BODY)),
     WithJsonSchema(
-        {"type": "string", "pattern": r"^[a-z][a-z0-9_-]*(?![\s\S])"}
+        {"type": "string", "pattern": _json_schema_pattern(_PROFILE_ID_BODY)}
     ),
 ]
 DiagnosticCode = Annotated[str, StringConstraints(pattern=DIAGNOSTIC_CODE_RE)]

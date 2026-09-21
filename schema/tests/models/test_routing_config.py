@@ -1,12 +1,16 @@
 from __future__ import annotations
 
+import re
+
 import pytest
 from pydantic import ValidationError
 
 from raptor_schema import (
     ArtifactType,
+    PROFILE_ID_RE,
     RepositoryRoutingConfig,
     RepositoryScanConfig,
+    SCHEMA_VERSION_RE,
     validate_source_routing,
 )
 
@@ -176,3 +180,19 @@ def test_validated_routing_collections_cannot_be_mutated() -> None:
         routing.routes.append(route("requirements", "test_plan"))  # type: ignore[attr-defined]
     with pytest.raises(ValidationError):
         selected.artifact_types = ()
+
+
+@pytest.mark.parametrize(
+    ("pattern", "valid", "invalid"),
+    [
+        (SCHEMA_VERSION_RE, "1.0.0", "1.0.0\n"),
+        (PROFILE_ID_RE, "raptor", "raptor\n"),
+    ],
+)
+def test_public_regex_constants_compile_and_match_authoritative_types(
+    pattern: str, valid: str, invalid: str
+) -> None:
+    compiled = re.compile(pattern)
+
+    assert compiled.fullmatch(valid)
+    assert compiled.fullmatch(invalid) is None
