@@ -5,7 +5,7 @@ This ledger records review of [`plan-phase-b.md`](plan-phase-b.md) and all Phase
 | Round | Step | Reviewer | reviewed_commit | status | blocking | important | minor | findings_hash | supersedes | Note |
 |---|---|---|---|---|---:|---:|---:|---|---|---|
 | 1 | 1 | plan author | WORKTREE | READY_FOR_SCOPE_REVIEW | 0 | 0 | 0 | initial-phase-b-authoring | — | Five-sprint initial plan grounded in requirements commit d65599f and Phase A contracts; no reviewer result claimed. |
-| 1 | 1 | arch-ctm | WORKTREE | PASS | 0 | 0 | 0 | step1-guidelines-pass | initial-phase-b-authoring | Ratified the three open contracts, removed operation/CLI ambiguity, and split overloaded closures into eight production-bounded sprints. |
+| 1 | 1 | arch-ctm | c55471fc3a5e0a0e38bb560a99bd666e8d77eaa3 | PASS | 0 | 0 | 0 | step1-guidelines-pass | initial-phase-b-authoring | Ratified the three open contracts, removed operation/CLI ambiguity, and split overloaded closures into eight production-bounded sprints; the following metadata-only commit records this reviewed content commit. |
 
 ## Initial author handoff
 
@@ -16,7 +16,7 @@ This ledger records review of [`plan-phase-b.md`](plan-phase-b.md) and all Phase
   "round_id": "STEP1-R1",
   "round_index": 1,
   "requirements_commit": "d65599fd3332fcdfa75a63913e6679a0616db065",
-  "reviewed_commit": "WORKTREE",
+  "reviewed_commit": "c55471fc3a5e0a0e38bb560a99bd666e8d77eaa3",
   "sprint_count": 5,
   "topology": [
     "B1 migration evidence contracts",
