@@ -69,14 +69,14 @@ They are operator inputs, not repository configuration or authorized corpus cont
 | `repository_manifest` | literal `.raptor/raptor.toml` in v1 |
 | `database_path` | normalized repository-relative SQLite path |
 | `reference_mode` | `batch` or `store`; `store` requires an existing initialized database |
-| `staging_root` | literal `.raptor/state/migrations/<operation_id>/stage` in v1 |
+| `staging_root` | literal `.raptor/state/migrations/<operation_id>/validation/stage/tree` in v1 |
 | `template_set` | exact `name`, `version`, and manifest SHA-256 |
 | `trust_policy_path` | literal `.raptor/operation-input/trust-policy.json` in v1 |
 | `lineage_path` | optional explicit canonical JSON input for split/combine; omitted means generated one-to-one lineage |
-| `ledger_path` | normalized output path below `.raptor/state/migrations/<operation_id>/` |
-| `evidence_directory` | normalized directory below the same operation state root |
+| `ledger_path` | literal `.raptor/state/migrations/<operation_id>/validation/ledger.json` in v1 |
+| `evidence_directory` | literal `.raptor/state/migrations/<operation_id>/evidence` in v1 |
 
-`trust-policy.json` is a `MigrationTrustPolicy` with `policy_version`, `authority_id`, and non-empty `tools`. Each tool has one role (`revision`, `validator`, or `site_build`), stable `tool_id`, exact `tool_version`, `tool_bundle_sha256`, `executable_sha256`, optional `interpreter_sha256`, exact argv array, working-directory role (`repository_root` or `staging_root`), and the versioned environment allowlist. Exactly one revision resolver and at least one tool of each gate role are required for certification. The Phase B revision resolver invokes a policy-pinned Git executable directly to obtain the exact commit; non-Git repositories are outside Phase B. Path arguments are already explicit normalized values in the policy; placeholders are unsupported. No shell, glob, regex, prefix match, trailing argument, ambient `PATH`, or undeclared environment variable is accepted.
+`trust-policy.json` is a `MigrationTrustPolicy` with `policy_version`, `authority_id`, and non-empty `tools`. Each tool has one role (`revision`, `validator`, or `site_build`), stable `tool_id`, exact `tool_version`, a versioned tagged bundle root/source, complete canonical no-follow member inventory and digest, relative entrypoint, deterministic version command and exact expected output, optional interpreter pair, exact argv array, working-directory role (`repository_root` or `staging_root`), versioned environment allowlist, and a complete auxiliary gate-workspace input inventory/digest. Exactly one revision resolver and at least one tool of each gate role are required for certification. The Phase B revision resolver invokes a policy-pinned Git executable directly to obtain the exact commit; non-Git repositories are outside Phase B. Path arguments are already explicit normalized values in the policy; placeholders are unsupported. No shell, glob, regex, prefix match, trailing argument, ambient `PATH`, undeclared bundle member, undeclared workspace read, or undeclared environment variable is accepted.
 
 No credentials are needed for the Phase B SQLite path. A future destination that needs credentials requires a separate versioned secret-reference contract; secrets never enter these JSON documents or evidence.
 
@@ -95,11 +95,22 @@ Validate mode may write only generated stage/evidence data below
 `.raptor/state/migrations/<operation_id>/`; it never changes source Markdown,
 identity, or the target SQLite database. SQLite proof runs against a private
 database in that state root, initialized from or copied from the target as the
-selected reference mode requires. Apply uses the existing path-scoped journal
-and idempotent writes to `database_path`. It revalidates the current revision,
-authorized input tree, staged tree, policy, tools, and complete evidence chain
+selected reference mode requires. Apply uses B9's operation-scoped migration journal
+and idempotent writes to `database_path`. Certification binds the ordered
+filesystem put/delete set with absence-or-digest preconditions and the exact
+post-apply tree inventory; staged bytes alone never authorize a deletion. Apply
+revalidates the current revision, authorized input tree, staged tree, policy,
+complete tool-bundle inventories/version outputs, gate-workspace inputs, and
+complete evidence chain
 immediately before replacement. A changed binding makes the prepared run stale;
 apply does not silently rerun or refresh evidence.
+
+The operation-state layout and lifecycle are exactly those in
+[`docs/configuration.md`](../../configuration.md#generated-runtime-state). B6
+seals the validation stage and apply plan; B7/B8 add evidence/certification and
+advance only the typed ledger state; only B9
+creates `apply/` and journal-indexed destination siblings. Recovery locates by
+operation ID alone and never scans for a plausible journal.
 
 ## Step 1 contract decisions
 
@@ -127,7 +138,7 @@ One-to-one output retains its `DocumentKey`. Split/combine is supported only wit
 - every output document declares its contributing input documents and one primary origin; all contributing immutable origins remain in lineage evidence and in the rendered machine-readable lineage projection;
 - a reused document ID must retain its original immutable origin; every new output document ID is caller-supplied in the lineage input and appears in the proposed identity manifest—no ID is path-derived;
 - input IDs not retained as outputs become explicit retired entries in the versioned identity transition, including last path, replacement IDs, operation ID, and ledger digest; retired IDs cannot be reused;
-- apply atomically replaces the manifest-selected identity file at its own journal boundary, then uses ordinary idempotent SQLite puts/deletes according to the reconciled lineage. It never calls a path-only move API.
+- apply performs the certified ordered filesystem puts/deletes with rollback before identity commit and deterministic roll-forward afterward, atomically replaces the manifest-selected identity file at its own journal boundary, verifies the exact final tree, then uses ordinary idempotent SQLite puts/deletes according to the reconciled lineage. It never calls a path-only move API.
 
 B1 evolves `IdentityManifest` to identity version `2.0.0`: active `documents`
 retain their Phase A shape, and `retired_documents` maps each retired document ID

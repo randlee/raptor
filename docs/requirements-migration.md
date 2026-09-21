@@ -39,7 +39,9 @@ relabel them as presentation-only to make reconciliation pass.
 
 The versioned reconciliation ledger is canonical JSON with:
 
-- `ledger_version`, `repository_id`, `input_revision`, and `input_tree_sha256`;
+- `ledger_version`, `repository_id`, `operation_id`,
+  `operation_input_sha256`, `trust_policy_sha256`, `input_revision`, and
+  `input_tree_sha256`;
 - one `sources` entry per authorized path containing `document_id`,
   `content_sha256`, byte length, ordered unit IDs, and route identity;
 - one `units` entry per unit containing its ID, kind, byte interval, byte hash,
@@ -56,7 +58,9 @@ The versioned reconciliation ledger is canonical JSON with:
   and canonical target-value digest;
 - canonical document/artifact keys and digests after import and after export;
 - source-to-output document and artifact lineage;
-- the staged output tree digest and compatibility evidence reference.
+- the staged output tree digest, compatibility evidence references, and one
+  legal lifecycle state (`open`, `reconciled`, `certified`, `rejected`, or
+  `stale`).
 
 Each transformation record contains the source unit IDs, transform ID and exact
 version, canonical JSON digest of the normalized source value, target JSON
@@ -129,34 +133,44 @@ identity and provenance transition.
 ### Compatibility evidence
 
 Compatibility evidence is versioned canonical JSON containing the migration
-authority ID, validator/build tool IDs and versions, resolved executable path
-and byte digest, normalized argument digest, exact input revision, input tree
-digest, staged tree digest, start/end times, exit status, error and warning
-counts, and stdout/stderr digests for each gate.
+authority ID, validator/build tool IDs and versions, tool-bundle source,
+inventory and entrypoint digests, deterministic version-verification digest,
+gate-workspace digest, optional interpreter binding, normalized argument digest,
+exact input revision, input/staged tree digests, start/end times, exit status,
+error/warning counts, and stdout/stderr digests for each gate.
 
 For this phase, Raptor must invoke every gate directly without a shell, capture
 the result, and create the evidence; imported self-reported evidence is not
 accepted. The migration authority supplies an explicit `MigrationTrustPolicy`
 operation input containing `policy_version`, `authority_id`, and a non-empty
 `tools` list. Each tool entry contains its gate role, tool ID, exact version,
-verified tool-bundle digest, executable digest, optional interpreter digest,
-exact normalized `argv` array, and working-directory role (`repository_root` or
-`staging_root`). `argv` is a complete array: token count, order, and value must
+versioned tool-bundle root/source, complete canonical no-follow member inventory
+and digest, relative entrypoint, deterministic version command and exact
+expected output, optional interpreter digest, exact normalized `argv` array,
+working-directory role (`repository_root` or `staging_root`), and complete
+versioned auxiliary gate-workspace input inventory/digest. `argv` is a complete
+array: token count, order, and value must
 match exactly after path normalization. Regex, glob, shell syntax, placeholders,
 prefix matching, and trailing arguments are unsupported. Unknown fields and
 floating versions are invalid. The policy file's canonical SHA-256 is recorded
 in every compatibility result.
 
-Raptor invokes only tools allowlisted by that policy. Before invocation it copies
-the verified executable, scripts/modules in the declared tool bundle, and any
-declared interpreter into a newly created private read-only execution directory,
-using no-follow regular-file handles; it fsyncs and rehashes the copies. Script
+Raptor invokes only tools allowlisted by that policy. Before invocation it
+requires the no-follow bundle inventory to match exactly, copies the relative
+entrypoint, every declared support member, and any declared interpreter into a
+newly created private read-only execution directory, using no-follow regular-file
+handles; it fsyncs and rehashes the copies, then runs the exact version command
+and verifies its exact output. Missing, extra, substituted, or escaping bundle
+members fail. Script
 execution uses the verified interpreter copy explicitly rather than a shebang or
 `PATH`. The child uses the recorded working directory, receives empty stdin, a
 closed inherited-file-descriptor set, and only the versioned environment
-allowlist. Raptor rehashes the private bundle after execution and rejects any
-identity or byte change. It recomputes tree, bundle, binary, interpreter,
-argument, working-directory, stdin, environment, and result bindings before
+allowlist. Each gate runs in a private workspace containing only the exact input
+or staged corpus overlay, declared auxiliary inputs at their allowlisted paths,
+and an isolated scratch area. Undeclared reads and writes outside scratch fail.
+Raptor rehashes the private bundle and workspace after execution and rejects any
+identity or byte change. It recomputes tree, bundle, entrypoint/version,
+interpreter, workspace, argument, working-directory, stdin, environment, and result bindings before
 apply. A future remote gate requires a separately versioned cryptographic
 attestation contract and is unsupported here. Consumer-specific commands and
 fixtures remain outside Raptor-owned product artifacts.
@@ -201,7 +215,12 @@ Acceptance: the ledger satisfies the 100% accounting invariant; import and
 export canonical digests match; render/reparse differs only by the enumerated
 transport values with a valid provenance transition; and every source-to-output
 mapping satisfies the implemented lineage mode. Unsupported units and
-unsupported split/combine mappings fail before import or apply.
+unsupported split/combine mappings fail before import or apply. The immutable
+apply plan and certification include every ordered filesystem `put` and `delete`
+with an absence-or-digest precondition and the exact final-tree inventory.
+Pre-identity failure restores both replaced and deleted paths; post-identity
+recovery rolls the same set forward deterministically before idempotent SQLite
+puts/deletes.
 
 ### REQ-RAP-016 — External render compatibility gate
 
@@ -211,8 +230,9 @@ corpus and the exact staged rendered corpus before replacement.
 Acceptance: both evidence records satisfy the compatibility-evidence contract,
 report zero errors and zero warnings, and include a successful document-rendering
 or site-build gate. Apply recomputes the revision and tree bindings and fails on
-any mismatch. The staged bytes authorized by evidence are the only bytes eligible
-for replacement.
+any bundle inventory/version, workspace, revision, or tree mismatch. The staged
+bytes and explicit deletions authorized by certification are the only filesystem
+changes eligible for apply.
 
 ## Non-functional requirements
 

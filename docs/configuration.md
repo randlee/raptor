@@ -41,10 +41,13 @@ Database destinations, credentials, validate/apply mode, reference-resolution
 mode, temporary or staging paths, template-set selection, and the migration
 trust-policy path are explicit operation inputs. The trust policy is strict JSON
 containing `policy_version`, `authority_id`, and non-empty `tools`; each tool
-entry contains `role`, `tool_id`, exact `tool_version`, `tool_bundle_sha256`,
-`executable_sha256`, optional `interpreter_sha256`, exact normalized `argv`, and
-`working_directory_role`. These values are not repository content and must not
-be inferred from unrelated files or stored in the ingress artifacts above.
+entry contains `role`, `tool_id`, exact `tool_version`, a complete versioned
+no-follow bundle inventory/root/source and digest, relative
+entrypoint, deterministic version command and expected output, optional
+interpreter pair, exact normalized `argv`, working-directory role, closed
+environment, and complete auxiliary workspace-input inventory/digest. These
+values are not authorized corpus content and must not be inferred from unrelated
+files or stored in the ingress artifacts above.
 
 ## Generated runtime state
 
@@ -54,10 +57,20 @@ Generated state is never source input and must be excluded from scans:
 |---|---|
 | `.raptor/state/logs/` | Agent-run audit output; append-only during an invocation and removable after evidence retention requirements are met. |
 | `.raptor/identity.lock` | Process lock for identity and render transactions; ephemeral and never committed. |
-| `.raptor/transactions/<id>.json` | Durable recovery journal; retained until the transaction reaches a verified terminal state. |
-| `.raptor/transactions/<id>.lock` and `database-<digest>.lock` | Ephemeral transaction/database locks; never committed. |
-| `<output>.raptor-<id>.stage` and `<output>.raptor-<id>.backup` | Path-scoped render stages and backups; removed only after verified completion or recovery. |
-| `<identity>.raptor-<id>.stage` and `<identity>.raptor-<id>.backup` | Identity stages and backups resolved from the manifest-selected identity path; removed only after verified completion or recovery. |
+| `.raptor/transactions/` | Phase A non-migration transaction state only; Phase B migration must not place journals here. |
+| `.raptor/state/migrations/<id>/validation/` | B6 ledger, immutable apply plan, tree/identity stages, and SQLite mutation set. Only the ledger may advance through B7/B8's typed states; validate/apply-intent certification never creates destination siblings. |
+| `.raptor/state/migrations/<id>/evidence/` and `certification.json` | B7/B8 evidence bound to the sealed validation inventory; durable audit state. |
+| `.raptor/state/migrations/<id>/apply/{journal.json,result.json,operation.lock}` | B9-only recovery state. The lock is ephemeral; journal/result are retained at verified terminal state. |
+| `<destination>.raptor-<id>.stage` and `<destination>.raptor-<id>.backup` | B9-only, journal-indexed siblings for output and selected identity puts/deletes; cleaned only after verified complete or rollback, retained on conflict. |
+
+The literal operation locator is `.raptor/state/migrations/<operation_id>/`.
+Operation IDs cannot be reused: an existing root is resumable only for the same
+operation-input digest, otherwise it is a conflict. A validate run never creates
+`apply/` or destination siblings. Recovery accepts only an operation ID, resolves
+that locator, and rejects symlinks, missing/mismatched journals, live-lock
+collisions, and unindexed siblings. Completed and rolled-back runs remove
+ephemeral lock/stage/backup state after verification but retain the canonical
+ledger/evidence/certification/journal/result; conflicts retain observed state.
 
 The current runtime still hardcodes `.raptor/identity.json` in identity and
 transaction paths. Repository-root corpus ingress is not conformant until the

@@ -24,24 +24,30 @@ class JournalState(str, Enum):
     CONFLICT = "conflict"
 
 class JournalPathEntry(Model):
+    action: Literal["put", "delete"]
     final_path: RepositoryPath
-    stage_path: RepositoryPath
-    backup_path: RepositoryPath
     before_absent: bool
     before_sha256: Sha256 | None
-    after_sha256: Sha256
-    byte_length: NonNegativeInt
     committed: bool
+    stage_path: RepositoryPath | None = None
+    backup_path: RepositoryPath | None = None
+    after_sha256: Sha256 | None = None
+    byte_length: NonNegativeInt | None = None
 
 class MigrationJournal(Model):
     journal_version: Literal["1.0.0"]
     operation_id: OperationId
+    operation_input_sha256: Sha256
     certification_sha256: Sha256
     apply_plan_sha256: Sha256
     ledger_sha256: Sha256
     input_revision: str
     input_tree_sha256: Sha256
     staged_tree_sha256: Sha256
+    final_tree_inventory_sha256: Sha256
+    filesystem_mutations_sha256: Sha256
+    tool_bundle_set_sha256: Sha256
+    gate_workspace_set_sha256: Sha256
     output_entries: tuple[JournalPathEntry, ...]
     identity_entry: JournalPathEntry
     database_path: RepositoryPath
@@ -56,6 +62,7 @@ class ApplyRecoveryResult(Model):
     prior_state: JournalState | None
     final_state: JournalState
     applied_output_paths: tuple[RepositoryPath, ...]
+    deleted_output_paths: tuple[RepositoryPath, ...]
     identity_sha256: Sha256 | None
     database_sha256: Sha256 | None
     diagnostics: tuple[Diagnostic, ...]
@@ -70,25 +77,61 @@ def recover_migration(
 ) -> ApplyRecoveryResult: ...
 ```
 
-`JournalPathEntry` requires `before_sha256` exactly when `before_absent=false`;
-stage/backup paths must be the operation-scoped siblings of `final_path` and
-cannot alias another entry. Entries sort by
-final path. State transitions are only:
+`JournalPathEntry` requires `before_sha256` and `backup_path` exactly when
+`before_absent=false`. A `put` requires `stage_path`, `after_sha256`, and
+`byte_length`; a `delete` omits them and must have a digest precondition.
+Stage/backup paths are the deterministic
+operation-scoped siblings `<final-name>.raptor-<operation_id>.stage` and
+`<final-name>.raptor-<operation_id>.backup`; they cannot alias any final or other
+entry. Entries sort by final path and equal B6's filesystem mutation set.
+`identity_entry.action` is always `put`, its final path is the manifest-selected
+identity path, and it follows the same digest-precondition and sibling rules.
+State transitions are only:
 `prepared -> outputs_committing -> outputs_committed -> identity_committed -> db_pending -> complete`;
 pre-identity failures may transition to `rolled_back`; hash/state ambiguity at
 any point transitions to terminal `conflict`. Recovery from identity-committed
 or db-pending rolls forward; completed/rolled-back/conflict journals are
-terminal. Result output paths sort; hashes are required for applied/recovered,
+terminal. Result applied/deleted path lists sort and are disjoint; hashes are required for applied/recovered,
 database may be absent only while pending/rolled back, and diagnostics are
 required for pending/rolled-back/conflict.
 
+The sole locator is
+`.raptor/state/migrations/<operation_id>/`. Its exact durable layout is
+`validation/{ledger.json,apply-plan.json,stage/tree/**,stage/identity.json,stage/sqlite-mutations.json}`,
+`evidence/**`, optional `certification.json`, and, only after B9 begins,
+`apply/{journal.json,result.json,operation.lock}`. B6 seals the validation stage
+and apply plan by recording their canonical inventory digest; B7/B8 append only
+their owned evidence/certification and typed ledger transitions. Validate never
+creates `apply/` or destination siblings.
+The journal inventories every destination sibling stage/backup; no unindexed
+stage or backup is recoverable state.
+
+An existing operation root is reusable only when its recorded operation-input
+digest is identical and the requested action is an idempotent resume. A missing
+root, mismatched operation ID/digest, symlink, second live lock, pre-existing
+unindexed sibling, or reused terminal ID is `conflict`, never a new operation.
+The lock is acquired without following links and released after a durable state
+transition. On verified `complete` or `rolled_back`, stages, backups, and lock
+are removed while journal/result/ledger/evidence/certification remain as the
+audit record. `conflict` retains all observed state for explicit operator
+resolution; automatic cleanup is forbidden.
+
 Before the journal starts, apply calls B7's `verify_current_revision` API and
-rechecks the returned Git revision evidence, input/staged
-trees, trust/tool bytes, certification, apply plan, identity transition, and
-database before hash. It replaces each certified output at its own rename
-boundary in sorted order, then the selected identity file, then idempotent
-SQLite puts/deletes. It never claims cross-resource atomicity or performs a
-path-only move. Recovery cannot alter operation inputs or create a new plan.
+rechecks the returned Git revision evidence, input/staged trees, full tool-bundle
+inventories/version outputs, gate-workspace inputs, certification, apply plan,
+identity transition, every absence-or-digest filesystem precondition, and the
+database before hash. It copies and verifies every put into its sibling stage;
+then, in sorted order, a put backs up an existing destination and renames its
+stage into place, while a delete renames the existing destination to backup.
+Before identity commit, any failure restores both puts and deletes from backups
+and removes newly created paths. After identity commit, recovery deterministically
+rolls forward all remaining puts/deletes and verifies the exact final-tree
+inventory, then executes the SQLite mutations in one transaction. A SQLite
+mutation failure rolls that transaction back completely and leaves `db_pending`;
+retry reapplies the same idempotent put/delete set
+and never rolls filesystem or identity state back. It never claims
+cross-resource atomicity or performs a path-only move. Recovery cannot alter
+operation inputs or create a new plan.
 
 ## Authoritative deliverables
 
@@ -105,9 +148,9 @@ path-only move. Recovery cannot alter operation inputs or create a new plan.
 | ID | Criterion |
 |---|---|
 | B9-AC1 | Apply accepts only an unchanged mode-`apply` operation input plus its current B8 apply-mode `certified` record whose complete digest chain and target before-state reverify immediately before mutation, including a fresh call to B7's sole revision-verification API. A validate-mode certification is never reusable for apply. |
-| B9-AC2 | Journal/result tests cover every required field, ordered path inventory, legal/illegal state transition, result status, omission rule, stale binding, and conflict diagnostic. |
-| B9-AC3 | Only certified staged bytes are installed; the selected IdentityManifest 2.0 transition and exact B6 SQLite mutation set follow in documented order. |
-| B9-AC4 | Failure injection before/after every marker and rename proves pre-identity rollback, post-identity roll-forward, db-pending retry, completed replay idempotence, lock exclusion, and terminal conflict without guessing. |
+| B9-AC2 | Journal/result tests cover every required field, exact operation-root and sibling layout, locator/collision/retention/cleanup rule, ordered path inventory, legal/illegal state transition, result status, omission rule, stale binding, and conflict diagnostic. |
+| B9-AC3 | Only certified staged bytes and certified deletes are applied; every absence-or-digest precondition, final-tree inventory, selected IdentityManifest 2.0 transition, and exact B6 SQLite mutation set follows in documented order. |
+| B9-AC4 | Failure injection before/after every marker and put/delete rename proves pre-identity restoration of deleted/replaced paths, post-identity deterministic roll-forward, split/combine deletion handling, db-pending retry, completed replay idempotence, lock exclusion, and terminal conflict without guessing. |
 | B9-AC5 | The apply/recovery wrapper and existing agent contain no transformation, certification, registry, journal-policy, or database logic outside shared runtime. |
 | B9-AC6 | Operator docs keep all consumer profiles/templates/tool bundles/fixtures/scripts in the consumer repository and require evidence review plus explicit mode change before apply. |
 | B9-AC7 | No production external migration occurs in Raptor CI, and no Rust CLI/SQLx, Dolt/MySQL, remote gate, service, or fleet orchestration is introduced. |
@@ -115,7 +158,7 @@ path-only move. Recovery cannot alter operation inputs or create a new plan.
 ## Required validation
 
 ```sh
-python -m pytest plugins/raptor/tests/migration/test_apply.py plugins/raptor/tests/migration/test_recovery.py plugins/raptor/tests/recovery
+python -m pytest plugins/raptor/tests/migration/test_apply.py plugins/raptor/tests/migration/test_recovery.py plugins/raptor/tests/migration/test_filesystem_mutations.py plugins/raptor/tests/migration/test_operation_state.py plugins/raptor/tests/recovery
 python -m pytest plugins/raptor/tests/migration/test_full_corpus_apply.py
 python -m mypy --strict schema/src/raptor_schema plugins/raptor/runtime
 python plugins/raptor/scripts/validate_plugin.py --check-frontmatter --check-registry --check-manifests --check-inventory --check-vendor --check-templates

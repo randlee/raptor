@@ -9,6 +9,9 @@ This ledger records review of [`plan-phase-b.md`](plan-phase-b.md) and all Phase
 | 1 | 2 | plan-scope-reviewer | c4e48421d40413798d1d426d29bdc8548819bd97 | FAIL | 0 | 6 | 0 | cfe785faf5044ea40d6274a00675d95d788a61075c81237d4282653f731d81c0 | step1-guidelines-pass | PB-SCOPE-001..006: complete B1/B6/B8 contracts, identity architecture authority, revision ownership, and B8 split. |
 | 2 | 1 | arch-ctm | 86b09830685285a5ec1aed6b159558106d44a5d2 | PASS | 0 | 0 | 0 | step1-r2-correction | cfe785faf5044ea40d6274a00675d95d788a61075c81237d4282653f731d81c0 | Applied all six scope corrections and split non-mutating certification from apply/recovery as B8/B9. |
 | 2 | 3 | arch-ctm | 4fb9584520c90a76a10cf13768194a1c3c572e71 | PASS | 0 | 0 | 0 | step3-sprint-scope-handoff | cfe785faf5044ea40d6274a00675d95d788a61075c81237d4282653f731d81c0 | Verified PB-SCOPE-001..006 closure and nine-sprint production boundaries; corrected receipt ordering and validate/apply certification binding. |
+| 2 | 2 | plan-scope-reviewer | 4fb9584520c90a76a10cf13768194a1c3c572e71 | FAIL | 0 | 2 | 0 | 8d41c412033f9e6ba129286812b624de9d7b8dd18774bd2aeeb54e68fa2233a0 | step3-sprint-scope-handoff | PB-SCOPE-001 and PB-SCOPE-007: authoritative ledger contract and exact operation-state lifecycle. Hash is over the ordered finding IDs because only the deduplicated triage payload was retained. |
+| 2 | 4 | critical-plan-reviewer | 4fb9584520c90a76a10cf13768194a1c3c572e71 | FAIL | 1 | 3 | 0 | 19e4f03370846728b98a9b3cd9ff125fa678644e77ccf9678676e96bba5a152b | step3-sprint-scope-handoff | PLAN-CRIT-001..004: ledger duplication, filesystem removals, tool bundles, and gate workspaces. Hash is over ordered finding IDs because only the deduplicated triage payload was retained. |
+| 3 | 3 | arch-ctm | WORKTREE | CORRECTED_FOR_REREVIEW | 0 | 0 | 0 | 684f746adf12cd6b961fc4fda6dbef24ead4ec4c2a69295b66d6958c2f3f6ba3 | 8d41c412+19e4f033 | Deduplicated six reviewer reports into TRIAGE-001..005 (PB-SCOPE-001 and PLAN-CRIT-001 overlap) and corrected all five contracts without another review claim. |
 
 ## Initial author handoff
 
@@ -46,10 +49,50 @@ This ledger records review of [`plan-phase-b.md`](plan-phase-b.md) and all Phase
 ## Review limits
 
 - `plan_scope_review_cycle_limit`: 3.
-- `critical_review_cycle_limit`: 3.
+- `critical_review_cycle_limit`: 2.
 - Every reviewer row records the exact reviewed commit and findings hash; a metadata commit following reviewed content is not self-referential.
 - Corrections supersede the exact prior finding set and do not claim reviewer PASS.
 - Final implementation readiness requires requirements QA and architecture QA PASS after reviewer convergence or an explicitly recorded cap outcome with all final findings corrected.
+
+## Parallel review round 1 deduplication and correction
+
+The authoritative deduplicated triage is the five-item set whose canonical file
+hash is `684f746adf12cd6b961fc4fda6dbef24ead4ec4c2a69295b66d6958c2f3f6ba3`:
+
+| Triage ID | Reviewer findings | Correction owner | Resolution |
+|---|---|---|---|
+| TRIAGE-001 | PB-SCOPE-001, PLAN-CRIT-001 | B1 | One exact derivation/ledger model, lifecycle, producer ownership, omission/order rules, and digest chain. |
+| TRIAGE-002 | PB-SCOPE-007 | B9 | One operation locator/layout with separate validation/apply state, collision, retention, cleanup, and recovery rules. |
+| TRIAGE-003 | PLAN-CRIT-002 | B6/B8/B9 | Certified ordered filesystem puts/deletes, absence-or-digest preconditions, final-tree inventory, rollback, and roll-forward. |
+| TRIAGE-004 | PLAN-CRIT-003 | B1/B7 | Versioned bundle root/source, complete inventory/digest, relative entrypoint, deterministic version proof, and adversarial checks. |
+| TRIAGE-005 | PLAN-CRIT-004 | B1/B7/B8/B9 | Versioned auxiliary workspace inventory/digest, exact overlays, write isolation, certification, and apply revalidation. |
+
+The scope reviewer reported two important findings. The parallel critical review
+reported one blocking and three important findings. TRIAGE-001 is their sole
+overlap, so five unique corrections supersede six raw reports. This author
+correction records no reviewer PASS and starts no additional review.
+
+```json
+{
+  "status": "PASS",
+  "mode": "plan-hardening-sprint-scope",
+  "reviewed_commit": "WORKTREE",
+  "previous": "4fb9584520c90a76a10cf13768194a1c3c572e71",
+  "findings_resolved": 5,
+  "files_changed": [
+    "docs/configuration.md",
+    "docs/requirements-migration.md",
+    "docs/plans/phase-b/plan-hardening-rounds.md",
+    "docs/plans/phase-b/plan-phase-b.md",
+    "docs/plans/phase-b/sprint-b1-migration-evidence-contracts.md",
+    "docs/plans/phase-b/sprint-b6-corpus-reconciliation.md",
+    "docs/plans/phase-b/sprint-b7-compatibility-evidence.md",
+    "docs/plans/phase-b/sprint-b8-corpus-certification.md",
+    "docs/plans/phase-b/sprint-b9-apply-recovery-handoff.md"
+  ],
+  "ready_for_next_step": true
+}
+```
 
 ## Step 1 guidelines-pass handoff
 

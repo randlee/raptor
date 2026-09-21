@@ -36,6 +36,10 @@ class MigrationCertification(Model):
     input_revision: str
     input_tree_sha256: Sha256
     staged_tree_sha256: Sha256
+    final_tree_inventory_sha256: Sha256
+    filesystem_mutations_sha256: Sha256
+    tool_bundle_set_sha256: Sha256
+    gate_workspace_set_sha256: Sha256
     compatibility_evidence_ids: tuple[EvidenceId, ...]
     predicates: tuple[CertificationPredicate, ...]
     diagnostics: tuple[Diagnostic, ...]
@@ -56,7 +60,7 @@ def certify_migration(
     operation: MigrationOperationInput, ledger: ReconciliationLedger,
     reconciliation: ReconciliationResult, apply_plan: CorpusApplyPlan,
     compatibility: tuple[CompatibilityEvidence, ...],
-) -> MigrationCertification: ...
+) -> tuple[ReconciliationLedger, MigrationCertification]: ...
 def validate_migration(
     repository_root: Path, operation_input: RepositoryPath,
 ) -> ValidationResult: ...
@@ -68,7 +72,13 @@ zero diagnostics, and `certified_at`; `rejected` requires at least one false
 predicate and diagnostics; later binding drift creates `stale`. Verdict
 transitions are one-way `certified -> stale`; rejected/stale records cannot be
 re-certified. A rerun creates a new operation/certification. The certification
-digest covers all fields including verdict and evidence IDs.
+digest covers all fields including verdict, ordered filesystem puts/deletes,
+exact final-tree inventory, tool-bundle/workspace sets, and evidence IDs. A
+staged-tree digest alone never authorizes deletion.
+
+Certification returns a newly serialized ledger in `certified`, `rejected`, or
+`stale` state together with the matching certification; it never mutates or
+silently repairs the B7 ledger.
 
 `validate_migration` accepts either declared intent but is always non-mutating.
 For `validate`, it produces a reviewable certification. For `apply`, it reruns
@@ -78,9 +88,10 @@ unchanged input and certification. It writes only generated operation-state
 stage/evidence and never changes source, selected identity, or target SQLite.
 The existing
 `/raptor:round-trip migration` route and `migration-round-trip` agent call this
-shared runtime through the existing runner. `migrate_corpus.py` initially accepts
-only repository root and the literal validate operation input, serializes the
-standard envelope, and maps exit status.
+shared runtime through the existing runner. `migrate_corpus.py` accepts only
+repository root and the literal operation-input path, performs no apply mutation
+for either declared intent, serializes the standard envelope, and maps exit
+status.
 
 ## Authoritative deliverables
 
@@ -97,8 +108,8 @@ standard envelope, and maps exit status.
 | ID | Criterion |
 |---|---|
 | B8-AC1 | Validate completes all five families, cross-document references, byte units, canonical/SQLite proof, lineage, projection/reparse, exact reconciliation, revision, and input/output gates without target mutation. |
-| B8-AC2 | Certification succeeds only with complete current B1–B7 records, exact 100% reconciliation, matching Git revision, and zero-warning input/output gates. |
-| B8-AC3 | Every certification field, operation mode, fixed predicate/evidence ordering, digest link, and legal/illegal verdict transition has direct tests; changing any upstream byte/digest yields rejected or stale, never certified. |
+| B8-AC2 | Certification succeeds only with complete current B1–B7 records, exact 100% reconciliation, matching Git revision, zero-warning input/output gates, and exact apply-plan bindings for ordered filesystem puts/deletes, final-tree inventory, tool bundles, and gate workspaces. |
+| B8-AC3 | Every certification field, operation mode, fixed predicate/evidence ordering, put/delete/final-tree/bundle/workspace digest link, and legal/illegal verdict transition has direct tests; changing any upstream byte/digest or omitting a split/combine deletion yields rejected or stale, never certified. |
 | B8-AC4 | Validate and apply intent both stop after certification in B8 and have no journal, replacement, SQLite target-write, or recovery behavior; their operation-input/certification digests differ. |
 | B8-AC5 | A temporary neutral repository supplies its own profile, templates, operation inputs, validator/build bundle, and corpus; Raptor packages none of its names/assets. |
 | B8-AC6 | Claude and Codex resolve the unchanged `/raptor:round-trip` command to the same agent/runtime; plugin/schema/template/vendor inventories remain hash-aligned. |

@@ -30,7 +30,7 @@ class AuthorityResolver(Protocol):
 def reconcile_corpus(
     ledger: ReconciliationLedger, *, source_bytes: SourceBytesResolver,
     authority_inputs: AuthorityResolver,
-) -> ReconciliationResult: ...
+) -> tuple[ReconciliationLedger, ReconciliationResult]: ...
 def prepare_apply_plan(
     result: ReconciliationResult, *, stage_root: RepositoryPath,
 ) -> CorpusApplyPlan: ...
@@ -70,6 +70,21 @@ class StageEntry(Model):
     byte_length: NonNegativeInt
     content_sha256: Sha256
 
+class AbsentPrecondition(Model):
+    kind: Literal["absent"]
+
+class DigestPrecondition(Model):
+    kind: Literal["digest"]
+    content_sha256: Sha256
+
+class FilesystemMutation(Model):
+    action: Literal["put", "delete"]
+    final_path: RepositoryPath
+    expected_before: AbsentPrecondition | DigestPrecondition
+    staged_path: RepositoryPath | None = None
+    after_sha256: Sha256 | None = None
+    after_byte_length: NonNegativeInt | None = None
+
 class SQLiteMutation(Model):
     action: Literal["put", "delete"]
     document_key: DocumentKey
@@ -88,6 +103,8 @@ class CorpusApplyPlan(Model):
     staged_tree_sha256: Sha256
     stage_root: RepositoryPath
     stage_entries: tuple[StageEntry, ...]
+    filesystem_mutations: tuple[FilesystemMutation, ...]
+    final_tree_entries: tuple[StageEntry, ...]
     identity_path: RepositoryPath
     identity_before_sha256: Sha256
     identity_after_sha256: Sha256
@@ -101,10 +118,18 @@ class CorpusApplyPlan(Model):
 Predicate results appear once in the literal order shown and `reconciled`
 requires every `passed=true` with numerator equal to denominator. Diagnostics
 sort by document/path/code/pointer and are empty only for `reconciled`.
-`stage_entries` sort by path and exactly cover the staged tree. SQLite mutations
-sort by `DocumentKey`; `put` requires `after_sha256` and canonical JSON while
-`delete` requires both absent; `expected_before_sha256` is omitted only for a
-new document. The identity stage bytes hash to `identity_stage_sha256` and equal
+`stage_entries` and `final_tree_entries` sort by path and exactly cover,
+respectively, the immutable B6 stage and the intended post-apply corpus tree.
+Filesystem mutations sort by `final_path` and are unique. Every mutation has
+exactly one tagged absence-or-digest precondition. `put` requires all three
+after/staged fields and its staged bytes must match them; `delete` omits all
+three and requires a digest precondition (deleting an already absent path is not
+evidence of removal). The final inventory equals `(before inventory - deletes) + puts` exactly,
+so a split/combine path removal is evidence rather than an implicit side effect.
+SQLite mutations sort by `DocumentKey`; `put` requires `after_sha256` and
+canonical JSON while `delete` requires both absent; `expected_before_sha256` is
+omitted only for a new document. The identity stage bytes hash to
+`identity_stage_sha256` and equal
 the proposed B4 `after_manifest_sha256`. `ready -> stale` is the only plan state
 transition; stale plans are immutable and never become ready again.
 
@@ -113,13 +138,25 @@ binding and recomputes every other available receipt. It replays byte partitions
 transformations, derivations, canonical/SQLite equality, projection consumption,
 render/reparse provenance, and lineage. Success requires every independent
 predicate owned through B6 to equal exactly 100%; partial percentages are never
-rounded. B7 later verifies the revision and adds compatibility predicates.
+rounded. Success returns a new canonically serialized ledger in `reconciled`
+state; failure returns a terminal `rejected` or `stale` ledger with stable
+diagnostics. The input ledger is never mutated in place. B7 later verifies the
+revision and adds compatibility predicates.
 
-`prepare_apply_plan` writes only below the operation state root. It freezes the
+`prepare_apply_plan` writes only below the exact operation validation root
+`.raptor/state/migrations/<operation_id>/validation/`: `stage/tree/` contains
+put bytes at their repository-relative paths, `stage/identity.json` contains
+the proposed identity bytes, and `stage/sqlite-mutations.json`, `apply-plan.json`,
+and `ledger.json` contain canonical records. Validation creates no apply
+journal, lock, destination sibling stage, or backup. `stage/**` and
+`apply-plan.json` become immutable after the apply-plan digest is recorded;
+`ledger.json` may transition only through the B1 states under B7/B8 ownership,
+with every prior digest retained in downstream evidence. It freezes the
 exact staged output inventory/tree digest, proposed IdentityManifest 2.0 bytes,
-and idempotent SQLite put/delete set, all linked to the reconciled ledger. It is
-not authorization and exposes no source replacement. Any later byte or digest
-change invalidates the plan.
+ordered filesystem put/delete set, final-tree inventory, and idempotent SQLite
+put/delete set, all linked to the reconciled ledger. It is not authorization and
+exposes no source replacement. Any later byte or digest change invalidates the
+plan.
 
 ## Authoritative deliverables
 
@@ -127,7 +164,7 @@ change invalidates the plan.
 |---|---|
 | B6-D1 | Exact reconciliation runtime replaying byte, unit, authority, persistence, projection, reparse, provenance, and lineage predicates. |
 | B6-D2 | Deterministic diagnostic set for every failed predicate and stale/reordered/missing receipt. |
-| B6-D3 | Immutable operation-state stage containing output tree, identity bytes, SQLite mutation set, and their digests. |
+| B6-D3 | Immutable validation stage containing output tree, identity bytes, ordered filesystem and SQLite mutation sets, final-tree inventory, and their digests. |
 | B6-D4 | Versioned `CorpusApplyPlan` that binds stage, identity transition, database receipt, ledger, and operation inputs without applying them. |
 | B6-D5 | Positive and adversarial reconciliation/stage mutation suite. |
 
@@ -137,12 +174,12 @@ change invalidates the plan.
 |---|---|
 | B6-AC1 | Reconciliation succeeds only when byte coverage, dispositions, canonical authority, persistence, leaf recovery, provenance transitions, and lineage are each exactly 100%. |
 | B6-AC2 | Missing, stale, reordered, duplicated, or mutated source/authority/receipt/lineage/render values produce stable path-qualified failures and no target mutation. |
-| B6-AC3 | The staged tree contains exactly the B5 output inventory and bytes; stages/backups/control data are excluded from its canonical tree digest. |
+| B6-AC3 | The staged tree contains exactly the B5 output inventory and bytes; stages/backups/control data are excluded from its canonical tree digest. The final-tree inventory equals the preconditioned before tree after every declared put/delete. |
 | B6-AC4 | Proposed identity bytes and SQLite mutation set agree exactly with B4 lineage and preserve unrelated records; no path-only move exists. |
 | B6-AC5 | Validate-mode stage creation changes no source Markdown, selected identity file, or target SQLite database and is idempotent for the same operation/digests. |
 | B6-AC6 | Changing any staged byte or apply-plan binding invalidates reconciliation and cannot be repaired without a new upstream run. |
 | B6-AC7 | B6 records the declared revision in the result/apply plan but invokes no Git executable and produces no revision evidence; only B7 may perform that verification. |
-| B6-AC8 | Resolver tests reject every undeclared key/path/evidence lookup, symlink/control path, and hash mismatch; result/apply-plan tests cover all required fields, fixed predicate/mutation/inventory ordering, put/delete shape, exact digest bindings, and irreversible ready-to-stale transition. |
+| B6-AC8 | Resolver tests reject every undeclared key/path/evidence lookup, symlink/control path, and hash mismatch; result/apply-plan tests cover all required fields, fixed predicate/mutation/inventory ordering, absence/digest preconditions, put/delete shape, split/combine removals, exact final-tree/digest bindings, and irreversible ready-to-stale transition. |
 
 ## Required validation
 
