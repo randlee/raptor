@@ -74,7 +74,13 @@ ScanRoot = Annotated[
 
 SourceName = Annotated[
     str,
-    StringConstraints(pattern=r"^[a-z][a-z0-9_-]{0,63}$"),
+    StringConstraints(pattern=r"^[a-z][a-z0-9_-]{0,63}\z"),
+    WithJsonSchema(
+        {
+            "type": "string",
+            "pattern": r"^[a-z][a-z0-9_-]{0,63}(?![\s\S])",
+        }
+    ),
 ]
 
 
@@ -105,11 +111,11 @@ def _compile_glob(pattern: str) -> re.Pattern[str]:
 class ScanSource(ContractModel):
     name: SourceName
     root: ScanRoot
-    include: list[GlobPattern] = Field(
+    include: tuple[GlobPattern, ...] = Field(
         min_length=1, json_schema_extra={"uniqueItems": True}
     )
-    exclude: list[GlobPattern] = Field(
-        default_factory=list, json_schema_extra={"uniqueItems": True}
+    exclude: tuple[GlobPattern, ...] = Field(
+        default_factory=tuple, json_schema_extra={"uniqueItems": True}
     )
 
     @model_validator(mode="after")
@@ -137,7 +143,7 @@ class ScanSource(ContractModel):
 
 class RepositoryScanConfig(ContractModel):
     schema_version: SchemaVersion
-    sources: list[ScanSource] = Field(
+    sources: tuple[ScanSource, ...] = Field(
         min_length=1, json_schema_extra={"uniqueItems": True}
     )
 
@@ -171,7 +177,7 @@ class ProfileSelection(ContractModel):
 class SourceRoute(ContractModel):
     source: SourceName
     profile: ProfileSelection
-    artifact_types: list[ArtifactType] = Field(
+    artifact_types: tuple[ArtifactType, ...] = Field(
         min_length=1, json_schema_extra={"uniqueItems": True}
     )
 
@@ -184,7 +190,7 @@ class SourceRoute(ContractModel):
 
 class RepositoryRoutingConfig(ContractModel):
     schema_version: SchemaVersion
-    routes: list[SourceRoute] = Field(
+    routes: tuple[SourceRoute, ...] = Field(
         min_length=1, json_schema_extra={"uniqueItems": True}
     )
 
@@ -199,6 +205,8 @@ class RepositoryRoutingConfig(ContractModel):
 def validate_source_routing(
     scan: RepositoryScanConfig, routing: RepositoryRoutingConfig
 ) -> tuple[SourceRoute, ...]:
+    scan = RepositoryScanConfig.model_validate(scan.model_dump(mode="python"))
+    routing = RepositoryRoutingConfig.model_validate(routing.model_dump(mode="python"))
     scan_sources = {source.name for source in scan.sources}
     routed_sources = {route.source for route in routing.routes}
     missing = sorted(scan_sources - routed_sources)

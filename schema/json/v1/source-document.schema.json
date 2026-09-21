@@ -473,12 +473,12 @@
           "title": "Parent Content Sha256"
         },
         "parser_profile": {
-          "pattern": "^[a-z][a-z0-9_-]*$",
+          "pattern": "^[a-z][a-z0-9_-]*(?![\\s\\S])",
           "title": "Parser Profile",
           "type": "string"
         },
         "parser_profile_version": {
-          "pattern": "^[1-9][0-9]*\\.[0-9]+\\.[0-9]+$",
+          "pattern": "^(?:[1-9][0-9]*)\\.(?:0|[1-9][0-9]*)\\.(?:0|[1-9][0-9]*)(?![\\s\\S])",
           "title": "Parser Profile Version",
           "type": "string"
         },
@@ -505,7 +505,7 @@
         "template_version": {
           "anyOf": [
             {
-              "pattern": "^[1-9][0-9]*\\.[0-9]+\\.[0-9]+$",
+              "pattern": "^(?:[1-9][0-9]*)\\.(?:0|[1-9][0-9]*)\\.(?:0|[1-9][0-9]*)(?![\\s\\S])",
               "type": "string"
             },
             {
@@ -893,12 +893,12 @@
           "type": "string"
         },
         "parser_profile": {
-          "pattern": "^[a-z][a-z0-9_-]*$",
+          "pattern": "^[a-z][a-z0-9_-]*(?![\\s\\S])",
           "title": "Parser Profile",
           "type": "string"
         },
         "parser_profile_version": {
-          "pattern": "^[1-9][0-9]*\\.[0-9]+\\.[0-9]+$",
+          "pattern": "^(?:[1-9][0-9]*)\\.(?:0|[1-9][0-9]*)\\.(?:0|[1-9][0-9]*)(?![\\s\\S])",
           "title": "Parser Profile Version",
           "type": "string"
         },
@@ -1390,7 +1390,7 @@
       "$ref": "#/$defs/SourceProvenance"
     },
     "schema_version": {
-      "pattern": "^1\\.[0-9]+\\.[0-9]+$",
+      "pattern": "^1\\.(?:0|[1-9][0-9]*)\\.(?:0|[1-9][0-9]*)(?![\\s\\S])",
       "title": "Schema Version",
       "type": "string"
     }

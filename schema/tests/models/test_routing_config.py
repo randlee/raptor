@@ -51,10 +51,10 @@ def test_routing_covers_every_scan_source_in_scan_order() -> None:
     resolved = validate_source_routing(scan, routing)
 
     assert [item.source for item in resolved] == ["requirements", "decisions"]
-    assert resolved[0].artifact_types == [
+    assert resolved[0].artifact_types == (
         ArtifactType.REQUIREMENT,
         ArtifactType.NON_FUNCTIONAL_REQUIREMENT,
-    ]
+    )
 
 
 @pytest.mark.parametrize(
@@ -135,3 +135,44 @@ def test_each_source_has_exactly_one_route() -> None:
 def test_routing_rejects_invalid_or_ambiguous_rules(payload: dict[str, object]) -> None:
     with pytest.raises(ValidationError):
         RepositoryRoutingConfig.model_validate(payload)
+
+
+@pytest.mark.parametrize(
+    ("field", "value"),
+    [
+        ("schema_version", "1.0.0\n"),
+        ("source", "requirements\n"),
+        ("profile_id", "raptor\n"),
+        ("profile_version", "1.0.0\n"),
+        ("profile_version", "1.01.0"),
+        ("profile_version", "1.0.01"),
+    ],
+)
+def test_routing_rejects_non_exact_identifiers_and_versions(
+    field: str, value: str
+) -> None:
+    payload = {
+        "schema_version": "1.0.0",
+        "routes": [route("requirements", "requirement")],
+    }
+    if field == "schema_version":
+        payload[field] = value
+    elif field == "source":
+        payload["routes"][0][field] = value  # type: ignore[index]
+    else:
+        payload["routes"][0]["profile"][field] = value  # type: ignore[index]
+
+    with pytest.raises(ValidationError):
+        RepositoryRoutingConfig.model_validate(payload)
+
+
+def test_validated_routing_collections_cannot_be_mutated() -> None:
+    routing = routing_config(route("requirements", "requirement"))
+    selected = routing.routes[0]
+
+    with pytest.raises(AttributeError):
+        selected.artifact_types.append(ArtifactType.TEST_PLAN)  # type: ignore[attr-defined]
+    with pytest.raises(AttributeError):
+        routing.routes.append(route("requirements", "test_plan"))  # type: ignore[attr-defined]
+    with pytest.raises(ValidationError):
+        selected.artifact_types = ()

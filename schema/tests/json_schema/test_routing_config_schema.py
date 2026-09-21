@@ -66,3 +66,28 @@ def test_generated_routing_schema_rejects_identical_routes() -> None:
 
     with pytest.raises(jsonschema.ValidationError):
         jsonschema.validate(payload, schema)
+
+
+@pytest.mark.parametrize(
+    ("path", "value"),
+    [
+        (("schema_version",), "1.0.0\n"),
+        (("routes", 0, "source"), "requirements\n"),
+        (("routes", 0, "profile", "profile_id"), "raptor\n"),
+        (("routes", 0, "profile", "profile_version"), "1.0.0\n"),
+        (("routes", 0, "profile", "profile_version"), "1.01.0"),
+        (("routes", 0, "profile", "profile_version"), "1.0.01"),
+    ],
+)
+def test_generated_schema_rejects_non_exact_identifiers_and_versions(
+    path: tuple[str | int, ...], value: str
+) -> None:
+    payload = valid_payload()
+    current: object = payload
+    for part in path[:-1]:
+        current = current[part]  # type: ignore[index]
+    current[path[-1]] = value  # type: ignore[index]
+    schema = json.loads(SCHEMA.read_text(encoding="utf-8"))
+
+    with pytest.raises(jsonschema.ValidationError):
+        jsonschema.validate(payload, schema)

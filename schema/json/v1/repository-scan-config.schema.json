@@ -25,7 +25,7 @@
           "uniqueItems": true
         },
         "name": {
-          "pattern": "^[a-z][a-z0-9_-]{0,63}$",
+          "pattern": "^[a-z][a-z0-9_-]{0,63}(?![\\s\\S])",
           "title": "Name",
           "type": "string"
         },
@@ -48,7 +48,7 @@
   "additionalProperties": false,
   "properties": {
     "schema_version": {
-      "pattern": "^1\\.[0-9]+\\.[0-9]+$",
+      "pattern": "^1\\.(?:0|[1-9][0-9]*)\\.(?:0|[1-9][0-9]*)(?![\\s\\S])",
       "title": "Schema Version",
       "type": "string"
     },

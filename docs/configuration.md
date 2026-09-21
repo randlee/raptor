@@ -113,7 +113,7 @@ profile_version = "1.0.0"
 | `routes` | yes | Non-empty array; every source declared in `sources.toml` appears exactly once and no undeclared source appears. |
 | `routes[].source` | yes | Exact stable name of one scan source. Routing never matches raw folder strings independently. |
 | `routes[].profile.profile_id` | yes | Lowercase Raptor source-profile identifier. |
-| `routes[].profile.profile_version` | yes | Exact semantic version; ranges and floating labels are invalid. |
+| `routes[].profile.profile_version` | yes | Exact three-component numeric semantic version; leading zeroes, prerelease/build suffixes, ranges, and floating labels are invalid. |
 | `routes[].artifact_types` | yes | Non-empty unique allowlist drawn from `requirement`, `non_functional_requirement`, `architecture_decision`, `design_document`, and `test_plan`. |
 
 JSON Schema enforces structural constraints and identical route duplication.

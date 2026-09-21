@@ -5,7 +5,18 @@ from typing import Annotated, TypeAlias
 
 from pydantic import AfterValidator, BaseModel, ConfigDict, JsonValue, StringConstraints, WithJsonSchema
 
-SCHEMA_VERSION_RE = r"^[1-9][0-9]*\.[0-9]+\.[0-9]+$"
+SCHEMA_VERSION_RE = (
+    r"^(?:[1-9][0-9]*)\.(?:0|[1-9][0-9]*)\.(?:0|[1-9][0-9]*)\z"
+)
+SCHEMA_VERSION_JSON_RE = (
+    r"^(?:[1-9][0-9]*)\.(?:0|[1-9][0-9]*)\.(?:0|[1-9][0-9]*)(?![\s\S])"
+)
+CANONICAL_SCHEMA_VERSION_RE = (
+    r"^1\.(?:0|[1-9][0-9]*)\.(?:0|[1-9][0-9]*)\z"
+)
+CANONICAL_SCHEMA_VERSION_JSON_RE = (
+    r"^1\.(?:0|[1-9][0-9]*)\.(?:0|[1-9][0-9]*)(?![\s\S])"
+)
 REPOSITORY_ID_RE = r"^urn:raptor:repo:[a-z0-9][a-z0-9._-]{2,127}$"
 DOCUMENT_ID_RE = r"^DOC-[A-Z0-9][A-Z0-9-]*-[0-9]{3,}$"
 ARTIFACT_ID_RE = r"^(REQ|NFR|ADR|DES|TST)-[A-Z0-9][A-Z0-9-]*-[0-9]{3,}$"
@@ -32,14 +43,28 @@ def _repository_path(value: str) -> str:
     return value
 
 
-SchemaVersion = Annotated[str, StringConstraints(pattern=r"^1\.[0-9]+\.[0-9]+$")]
-ProfileVersion = Annotated[str, StringConstraints(pattern=SCHEMA_VERSION_RE)]
+SchemaVersion = Annotated[
+    str,
+    StringConstraints(pattern=CANONICAL_SCHEMA_VERSION_RE),
+    WithJsonSchema({"type": "string", "pattern": CANONICAL_SCHEMA_VERSION_JSON_RE}),
+]
+ProfileVersion = Annotated[
+    str,
+    StringConstraints(pattern=SCHEMA_VERSION_RE),
+    WithJsonSchema({"type": "string", "pattern": SCHEMA_VERSION_JSON_RE}),
+]
 RepositoryId = Annotated[str, StringConstraints(pattern=REPOSITORY_ID_RE)]
 DocumentId = Annotated[str, StringConstraints(pattern=DOCUMENT_ID_RE)]
 ArtifactId = Annotated[str, StringConstraints(pattern=ARTIFACT_ID_RE)]
 Sha256 = Annotated[str, StringConstraints(pattern=SHA256_RE)]
 ExtensionKey = Annotated[str, StringConstraints(pattern=EXTENSION_KEY_RE)]
-ProfileId = Annotated[str, StringConstraints(pattern=PROFILE_ID_RE)]
+ProfileId = Annotated[
+    str,
+    StringConstraints(pattern=r"^[a-z][a-z0-9_-]*\z"),
+    WithJsonSchema(
+        {"type": "string", "pattern": r"^[a-z][a-z0-9_-]*(?![\s\S])"}
+    ),
+]
 DiagnosticCode = Annotated[str, StringConstraints(pattern=DIAGNOSTIC_CODE_RE)]
 TestCaseId = Annotated[str, StringConstraints(pattern=TEST_CASE_ID_RE)]
 RepositoryPath = Annotated[
