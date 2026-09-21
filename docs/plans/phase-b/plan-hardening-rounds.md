@@ -15,6 +15,8 @@ This ledger records review of [`plan-phase-b.md`](plan-phase-b.md) and all Phase
 | 3 | 2 | plan-scope-reviewer | fc0e1d3ae9cb486151f15ca1564c855ea3ebf360 | FAIL | 0 | 1 | 0 | a7c25a215c723765850060adffc6b98a4950affd2fe8d89c0601c96a9c3a0965 | 684f746a | PLAN-SCOPE-008: final compatibility/certification receipt ownership and bindings. Hash is over the retained finding ID. |
 | 3 | 4 | critical-plan-reviewer | fc0e1d3ae9cb486151f15ca1564c855ea3ebf360 | FAIL | 0 | 1 | 0 | f2c08a807158cbed78a2f1765231e1d14365eb3eb9105319216b145e5140112b | 684f746a | PLAN-CRIT-005: effective gate-workspace collision invariants and bindings. Hash is over the retained finding ID. Critical cycle 2 of 2 is final. |
 | 4 | 5 | arch-ctm | cc30bcab10ead28378a95c1923c47fb36c4011bf | CORRECTED_CAP_TRANSITION | 0 | 0 | 0 | 753ce61bb5af26e0e218553e6d9300c1b0a4aa1b9e7bd5540a462d8ae251b633 | a7c25a21+f2c08a80 | Corrected FINAL-001/002; both reviewer caps are exhausted, so workflow advances to bounded consistency hardening and final QA without another scope/critical review. |
+| 4 | 6 | quality-mgr | 8a9c8fedc70d8bfa61a7a2694e4b6c2cf6d6b875 | FAIL | 0 | 2 | 0 | 2fee7793362eb1fc8b93125521c30bec33ccbac3dee5a3a2d63095639d182ae5 | 753ce61b | raptor-QA-PB-001/002: terminal ledger-status producer ambiguity and incomplete REQ-RAP-015 certification/apply traceability. |
+| 5 | 5 | arch-ctm | WORKTREE | READY_FOR_FINAL_QA | 0 | 0 | 0 | final-qa-remediation | 2fee7793 | Centralized terminal ledger transitions in B8 and extended REQ-RAP-015 traceability through B8 certification and B9 apply/recovery; no reviewer cycle reopened. |
 
 ## Initial author handoff
 
@@ -114,6 +116,27 @@ must proceed directly through consistency checks and final QA.
   "mode": "plan-hardening-consistency-handoff",
   "reviewed_commit": "cc30bcab10ead28378a95c1923c47fb36c4011bf",
   "previous": "fc0e1d3ae9cb486151f15ca1564c855ea3ebf360",
+  "findings_resolved": 2,
+  "ready_for_qa": true
+}
+```
+
+## Final QA remediation handoff
+
+raptor-QA-PB-001 is resolved by the exact B1 status-owner matrix: B6 alone may
+advance `open -> reconciled`, B7 preserves `reconciled`, and B8's public
+transition API is the sole producer of every terminal ledger status. B6/B7
+failure states remain typed outcomes until B8 terminalizes them.
+raptor-QA-PB-002 is resolved by tracing REQ-RAP-015 through B8 certification
+binding and B9 certified apply/recovery in addition to B3–B6 proof generation.
+No scope or critical review is reopened.
+
+```json
+{
+  "status": "PASS",
+  "mode": "plan-hardening-final-qa-remediation",
+  "reviewed_commit": "WORKTREE",
+  "previous": "8a9c8fedc70d8bfa61a7a2694e4b6c2cf6d6b875",
   "findings_resolved": 2,
   "ready_for_qa": true
 }

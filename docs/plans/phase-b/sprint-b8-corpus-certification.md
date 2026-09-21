@@ -62,6 +62,12 @@ def certify_migration(
     reconciliation: ReconciliationResult, apply_plan: CorpusApplyPlan,
     compatibility: tuple[CompatibilityEvidence, ...],
 ) -> tuple[ReconciliationLedger, MigrationCertification]: ...
+def transition_migration_ledger(
+    ledger: ReconciliationLedger, *,
+    target: Literal["certified", "rejected", "stale"],
+    diagnostic_ids: tuple[str, ...],
+    certification_sha256: Sha256 | None = None,
+) -> ReconciliationLedger: ...
 def validate_migration(
     repository_root: Path, operation_input: RepositoryPath,
 ) -> ValidationResult: ...
@@ -86,6 +92,14 @@ silently repairs the B7 ledger. A certified result appends the B1
 receipt. Before deciding, B8 reconstructs every input/staged effective workspace
 layout from policy and bound trees and requires its version/digest to equal the
 corresponding evidence; an absent or mismatched layout binding fails closed.
+
+`transition_migration_ledger` is the sole terminal ledger-status API. It enforces
+the B1 matrix: `certified` requires a reconciled ledger, empty diagnostics, and a
+certification digest; `rejected` requires open/reconciled plus non-empty
+diagnostics and no certification digest; `stale` requires open/reconciled/
+certified plus non-empty diagnostics. B6/B7 outcomes are inputs to this API, not
+authority to mutate status. B9 may invoke this B8-owned API after preflight drift
+but may not implement a competing transition.
 
 `validate_migration` accepts either declared intent but is always non-mutating.
 For `validate`, it produces a reviewable certification. For `apply`, it reruns
@@ -116,7 +130,7 @@ status.
 |---|---|
 | B8-AC1 | Validate completes all five families, cross-document references, byte units, canonical/SQLite proof, lineage, projection/reparse, exact reconciliation, revision, and input/output gates without target mutation. |
 | B8-AC2 | Certification succeeds only with complete current B1–B7 records, exact ordered compatibility receipts, 100% reconciliation, matching Git revision, zero-warning input/output gates, and exact apply-plan bindings for ordered filesystem puts/deletes, final-tree inventory, tool bundles, and effective gate workspaces. |
-| B8-AC3 | Every certification field, operation mode, fixed predicate/evidence/receipt ordering, certification-receipt input/output/count/evidence/predecessor binding, put/delete/final-tree/bundle/effective-workspace digest link, and legal/illegal verdict transition has direct tests; changing any upstream byte/digest or omitting a split/combine deletion yields rejected or stale, never certified. |
+| B8-AC3 | Every certification field, operation mode, fixed predicate/evidence/receipt ordering, certification-receipt input/output/count/evidence/predecessor binding, put/delete/final-tree/bundle/effective-workspace digest link, and legal/illegal certification and ledger transition has direct tests; changing any upstream byte/digest or omitting a split/combine deletion yields rejected or stale, never certified. Tests prove B8 is the sole terminal ledger-status producer. |
 | B8-AC4 | Validate and apply intent both stop after certification in B8 and have no journal, replacement, SQLite target-write, or recovery behavior; their operation-input/certification digests differ. |
 | B8-AC5 | A temporary neutral repository supplies its own profile, templates, operation inputs, validator/build bundle, and corpus; Raptor packages none of its names/assets. |
 | B8-AC6 | Claude and Codex resolve the unchanged `/raptor:round-trip` command to the same agent/runtime; plugin/schema/template/vendor inventories remain hash-aligned. |
@@ -136,7 +150,7 @@ is tested only in a temporary repository. Neither can replace content in B8.
 
 ## Traceability and non-closure
 
-- B8-D1–D5 own non-mutating PB-REQ-005 certification/validate activation and NFR-RAP-008 full-chain evidence verification.
+- B8-D1–D5 own non-mutating PB-REQ-005 certification/validate activation, the certification binding required to close REQ-RAP-015, and NFR-RAP-008 full-chain evidence verification.
 - No apply, source/identity/target-SQLite replacement, journal mutation/recovery, production external migration, Rust CLI/SQLx, Dolt/MySQL, remote gate, or fleet orchestration.
 
 ## Handoff

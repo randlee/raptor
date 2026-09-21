@@ -188,7 +188,7 @@ Names below these boundaries may be refined in the owning sprint, but ownership 
 | PB-REQ-002 / REQ-RAP-013 | B2 | deterministic inventory and pre-parse rejection suite |
 | PB-REQ-003 | B3 | byte coverage, transform/derivation replay, SQLite receipt tests |
 | PB-REQ-004 / REQ-RAP-014 | B4, B5 | lineage-aware leaf inventory and sc-compose render/reparse trace |
-| PB-REQ-003, PB-REQ-004 / REQ-RAP-015 | B3–B6 | exact 100% ledger, lineage, and negative-mutation verification |
+| PB-REQ-003, PB-REQ-004 / REQ-RAP-015 | B3–B9 | exact 100% ledger and lineage through B6, B8 certification binding, and B9 certified apply/rollback/roll-forward verification |
 | PB-REQ-005 / REQ-RAP-016 | B7–B9 | Raptor-captured compatibility records, certification, and apply enforcement |
 | NFR-RAP-008 | B1–B9 | digest-linked boundary records and fail-closed apply/recovery tests |
 

@@ -139,7 +139,9 @@ recomputes every receipt's predecessor/input/output/count/evidence binding, and
 reconstructs each versioned effective workspace layout from current policy plus
 the certified input/staged trees. A missing, reordered, substituted, or
 mismatched receipt/layout makes the certification stale before the journal or
-any destination sibling exists.
+any destination sibling exists. When ledger persistence must reflect that drift,
+B9 invokes B8's `transition_migration_ledger(..., target="stale")`; B9 never
+writes a terminal ledger status itself.
 
 ## Authoritative deliverables
 
@@ -178,7 +180,7 @@ command appears in the validation block.
 
 ## Traceability and non-closure
 
-- B9-D1–D5 close PB-REQ-005 / REQ-RAP-016 apply enforcement and NFR-RAP-008 recovery/audit behavior.
+- B9-D1–D5 close the REQ-RAP-015 certified apply/recovery boundary, PB-REQ-005 / REQ-RAP-016 apply enforcement, and NFR-RAP-008 recovery/audit behavior.
 - No Raptor-owned consumer asset or production pilot execution; the handoff is a neutral contract only.
 - No Rust CLI/SQLx, Dolt/MySQL, remote attestation, synchronization service, or fleet orchestration.
 

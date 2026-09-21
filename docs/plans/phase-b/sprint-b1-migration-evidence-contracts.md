@@ -249,17 +249,22 @@ Paths under `.git/`,
 `input_revision`, `input_tree_sha256`, ordered non-empty `sources`, ordered
 `units`, ordered `derivations`, ordered `boundary_receipts`, optional `lineage`,
 optional `staged_tree_sha256`, ordered `compatibility_evidence`, and
-`status`. Legal transitions are only `open -> reconciled -> certified`,
-`open|reconciled -> rejected`, and `reconciled|certified -> stale`.
+`status`. Status ownership is exact: B2 constructs `open`; B3–B5 may replace
+ledger content while preserving `open`; B6 alone performs successful
+`open -> reconciled`; B7 may replace compatibility evidence/receipts while
+preserving `reconciled`; and B8 alone produces every terminal ledger mutation.
+The complete legal transition set is B6 `open -> reconciled`, B8
+`open -> rejected|stale`, B8 `reconciled -> certified|rejected|stale`, and B8
+`certified -> stale`. No other transition or status producer is legal.
 `lineage` is omitted until B4 and required from `reconciled` onward; units are
 empty only before B3. `staged_tree_sha256` is required from `reconciled` onward;
 compatibility IDs are empty in `open`, may be populated in `reconciled`, and are non-empty in
 `certified`. `rejected` and `stale` are terminal—rerun creates a new
-ledger/operation ID. Field producers are fixed: B2 creates identity/source
-bindings and `open`; B3–B5 append units, transformations, derivations, lineage,
-and receipts; B6 alone sets staged digest and `reconciled`; B7 appends
-compatibility IDs; B8 alone sets `certified`, `rejected`, or `stale`. Every
-downstream digest consumes the canonical digest of the complete prior ledger.
+ledger/operation ID. B6 rejection/staleness and B7 gate failure are typed outcome
+records with diagnostics, not ledger statuses: they return the input ledger
+unchanged for B8 to finalize. B8 terminalizes a failed open/reconciled ledger or
+certifies a successful reconciled ledger through its sole public transition API.
+Every downstream digest consumes the canonical digest of the complete prior ledger.
 
 `UnitRecord.disposition` is the union above. Unit IDs use the exact array formula
 in the migration requirements. Lists with authorial meaning retain order;
@@ -288,7 +293,7 @@ The operation-input and trust-policy fields are exactly those in the [phase plan
 | B1-AC5 | The loader accepts only `.raptor/operation-input/migration.json` and its literal `.raptor/operation-input/trust-policy.json`; the operation state paths derive only from `operation_id`. Validate/apply, reference mode, database, template, lineage, ledger, and evidence fields cannot be inferred. |
 | B1-AC6 | Trust policy requires exactly one Git revision resolver plus at least one exact validator and site-build tool, complete no-follow bundle/workspace inventories, relative entrypoints, deterministic version verification, exact versions/digests/argv/working-directory roles, and a closed environment allowlist. Tests reject missing/extra/substituted/escaping members, undeclared workspace inputs, and unknown/floating/shell-like values. Identity model tests prove v1 read compatibility and the v2 active/retired disjointness, irreversible-retirement, and no-reuse rules. |
 | B1-AC7 | Models remain consumer-neutral and import no parser, plugin runtime, database driver, template engine, subprocess API, external-consumer package, Rust, or Dolt dependency. |
-| B1-AC8 | Field-matrix tests cover every required/optional field, discriminator, cardinality, ordering rule, digest link, version rejection, all three final receipt producers/input-output/count/evidence/predecessor bindings, legal/illegal ledger transitions, and effective-layout equality/ancestor/descendant/scratch collisions before materialization. |
+| B1-AC8 | Field-matrix tests cover every required/optional field, discriminator, cardinality, ordering rule, digest link, version rejection, all three final receipt producers/input-output/count/evidence/predecessor bindings, the exact B2/B6/B7/B8 status-owner matrix and every legal/illegal ledger transition, and effective-layout equality/ancestor/descendant/scratch collisions before materialization. |
 
 ## Required validation
 

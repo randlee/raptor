@@ -139,9 +139,11 @@ transformations, derivations, canonical/SQLite equality, projection consumption,
 render/reparse provenance, and lineage. Success requires every independent
 predicate owned through B6 to equal exactly 100%; partial percentages are never
 rounded. Success returns a new canonically serialized ledger in `reconciled`
-state; failure returns a terminal `rejected` or `stale` ledger with stable
-diagnostics. The input ledger is never mutated in place. B7 later verifies the
-revision and adds compatibility predicates.
+state. Failure returns the unchanged `open` ledger plus a `ReconciliationResult`
+whose `rejected` or `stale` status and stable diagnostics are outcomes, not
+ledger transitions; only B8 may terminalize that ledger. The input ledger is
+never mutated in place. B7 later verifies the revision and adds compatibility
+predicates.
 
 `prepare_apply_plan` writes only below the exact operation validation root
 `.raptor/state/migrations/<operation_id>/validation/`: `stage/tree/` contains
@@ -180,6 +182,7 @@ plan.
 | B6-AC6 | Changing any staged byte or apply-plan binding invalidates reconciliation and cannot be repaired without a new upstream run. |
 | B6-AC7 | B6 records the declared revision in the result/apply plan but invokes no Git executable and produces no revision evidence; only B7 may perform that verification. |
 | B6-AC8 | Resolver tests reject every undeclared key/path/evidence lookup, symlink/control path, and hash mismatch; result/apply-plan tests cover all required fields, fixed predicate/mutation/inventory ordering, absence/digest preconditions, put/delete shape, split/combine removals, exact final-tree/digest bindings, and irreversible ready-to-stale transition. |
+| B6-AC9 | Status-owner tests prove B6 performs only `open -> reconciled`; rejected/stale reconciliation outcomes preserve the input ledger status/content for B8 terminalization. |
 
 ## Required validation
 

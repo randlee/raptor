@@ -70,8 +70,9 @@ appears in agent responses. Remote tools are unsupported.
 
 Each successful role returns a new `reconciled` ledger whose sorted
 `compatibility_evidence` IDs append the new immutable records; it never mutates
-the input ledger. Gate failure returns terminal rejection/staleness through the
-shared B1 lifecycle and cannot preserve a prior certified state.
+the input ledger or changes its status. Gate failure returns the unchanged
+`reconciled` ledger plus a typed failed/stale compatibility outcome and
+diagnostics for B8 terminalization; B7 never produces a terminal ledger status.
 
 After all tools for `input` succeed, B7 appends the exact
 `compatibility_input` receipt defined by B1; after all `staged` tools succeed, it
@@ -102,6 +103,7 @@ not merely the ledger digest. Every input evidence record names the
 | B7-AC6 | External profiles/templates/tool bundles used by tests exist only in temporary neutral repositories and are never packaged as Raptor assets. |
 | B7-AC7 | B7 is the sole exact Git revision-verification owner: its public API invokes the one policy-pinned revision tool, compares its commit to `MigrationOperationInput.input_revision`, and emits evidence consumed by B8/B9; no caller recreates argv, execution, parsing, or evidence logic. |
 | B7-AC8 | Receipt tests prove exact input/output/count/evidence bindings and immediate predecessor order for both compatibility stages; missing, partial, reordered, or substituted records fail without emitting the next receipt. |
+| B7-AC9 | Status-owner tests prove successful evidence append preserves `reconciled`, failed/stale gate outcomes return the input ledger unchanged, and no B7 path emits `certified`, `rejected`, or `stale` ledger status. |
 
 ## Required validation
 
