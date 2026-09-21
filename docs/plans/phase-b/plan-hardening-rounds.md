@@ -12,6 +12,9 @@ This ledger records review of [`plan-phase-b.md`](plan-phase-b.md) and all Phase
 | 2 | 2 | plan-scope-reviewer | 4fb9584520c90a76a10cf13768194a1c3c572e71 | FAIL | 0 | 2 | 0 | 8d41c412033f9e6ba129286812b624de9d7b8dd18774bd2aeeb54e68fa2233a0 | step3-sprint-scope-handoff | PB-SCOPE-001 and PB-SCOPE-007: authoritative ledger contract and exact operation-state lifecycle. Hash is over the ordered finding IDs because only the deduplicated triage payload was retained. |
 | 2 | 4 | critical-plan-reviewer | 4fb9584520c90a76a10cf13768194a1c3c572e71 | FAIL | 1 | 3 | 0 | 19e4f03370846728b98a9b3cd9ff125fa678644e77ccf9678676e96bba5a152b | step3-sprint-scope-handoff | PLAN-CRIT-001..004: ledger duplication, filesystem removals, tool bundles, and gate workspaces. Hash is over ordered finding IDs because only the deduplicated triage payload was retained. |
 | 3 | 3 | arch-ctm | 05ed3987884359ab37ad9f543066372cb0fea48b | CORRECTED_FOR_REREVIEW | 0 | 0 | 0 | 684f746adf12cd6b961fc4fda6dbef24ead4ec4c2a69295b66d6958c2f3f6ba3 | 8d41c412+19e4f033 | Deduplicated six reviewer reports into TRIAGE-001..005 (PB-SCOPE-001 and PLAN-CRIT-001 overlap) and corrected all five contracts without another review claim. |
+| 3 | 2 | plan-scope-reviewer | fc0e1d3ae9cb486151f15ca1564c855ea3ebf360 | FAIL | 0 | 1 | 0 | a7c25a215c723765850060adffc6b98a4950affd2fe8d89c0601c96a9c3a0965 | 684f746a | PLAN-SCOPE-008: final compatibility/certification receipt ownership and bindings. Hash is over the retained finding ID. |
+| 3 | 4 | critical-plan-reviewer | fc0e1d3ae9cb486151f15ca1564c855ea3ebf360 | FAIL | 0 | 1 | 0 | f2c08a807158cbed78a2f1765231e1d14365eb3eb9105319216b145e5140112b | 684f746a | PLAN-CRIT-005: effective gate-workspace collision invariants and bindings. Hash is over the retained finding ID. Critical cycle 2 of 2 is final. |
+| 4 | 5 | arch-ctm | WORKTREE | CORRECTED_CAP_TRANSITION | 0 | 0 | 0 | 753ce61bb5af26e0e218553e6d9300c1b0a4aa1b9e7bd5540a462d8ae251b633 | a7c25a21+f2c08a80 | Corrected FINAL-001/002; both reviewer caps are exhausted, so workflow advances to bounded consistency hardening and final QA without another scope/critical review. |
 
 ## Initial author handoff
 
@@ -91,6 +94,28 @@ correction records no reviewer PASS and starts no additional review.
     "docs/plans/phase-b/sprint-b9-apply-recovery-handoff.md"
   ],
   "ready_for_next_step": true
+}
+```
+
+## Final capped-review correction and consistency handoff
+
+Scope cycle 3 reported PLAN-SCOPE-008 and critical cycle 2 reported
+PLAN-CRIT-005, each important and neither blocking. The critical review limit is
+now exhausted; scope is also at its configured third cycle. FINAL-001 assigns
+the last three receipts to B7/B8 with exact predecessor/input/output/count and
+evidence bindings. FINAL-002 defines the versioned effective workspace layout,
+pre-materialization collision rejection, evidence binding, certification, and
+apply revalidation. These author corrections do not claim reviewer PASS and
+must proceed directly through consistency checks and final QA.
+
+```json
+{
+  "status": "PASS",
+  "mode": "plan-hardening-consistency-handoff",
+  "reviewed_commit": "WORKTREE",
+  "previous": "fc0e1d3ae9cb486151f15ca1564c855ea3ebf360",
+  "findings_resolved": 2,
+  "ready_for_qa": true
 }
 ```
 

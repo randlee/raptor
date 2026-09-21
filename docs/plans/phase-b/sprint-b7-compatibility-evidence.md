@@ -46,7 +46,10 @@ the workspace root, then copies every declared auxiliary input to its distinct
 allowlisted workspace path. The canonical no-follow auxiliary inventory must
 equal the policy inventory and `workspace_inputs_sha256`; the evidence
 `workspace_sha256` additionally binds corpus role, exact bound-tree digest, and
-the fixed scratch policy. A read outside the copied
+the versioned effective layout. Before materialization, the runtime constructs
+the complete B1 effective path table and rejects equality or
+ancestor/descendant collisions among auxiliary paths, either corpus overlay,
+and reserved `scratch/`. No partial workspace survives a rejected layout. A read outside the copied
 bundle, interpreter, corpus overlay, or auxiliary inventory fails; writes are
 confined to a fresh `scratch/` subtree that is never an input or output corpus
 member. The shared executor must enforce that filesystem allowlist at process
@@ -70,6 +73,13 @@ Each successful role returns a new `reconciled` ledger whose sorted
 the input ledger. Gate failure returns terminal rejection/staleness through the
 shared B1 lifecycle and cannot preserve a prior certified state.
 
+After all tools for `input` succeed, B7 appends the exact
+`compatibility_input` receipt defined by B1; after all `staged` tools succeed, it
+appends `compatibility_staged`. The latter consumes the former receipt digest,
+not merely the ledger digest. Every input evidence record names the
+`reconciliation` receipt as its upstream receipt; every staged record names the
+`compatibility_input` receipt. B7 produces neither receipt on a partial gate set.
+
 ## Authoritative deliverables
 
 | ID | Deliverable |
@@ -77,7 +87,7 @@ shared B1 lifecycle and cannot preserve a prior certified state.
 | B7-D1 | Shared compatibility runtime implementing verified private-copy direct execution. |
 | B7-D2 | Exact Git revision evidence and input/staged validator plus site-build evidence orchestration. |
 | B7-D3 | Timeout, resource/output, descriptor, environment, mutation, retention, and redaction enforcement. |
-| B7-D4 | Deterministic compatibility records linked to policy, operation, bundle inventory/version proof, gate-workspace inventory, corpus tree, and reconciled-ledger digests. |
+| B7-D4 | Deterministic compatibility records and sole-producer input/staged receipts linked to policy, operation, bundle inventory/version proof, effective gate-workspace layout, corpus tree, and reconciled-ledger digests. |
 | B7-D5 | Neutral temporary-tool integration and adversarial execution suite without consumer assets in Raptor. |
 
 ## Authoritative acceptance criteria
@@ -86,11 +96,12 @@ shared B1 lifecycle and cannot preserve a prior certified state.
 |---|---|
 | B7-AC1 | Both input and staged trees have Raptor-created evidence from every policy-required validator and site-build gate, with exact revision/policy/tool-bundle inventory/version/workspace/argv/environment/working-directory bindings and zero exit/errors/warnings. |
 | B7-AC2 | Missing/extra/substituted/escaping bundle members, wrong version output, shell syntax, prefix/trailing argument match, PATH fallback, undeclared environment or workspace read, stale auxiliary config, mutable/symlinked files, wrong interpreter/hash, inherited stdin/descriptors, timeout, output-limit breach, corpus mutation, and post-run bundle/workspace mutation fail closed. |
-| B7-AC3 | Gate writes cannot touch the real repository, immutable stage, or auxiliary inputs; evidence binds the private workspace and exact input/staged overlay to their corpus and workspace tree digests. Tests distinguish the exact input overlay from the exact staged overlay. |
+| B7-AC3 | Before materialization, equality and ancestor/descendant collisions among auxiliary paths, each exact input/staged overlay, and reserved scratch fail closed. Gate writes cannot touch the real repository, immutable stage, or auxiliary inputs; evidence binds the versioned effective layout and distinguishes input from staged. |
 | B7-AC4 | Imported/self-reported, remote, stale, replayed-for-another-tree, partial, or warning-bearing evidence is rejected. |
 | B7-AC5 | Evidence and diagnostics contain no secrets or raw tool traces; retained raw output follows the documented operation-state lifecycle. |
 | B7-AC6 | External profiles/templates/tool bundles used by tests exist only in temporary neutral repositories and are never packaged as Raptor assets. |
 | B7-AC7 | B7 is the sole exact Git revision-verification owner: its public API invokes the one policy-pinned revision tool, compares its commit to `MigrationOperationInput.input_revision`, and emits evidence consumed by B8/B9; no caller recreates argv, execution, parsing, or evidence logic. |
+| B7-AC8 | Receipt tests prove exact input/output/count/evidence bindings and immediate predecessor order for both compatibility stages; missing, partial, reordered, or substituted records fail without emitting the next receipt. |
 
 ## Required validation
 

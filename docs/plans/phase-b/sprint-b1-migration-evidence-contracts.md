@@ -78,6 +78,20 @@ and emit `[]` when empty. Optional values are omitted when `None`.
 `certification`. A receipt may consume only its immediate predecessor; stages
 cannot repeat, skip a required predecessor, or follow certification.
 
+The final three receipts have fixed ownership and bindings. Every named digest
+below is the lowercase SHA-256 of canonical JSON; evidence tuples use policy
+order and the receipt itself is appended after its output exists.
+
+| Stage | Sole producer | `upstream_receipt_sha256` | `input_sha256` | `output_sha256`, count, evidence IDs |
+|---|---|---|---|---|
+| `compatibility_input` | B7 | digest of the `reconciliation` receipt | array of ledger-before digest, input-tree digest, policy digest, input effective-workspace digests, and tool-bundle-set digest | digest of the ordered input-role evidence records; count equals their length; IDs are exactly those records |
+| `compatibility_staged` | B7 | digest of the `compatibility_input` receipt | array of ledger-after-input digest, staged-tree digest, policy digest, staged effective-workspace digests, and tool-bundle-set digest | digest of the ordered staged-role evidence records; count equals their length; IDs are exactly those records |
+| `certification` | B8 | digest of the `compatibility_staged` receipt | array of final B7 ledger, reconciliation-result, apply-plan, and complete compatibility-evidence-set digests | digest of the `MigrationCertification`; count equals the fixed certification predicate count; IDs contain only `certification_id` |
+
+B7 appends both compatibility receipts and B8 appends the certification receipt
+to newly serialized ledgers. B8 and B9 reject a missing, duplicated, reordered,
+or substituted receipt, predecessor, evidence ID, count, input, or output digest.
+
 | Lineage model | Required fields and constraints | Ordering / transition |
 |---|---|---|
 | `DocumentLineage` | `input_keys` non-empty unique, `output_key`, `output_path`, `primary_input_key` contained in inputs, non-empty unique `contributing_origins` matching inputs | sorted by `output_key`; input keys/origins sort by composite key |
@@ -180,6 +194,7 @@ class CompatibilityEvidence(Model):
     interpreter_sha256: Sha256 | None = None
     argv_sha256: Sha256
     environment_sha256: Sha256
+    workspace_layout_version: Literal["1.0.0"]
     workspace_sha256: Sha256
     working_directory_role: Literal["repository_root", "staging_root"]
     input_revision: str
@@ -217,9 +232,16 @@ Gate auxiliary inputs are explicit policy data, never authorized-corpus members.
 Each no-follow regular source is copied to its distinct relative
 `workspace_path`; their canonical `[workspace_path, role, byte_length,
 content_sha256]` array hashes to `workspace_inputs_sha256`. A gate execution's
-`workspace_sha256` hashes `[corpus_role, bound_tree_sha256,
-workspace_inputs_sha256, "scratch/"]`, distinguishing the exact input and staged
-overlays. Paths under `.git/`,
+effective layout is the sorted canonical array containing every corpus-overlay
+file as `[path, "corpus", byte_length, content_sha256]`, every auxiliary input
+as `[workspace_path, "auxiliary:<role>", byte_length, content_sha256]`, and the
+reserved entry `["scratch/", "scratch", 0, null]`. `workspace_sha256` hashes
+`["1.0.0", corpus_role, bound_tree_sha256, effective_layout]`, distinguishing
+the exact input and staged overlays. Auxiliary paths must be unique and
+pairwise ancestor/descendant-disjoint from one another, every corpus-overlay
+path, and reserved `scratch/`; corpus paths also cannot equal or descend from
+`scratch/`. Validation occurs before any directory or file is materialized.
+Paths under `.git/`,
 `.raptor/state/`, operation stages, backups, and destinations are forbidden.
 
 `ReconciliationLedger` has no implicit fields: it requires `ledger_version`,
@@ -251,7 +273,7 @@ The operation-input and trust-policy fields are exactly those in the [phase plan
 |---|---|
 | B1-D1 | Versioned Pydantic models and public APIs for units, dispositions, transformation/derivation records, receipts, ledger, lineage, identity transition, operation input, tool bundles, gate workspaces, trust policy, and compatibility evidence. |
 | B1-D2 | Generated JSON Schemas under `schema/json/v1/` and drift enforcement from the models. |
-| B1-D3 | Canonical digest/order/omission rules and validators for interval shape, pointer namespaces, unique authority, lineage totality, policy roles, exact argv, and state transitions. |
+| B1-D3 | Canonical digest/order/omission rules and validators for interval shape, pointer namespaces, unique authority, lineage totality, policy roles, exact argv, effective workspace layouts, final receipt ownership, and state transitions. |
 | B1-D4 | Raptor-owned fixtures and mutation tests covering every union branch and version rejection. |
 | B1-D5 | Vendored schema refresh and plugin inventory update, with no runtime migration behavior. |
 
@@ -266,7 +288,7 @@ The operation-input and trust-policy fields are exactly those in the [phase plan
 | B1-AC5 | The loader accepts only `.raptor/operation-input/migration.json` and its literal `.raptor/operation-input/trust-policy.json`; the operation state paths derive only from `operation_id`. Validate/apply, reference mode, database, template, lineage, ledger, and evidence fields cannot be inferred. |
 | B1-AC6 | Trust policy requires exactly one Git revision resolver plus at least one exact validator and site-build tool, complete no-follow bundle/workspace inventories, relative entrypoints, deterministic version verification, exact versions/digests/argv/working-directory roles, and a closed environment allowlist. Tests reject missing/extra/substituted/escaping members, undeclared workspace inputs, and unknown/floating/shell-like values. Identity model tests prove v1 read compatibility and the v2 active/retired disjointness, irreversible-retirement, and no-reuse rules. |
 | B1-AC7 | Models remain consumer-neutral and import no parser, plugin runtime, database driver, template engine, subprocess API, external-consumer package, Rust, or Dolt dependency. |
-| B1-AC8 | Field-matrix tests cover every required/optional field, discriminator, cardinality, ordering rule, digest link, version rejection, receipt predecessor, and legal/illegal ledger state transition. |
+| B1-AC8 | Field-matrix tests cover every required/optional field, discriminator, cardinality, ordering rule, digest link, version rejection, all three final receipt producers/input-output/count/evidence/predecessor bindings, legal/illegal ledger transitions, and effective-layout equality/ancestor/descendant/scratch collisions before materialization. |
 
 ## Required validation
 

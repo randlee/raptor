@@ -133,6 +133,14 @@ and never rolls filesystem or identity state back. It never claims
 cross-resource atomicity or performs a path-only move. Recovery cannot alter
 operation inputs or create a new plan.
 
+This preflight also requires the literal ordered
+`compatibility_input -> compatibility_staged -> certification` receipt suffix,
+recomputes every receipt's predecessor/input/output/count/evidence binding, and
+reconstructs each versioned effective workspace layout from current policy plus
+the certified input/staged trees. A missing, reordered, substituted, or
+mismatched receipt/layout makes the certification stale before the journal or
+any destination sibling exists.
+
 ## Authoritative deliverables
 
 | ID | Deliverable |
@@ -147,7 +155,7 @@ operation inputs or create a new plan.
 
 | ID | Criterion |
 |---|---|
-| B9-AC1 | Apply accepts only an unchanged mode-`apply` operation input plus its current B8 apply-mode `certified` record whose complete digest chain and target before-state reverify immediately before mutation, including a fresh call to B7's sole revision-verification API. A validate-mode certification is never reusable for apply. |
+| B9-AC1 | Apply accepts only an unchanged mode-`apply` operation input plus its current B8 apply-mode `certified` record whose complete receipt/digest chain, effective input/staged workspace layouts, and target before-state reverify immediately before mutation, including a fresh call to B7's sole revision-verification API. Missing/reordered/substituted final receipts or absent/mismatched layout bindings fail before journaling. A validate-mode certification is never reusable for apply. |
 | B9-AC2 | Journal/result tests cover every required field, exact operation-root and sibling layout, locator/collision/retention/cleanup rule, ordered path inventory, legal/illegal state transition, result status, omission rule, stale binding, and conflict diagnostic. |
 | B9-AC3 | Only certified staged bytes and certified deletes are applied; every absence-or-digest precondition, final-tree inventory, selected IdentityManifest 2.0 transition, and exact B6 SQLite mutation set follows in documented order. |
 | B9-AC4 | Failure injection before/after every marker and put/delete rename proves pre-identity restoration of deleted/replaced paths, post-identity deterministic roll-forward, split/combine deletion handling, db-pending retry, completed replay idempotence, lock exclusion, and terminal conflict without guessing. |

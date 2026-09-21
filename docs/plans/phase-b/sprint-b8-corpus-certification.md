@@ -41,6 +41,7 @@ class MigrationCertification(Model):
     tool_bundle_set_sha256: Sha256
     gate_workspace_set_sha256: Sha256
     compatibility_evidence_ids: tuple[EvidenceId, ...]
+    upstream_receipt_sha256: Sha256
     predicates: tuple[CertificationPredicate, ...]
     diagnostics: tuple[Diagnostic, ...]
     certified_at: AwareDatetime | None
@@ -78,7 +79,13 @@ staged-tree digest alone never authorizes deletion.
 
 Certification returns a newly serialized ledger in `certified`, `rejected`, or
 `stale` state together with the matching certification; it never mutates or
-silently repairs the B7 ledger.
+silently repairs the B7 ledger. A certified result appends the B1
+`certification` receipt whose immediate predecessor is the exact
+`compatibility_staged` receipt and whose digest is also recorded in
+`MigrationCertification.upstream_receipt_sha256`. Rejected/stale results emit no certification
+receipt. Before deciding, B8 reconstructs every input/staged effective workspace
+layout from policy and bound trees and requires its version/digest to equal the
+corresponding evidence; an absent or mismatched layout binding fails closed.
 
 `validate_migration` accepts either declared intent but is always non-mutating.
 For `validate`, it produces a reviewable certification. For `apply`, it reruns
@@ -97,7 +104,7 @@ status.
 
 | ID | Deliverable |
 |---|---|
-| B8-D1 | Complete `MigrationCertification`, predicate, and `ValidationResult` models plus certification verifier. |
+| B8-D1 | Complete `MigrationCertification`, predicate, `ValidationResult`, and sole-producer certification-receipt behavior plus verifier. |
 | B8-D2 | Non-mutating shared validate orchestration composing existing routes and B1–B7 runtimes. |
 | B8-D3 | Existing `/raptor:round-trip migration` agent/router activation for validate mode with identical Claude/Codex behavior. |
 | B8-D4 | Validate-only thin `migrate_corpus.py` wrapper and wrapper-thinness enforcement. |
@@ -108,8 +115,8 @@ status.
 | ID | Criterion |
 |---|---|
 | B8-AC1 | Validate completes all five families, cross-document references, byte units, canonical/SQLite proof, lineage, projection/reparse, exact reconciliation, revision, and input/output gates without target mutation. |
-| B8-AC2 | Certification succeeds only with complete current B1–B7 records, exact 100% reconciliation, matching Git revision, zero-warning input/output gates, and exact apply-plan bindings for ordered filesystem puts/deletes, final-tree inventory, tool bundles, and gate workspaces. |
-| B8-AC3 | Every certification field, operation mode, fixed predicate/evidence ordering, put/delete/final-tree/bundle/workspace digest link, and legal/illegal verdict transition has direct tests; changing any upstream byte/digest or omitting a split/combine deletion yields rejected or stale, never certified. |
+| B8-AC2 | Certification succeeds only with complete current B1–B7 records, exact ordered compatibility receipts, 100% reconciliation, matching Git revision, zero-warning input/output gates, and exact apply-plan bindings for ordered filesystem puts/deletes, final-tree inventory, tool bundles, and effective gate workspaces. |
+| B8-AC3 | Every certification field, operation mode, fixed predicate/evidence/receipt ordering, certification-receipt input/output/count/evidence/predecessor binding, put/delete/final-tree/bundle/effective-workspace digest link, and legal/illegal verdict transition has direct tests; changing any upstream byte/digest or omitting a split/combine deletion yields rejected or stale, never certified. |
 | B8-AC4 | Validate and apply intent both stop after certification in B8 and have no journal, replacement, SQLite target-write, or recovery behavior; their operation-input/certification digests differ. |
 | B8-AC5 | A temporary neutral repository supplies its own profile, templates, operation inputs, validator/build bundle, and corpus; Raptor packages none of its names/assets. |
 | B8-AC6 | Claude and Codex resolve the unchanged `/raptor:round-trip` command to the same agent/runtime; plugin/schema/template/vendor inventories remain hash-aligned. |
