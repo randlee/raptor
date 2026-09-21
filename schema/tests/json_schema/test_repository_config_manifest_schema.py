@@ -39,6 +39,12 @@ def test_generated_repository_manifest_schema_accepts_neutral_example() -> None:
         ("routing", "routing.json"),
         ("identity", "identity.toml"),
         ("identity", "nested\\identity.json"),
+        ("scan", ".toml"),
+        ("identity", ".json"),
+        ("scan", "sou\nrces.toml"),
+        ("scan", "sou\r\nrces.toml"),
+        ("scan", "sou\rrces.toml"),
+        ("identity", "nested/iden\ntity.json"),
     ],
 )
 def test_generated_manifest_schema_rejects_expressible_invalid_values(

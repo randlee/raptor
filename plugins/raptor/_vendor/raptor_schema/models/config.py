@@ -88,6 +88,8 @@ SourceName = Annotated[
 
 def _config_artifact_path(value: str) -> str:
     path = _REPOSITORY_PATH_ADAPTER.validate_python(value)
+    if any(ord(character) < 32 or ord(character) == 127 for character in path):
+        raise ValueError("configuration artifact path may not contain control characters")
     if path.split("/", 1)[0] in {".git", ".raptor"}:
         raise ValueError("configuration artifact path is relative to .raptor")
     return path
@@ -95,7 +97,8 @@ def _config_artifact_path(value: str) -> str:
 
 _CONFIG_PATH_PREFIX = (
     r"^(?!/)(?!\.{1,2}(?:/|$))(?!.*(?:/\.{1,2})(?:/|$))"
-    r"(?!.*//)(?!.*\\)(?!(?:\.git|\.raptor)(?:/|$)).+"
+    r"(?!.*//)(?!.*\\)(?!.*[\x00-\x1f\x7f])"
+    r"(?!(?:\.git|\.raptor)(?:/|$))"
 )
 
 
@@ -103,18 +106,20 @@ def _typed_config_path_schema(extension: str) -> dict[str, object]:
     return {
         "type": "string",
         "minLength": len(extension) + 2,
-        "pattern": rf"{_CONFIG_PATH_PREFIX}\.{extension}(?![\s\S])",
+        "pattern": (
+            rf"{_CONFIG_PATH_PREFIX}(?:[^/]+/)*[^/]+\.{extension}(?![\s\S])"
+        ),
     }
 
 
 def _toml_config_path(value: str) -> str:
-    if not value.endswith(".toml"):
+    if not value.endswith(".toml") or value.rsplit("/", 1)[-1] == ".toml":
         raise ValueError("configuration path must end in .toml")
     return value
 
 
 def _json_config_path(value: str) -> str:
-    if not value.endswith(".json"):
+    if not value.endswith(".json") or value.rsplit("/", 1)[-1] == ".json":
         raise ValueError("configuration path must end in .json")
     return value
 

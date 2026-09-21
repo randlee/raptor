@@ -49,6 +49,12 @@ def test_manifest_and_identity_repository_ids_must_match() -> None:
         ("routing", "routing.json"),
         ("identity", "identity.toml"),
         ("identity", "nested\\identity.json"),
+        ("scan", ".toml"),
+        ("identity", ".json"),
+        ("scan", "sou\nrces.toml"),
+        ("scan", "sou\r\nrces.toml"),
+        ("scan", "sou\rrces.toml"),
+        ("identity", "nested/iden\ntity.json"),
     ],
 )
 def test_manifest_rejects_escaping_or_wrongly_typed_paths(field: str, value: str) -> None:
