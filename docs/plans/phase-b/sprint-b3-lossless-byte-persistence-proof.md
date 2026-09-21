@@ -54,7 +54,6 @@ The existing SQLite store is called through its public API. B3 adds digest-linke
 python -m pytest schema/tests/migration plugins/raptor/tests/migration/test_accounting.py plugins/raptor/tests/migration/test_persistence_proof.py
 python -m pytest plugins/raptor/tests/operations schema/tests/storage
 python -m mypy --strict schema/src/raptor_schema plugins/raptor/runtime
-python plugins/raptor/scripts/migrate_corpus.py --repo-root . --operation-input .raptor/operation-input/migration.json --through sqlite --validate
 git diff --exit-code -- schema/json/v1 plugins/raptor/_vendor/raptor_schema plugins/raptor/plugin-manifest.json
 rg -n '\bNFT\b|sqlx|dolt://' schema/src plugins/raptor/runtime/accounting.py plugins/raptor/tests/migration && exit 1 || true
 ```
@@ -62,7 +61,7 @@ rg -n '\bNFT\b|sqlx|dolt://' schema/src plugins/raptor/runtime/accounting.py plu
 ## Traceability and non-closure
 
 - B3-D1–D5 satisfy PB-REQ-003 and the import/persistence portion of REQ-RAP-015 and NFR-RAP-008.
-- No full Markdown document assembly, template rewrite, staged output, reparse comparison, split/combine apply, external gate execution, or certification.
+- No full Markdown document assembly, template rewrite, staged output, reparse comparison, split/combine apply, migration CLI/agent activation, external gate execution, or certification.
 - No replacement of existing canonical/SQLite APIs, Rust CLI, Dolt/MySQL, or consumer fixture.
 
 ## Handoff

@@ -69,9 +69,9 @@ They are operator inputs, not repository configuration or authorized corpus cont
 | `repository_manifest` | literal `.raptor/raptor.toml` in v1 |
 | `database_path` | normalized repository-relative SQLite path |
 | `reference_mode` | `batch` or `store`; `store` requires an existing initialized database |
-| `staging_root` | normalized repository-relative path, outside the authorized input corpus |
+| `staging_root` | literal `.raptor/state/migrations/<operation_id>/stage` in v1 |
 | `template_set` | exact `name`, `version`, and manifest SHA-256 |
-| `trust_policy_path` | normalized path below `.raptor/operation-input/`, normally `trust-policy.json` |
+| `trust_policy_path` | literal `.raptor/operation-input/trust-policy.json` in v1 |
 | `lineage_path` | optional explicit canonical JSON input for split/combine; omitted means generated one-to-one lineage |
 | `ledger_path` | normalized output path below `.raptor/state/migrations/<operation_id>/` |
 | `evidence_directory` | normalized directory below the same operation state root |
@@ -91,7 +91,30 @@ operation input -> ingress snapshot -> byte/unit ledger -> canonical import
   -> certification
 ```
 
-Validate mode may write only explicitly requested evidence below the operation state root; it never changes source Markdown, identity, or SQLite. Apply uses the existing path-scoped journal and idempotent SQLite writes. It revalidates the current revision, authorized input tree, staged tree, policy, tools, and complete evidence chain immediately before replacement. A changed binding makes the prepared run stale; apply does not silently rerun or refresh evidence.
+Validate mode may write only generated stage/evidence data below
+`.raptor/state/migrations/<operation_id>/`; it never changes source Markdown,
+identity, or the target SQLite database. SQLite proof runs against a private
+database in that state root, initialized from or copied from the target as the
+selected reference mode requires. Apply uses the existing path-scoped journal
+and idempotent writes to `database_path`. It revalidates the current revision,
+authorized input tree, staged tree, policy, tools, and complete evidence chain
+immediately before replacement. A changed binding makes the prepared run stale;
+apply does not silently rerun or refresh evidence.
+
+## Step 1 contract decisions
+
+The guidelines pass ratifies three contracts rather than leaving them to
+implementation:
+
+1. Phase B is Git-only. The exact revision is resolved by one policy-pinned Git
+   tool; another source-control system requires a later versioned resolver.
+2. Split/combine requires `IdentityManifest` `2.0.0` retired-document records.
+   This is necessary to prevent reuse after an input document ceases to be an
+   active output.
+3. Version 1 accepts only `.raptor/operation-input/migration.json` and the
+   literal trust-policy path it names. Generated stages and evidence live only
+   below the matching operation state root. Fixed locations make exclusion,
+   recovery, and audit behavior deterministic.
 
 ## Lineage and identity policy
 
@@ -111,7 +134,7 @@ to `last_path`, non-empty `replacement_document_ids`, `operation_id`, and
 written as version 2 only by a validated B4 identity transition. Active and
 retired IDs are disjoint, and retirement is irreversible.
 
-B1 defines the evidence/transition models. B4 implements and proves these rules. Until B4 merges, split/combine returns a structured unsupported error; no earlier sprint may partially apply it.
+B1 defines the evidence/transition models. B4 implements lineage planning, B5 renders the plan, B6 reconciles it, and B8 applies it. Until B8 merges, split/combine apply returns a structured unsupported error; no earlier sprint may partially mutate source/identity/database state.
 
 ## Sprint stack
 
@@ -120,8 +143,11 @@ B1 defines the evidence/transition models. B4 implements and proves these rules.
 | B1 | [Migration evidence contracts](sprint-b1-migration-evidence-contracts.md) | `phase-b/01-migration-evidence-contracts` | root; `must_follow develop` | Versioned ledger, lineage, trust, compatibility, identity-transition, and operation-input types/schemas. |
 | B2 | [Manifest-driven corpus ingress](sprint-b2-manifest-corpus-ingress.md) | `phase-b/02-manifest-corpus-ingress` | `must_follow B1` | Deterministic repository-root inventory, profile declaration closure, selected identity propagation, and initial evidence. |
 | B3 | [Lossless byte and persistence proof](sprint-b3-lossless-byte-persistence-proof.md) | `phase-b/03-lossless-byte-persistence-proof` | `must_follow B2` | Complete byte units, transformation/derivation proofs, and canonical JSON/SQLite receipts. |
-| B4 | [Projection, lineage, and reconciliation](sprint-b4-projection-lineage-reconciliation.md) | `phase-b/04-projection-lineage-reconciliation` | `must_follow B3` | Total leaf projection, sc-compose/reparse proof, split/combine identity transition, and 100% reconciliation. |
-| B5 | [External evidence and corpus certification](sprint-b5-external-evidence-certification.md) | `phase-b/05-external-evidence-certification` | `must_follow B4` | Trusted input/output gates and full-corpus validate/apply certification workflow. |
+| B4 | [Corpus lineage planning](sprint-b4-corpus-lineage.md) | `phase-b/04-corpus-lineage` | `must_follow B3` | One-to-one/split/combine output allocation and IdentityManifest 2.0 transition. |
+| B5 | [Projection, render, and reparse](sprint-b5-projection-render-reparse.md) | `phase-b/05-projection-render-reparse` | `must_follow B4` | Total leaf/lineage projection and sc-compose-only render/reparse proof. |
+| B6 | [Corpus reconciliation](sprint-b6-corpus-reconciliation.md) | `phase-b/06-corpus-reconciliation` | `must_follow B5` | Exact 100% reconciliation, immutable stage, and apply mutation plan. |
+| B7 | [Trusted compatibility evidence](sprint-b7-compatibility-evidence.md) | `phase-b/07-compatibility-evidence` | `must_follow B6` | Policy-pinned input/output validator and site-build execution evidence. |
+| B8 | [Full-corpus certification](sprint-b8-corpus-certification.md) | `phase-b/08-corpus-certification` | `must_follow B7` | Composed validate/apply/recover workflow and consumer-neutral certification handoff. |
 
 All relations are `must_follow`: each child consumes a versioned public contract and evidence digest produced by its parent. None is `parallel_safe` because adjacent sprints intersect the same ledger schema and orchestration path. Parent development is merged forward when pushed, not after QA; PR completion remains parent-first.
 
@@ -147,16 +173,16 @@ Names below these boundaries may be refined in the owning sprint, but ownership 
 | PB-REQ-001 | B1 | installable types, generated schemas, canonical fixtures, drift tests |
 | PB-REQ-002 / REQ-RAP-013 | B2 | deterministic inventory and pre-parse rejection suite |
 | PB-REQ-003 | B3 | byte coverage, transform/derivation replay, SQLite receipt tests |
-| PB-REQ-004 / REQ-RAP-014 | B4 | leaf inventory, sc-compose trace, lineage and reparse reconciliation tests |
-| PB-REQ-003, PB-REQ-004 / REQ-RAP-015 | B3, B4 | exact 100% ledger verification and negative mutations |
-| PB-REQ-005 / REQ-RAP-016 | B5 | Raptor-captured input/output compatibility records and certification |
-| NFR-RAP-008 | B1–B5 | digest-linked boundary records and fail-closed apply tests |
+| PB-REQ-004 / REQ-RAP-014 | B4, B5 | lineage-aware leaf inventory and sc-compose render/reparse trace |
+| PB-REQ-003, PB-REQ-004 / REQ-RAP-015 | B3–B6 | exact 100% ledger, lineage, and negative-mutation verification |
+| PB-REQ-005 / REQ-RAP-016 | B7, B8 | Raptor-captured compatibility records and composed certification |
+| NFR-RAP-008 | B1–B8 | digest-linked boundary records and fail-closed apply tests |
 
 ## Phase acceptance
 
 Phase B is complete only when:
 
-1. All five stacked PRs satisfy their sprint acceptance criteria and merge in order.
+1. All eight stacked PRs satisfy their sprint acceptance criteria and merge in order.
 2. One Raptor-owned multi-document corpus completes validate mode with exact 100% byte, unit, authority, leaf, persistence, lineage, render/reparse, and external-gate reconciliation.
 3. One-to-one, split, and combine corpus fixtures exercise successful lineage; unregistered IDs, reused retired IDs, missing origins, duplicate/lost artifacts, and ambiguous mappings fail before apply.
 4. Mutation tests independently change every evidence-chain binding and prove apply fails closed.

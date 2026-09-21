@@ -79,8 +79,8 @@ The operation-input and trust-policy fields are exactly those in the [phase plan
 | B1-AC2 | Unit IDs, tree digests, argument digests, canonical leaf digests, ordering, omission, finite-number handling, and negative-zero normalization match the requirements byte-for-byte. |
 | B1-AC3 | Dispositions enforce exactly one branch; accepted-ledger validation rejects unsupported/rejected units, absent pointers, duplicate authority, broken receipt ordering, and non-100% predicates. |
 | B1-AC4 | Lineage validates total input-document coverage, exactly-one artifact destination, explicit contributing origins, caller-supplied new IDs, retired-ID non-reuse, and an identity transition digest. |
-| B1-AC5 | Operation input accepts only the two documented `.raptor/operation-input/` files and constrained repository-root paths; validate/apply, reference mode, staging, database, template, lineage, ledger, and evidence fields cannot be inferred. |
-| B1-AC6 | Trust policy requires exactly one Git revision resolver plus at least one exact validator and site-build tool, exact versions/digests/argv/working-directory roles, and a closed environment allowlist; unknown/floating/shell-like values fail. |
+| B1-AC5 | The loader accepts only `.raptor/operation-input/migration.json` and its literal `.raptor/operation-input/trust-policy.json`; the operation state paths derive only from `operation_id`. Validate/apply, reference mode, database, template, lineage, ledger, and evidence fields cannot be inferred. |
+| B1-AC6 | Trust policy requires exactly one Git revision resolver plus at least one exact validator and site-build tool, exact versions/digests/argv/working-directory roles, and a closed environment allowlist; unknown/floating/shell-like values fail. Identity model tests prove v1 read compatibility and the v2 active/retired disjointness, irreversible-retirement, and no-reuse rules. |
 | B1-AC7 | Models remain consumer-neutral and import no parser, plugin runtime, database driver, template engine, subprocess API, external-consumer package, Rust, or Dolt dependency. |
 
 ## Required validation
