@@ -16,7 +16,7 @@ This ledger records review of [`plan-phase-b.md`](plan-phase-b.md) and all Phase
 | 3 | 4 | critical-plan-reviewer | fc0e1d3ae9cb486151f15ca1564c855ea3ebf360 | FAIL | 0 | 1 | 0 | f2c08a807158cbed78a2f1765231e1d14365eb3eb9105319216b145e5140112b | 684f746a | PLAN-CRIT-005: effective gate-workspace collision invariants and bindings. Hash is over the retained finding ID. Critical cycle 2 of 2 is final. |
 | 4 | 5 | arch-ctm | cc30bcab10ead28378a95c1923c47fb36c4011bf | CORRECTED_CAP_TRANSITION | 0 | 0 | 0 | 753ce61bb5af26e0e218553e6d9300c1b0a4aa1b9e7bd5540a462d8ae251b633 | a7c25a21+f2c08a80 | Corrected FINAL-001/002; both reviewer caps are exhausted, so workflow advances to bounded consistency hardening and final QA without another scope/critical review. |
 | 4 | 6 | quality-mgr | 8a9c8fedc70d8bfa61a7a2694e4b6c2cf6d6b875 | FAIL | 0 | 2 | 0 | 2fee7793362eb1fc8b93125521c30bec33ccbac3dee5a3a2d63095639d182ae5 | 753ce61b | raptor-QA-PB-001/002: terminal ledger-status producer ambiguity and incomplete REQ-RAP-015 certification/apply traceability. |
-| 5 | 5 | arch-ctm | WORKTREE | READY_FOR_FINAL_QA | 0 | 0 | 0 | final-qa-remediation | 2fee7793 | Centralized terminal ledger transitions in B8 and extended REQ-RAP-015 traceability through B8 certification and B9 apply/recovery; no reviewer cycle reopened. |
+| 5 | 5 | arch-ctm | f57a65ff9a4947c6ee7696a1c568082192a36df4 | READY_FOR_FINAL_QA | 0 | 0 | 0 | final-qa-remediation | 2fee7793 | Centralized terminal ledger transitions in B8 and extended REQ-RAP-015 traceability through B8 certification and B9 apply/recovery; no reviewer cycle reopened. |
 
 ## Initial author handoff
 
@@ -135,7 +135,7 @@ No scope or critical review is reopened.
 {
   "status": "PASS",
   "mode": "plan-hardening-final-qa-remediation",
-  "reviewed_commit": "WORKTREE",
+  "reviewed_commit": "f57a65ff9a4947c6ee7696a1c568082192a36df4",
   "previous": "8a9c8fedc70d8bfa61a7a2694e4b6c2cf6d6b875",
   "findings_resolved": 2,
   "ready_for_qa": true
