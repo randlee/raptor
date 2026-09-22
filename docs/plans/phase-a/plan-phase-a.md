@@ -118,17 +118,15 @@ schema/
     models/
     canonical.py
     storage/
-  json/v1/                         # v1 migration input
-  json/v2/                         # active canonical contract after A11
+  json/v2/
   sql/sqlite/0001_initial.sql
-  sql/sqlite/0002_document_scoped_artifacts.sql
   tests/
     models/
     json_schema/
     storage/
 ```
 
-The Pydantic model and canonical JSON contract are the semantic/logical schema. Each database target has independent DDL and an adapter that must satisfy the same persistence conformance tests. Phase A creates only `schema/sql/sqlite/`; `schema/sql/dolt/` is created in a later phase when executable Dolt DDL and its adapter are delivered, never as an empty placeholder. A11 is the explicit contract migration: v1 artifacts remain for v1 migration input, while the active canonical contract becomes `schema/json/v2/` with `sql/sqlite/0002_document_scoped_artifacts.sql`; implementations must not treat the layout above as v1-only after A11.
+The Pydantic model and canonical JSON contract are the semantic/logical schema. Each database target has independent DDL and an adapter that must satisfy the same persistence conformance tests. Phase A creates only `schema/sql/sqlite/`; `schema/sql/dolt/` is created in a later phase when executable Dolt DDL and its adapter are delivered, never as an empty placeholder. A11 replaces the initial schema output with `schema/json/v2/` and replacement SQLite `0001_initial.sql`; databases are regenerated from Markdown.
 
 ### Plugin layout and schema vendoring
 
@@ -254,7 +252,7 @@ An external repository may supply Markdown adapters, profile rules, and its own 
 | REQ-RAP-013 | A9 | configured batch inventory and per-path ingress report |
 | REQ-RAP-014 | A10 | deterministic SQLite export, sc-compose render, field-coverage report, and reparse proof |
 | REQ-RAP-015 | A10, A11, A12 | zero-loss report for canonical fields, relationships, identity, and provenance; queryable SQLite traceability checks |
-| REQ-RAP-016 | A11, A12 | A11 direct extraction and attestation handoff; A12 template parity and external validator/secondary-gate evidence on rendered output |
+| REQ-RAP-016 | A11, A12 | A11 direct extraction and local template parity; A12 consumer template parity and external validator/secondary-gate evidence on rendered output |
 | NFR-RAP-008 | A9–A12 | deterministic, fail-closed per-path and aggregate evidence |
 | PA-NFR-001, PA-NFR-002 | every sprint | repository-wide forbidden-content gates |
 | PA-NFR-003 | A1, A2 | bounded Python implementation; no SQLx dependency |

@@ -30,7 +30,7 @@ consumer-owned below `.raptor/`.
 |---|---|---|
 | A9-D1 | Manifest-selected scan, routing, and identity loading using the published Pydantic configuration models. | Direct runtime tests for valid, missing, duplicate, overlapping, and unauthorized paths. |
 | A9-D2 | Batch mode on `plugins/raptor/scripts/markdown_to_json.py`, selected by explicit `--config` and `--report` flags and orchestrated by `plugins/raptor/runtime/operations.py`; it accepts manifest-selected configuration, processes the sorted authorized inventory, and uses existing JSON→SQLite persistence. | One documented script/agent invocation and batch integration tests. |
-| A9-D3 | Versioned Pydantic loss/diagnostic report model under `schema/src/raptor_schema`, with generated JSON Schema under `schema/json/v1`, containing path, document identity, selected route/profile, canonical digest, SQLite outcome, field count, relationship count, and origin/materialization provenance digests. Its generated schema uses the same schema-contract tests and `Verify deterministic schema vendor` drift gate as canonical models. | Stable fixture assertions, generated-schema/drift assertions, and deterministic repeated-run comparison. |
+| A9-D3 | Versioned Pydantic loss/diagnostic report model under `schema/src/raptor_schema`, with generated JSON Schema under `schema/json/v2`, containing path, document identity, selected route/profile, canonical digest, SQLite outcome, field count, relationship count, and origin/materialization provenance digests. Its generated schema uses the same schema-contract tests and `Verify deterministic schema vendor` drift gate as canonical models. | Stable fixture assertions, generated-schema/drift assertions, and deterministic repeated-run comparison. |
 | A9-D4 | Consumer-neutral usage documentation for configuration, identity registration, validate mode, apply mode, and report retention. | Documentation check and no consumer fixture added to Raptor. |
 
 ## Authoritative acceptance criteria
@@ -43,7 +43,7 @@ consumer-owned below `.raptor/`.
 | A9-AC4 | Repeated validate-mode runs over unchanged inputs emit byte-identical ordered reports. |
 | A9-AC5 | The report distinguishes field, relationship, and provenance results; it never silently omits an unsupported file or value. |
 | A9-AC6 | The implementation extends the existing operations and thin adapters only; no consumer asset, Rust code, Dolt code, or parallel parser/store is added. |
-| A9-AC7 | The report validates as the versioned Pydantic model, its generated JSON Schema is present under `schema/json/v1`, and schema-contract plus deterministic vendor checks fail on model/schema/vendor drift. |
+| A9-AC7 | The report validates as the versioned Pydantic model, its generated JSON Schema is present under `schema/json/v2`, and schema-contract plus deterministic vendor checks fail on model/schema/vendor drift. |
 
 ## Authoritative validation commands
 
