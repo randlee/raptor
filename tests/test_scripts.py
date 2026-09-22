@@ -29,12 +29,17 @@ def configured_fixture_project(tmp_path: Path) -> Path:
     shutil.copytree(project / "calibration" / "requirements", documents)
     config = project / ".raptor"
     config.mkdir()
-    (config / "raptor.toml").write_text('[files]\nsources = "sources.toml"\nrouting = "routing.toml"\n')
+    (config / "raptor.toml").write_text(
+        'schema_version = "1.0.0"\nrepository_id = "urn:raptor:repo:test"\n\n'
+        '[files]\nscan = "sources.toml"\nrouting = "routing.toml"\nidentity = "identity.json"\n'
+    )
     (config / "sources.toml").write_text(
-        '[[sources]]\nname = "documentation"\nroot = "docs"\ninclude = ["*.md", "**/*.md"]\nexclude = []\n'
+        'schema_version = "1.0.0"\n\n[[sources]]\nname = "documentation"\nroot = "docs"\ninclude = ["*.md", "**/*.md"]\nexclude = []\n'
     )
     (config / "routing.toml").write_text(
-        '[[routes]]\nsource = "documentation"\nartifact_types = ["REQ", "NFR", "ADR"]\n'
+        'schema_version = "1.0.0"\n\n[[routes]]\nsource = "documentation"\n'
+        'artifact_types = ["requirement", "non_functional_requirement", "architecture_decision"]\n'
+        '[routes.profile]\nprofile_id = "raptor"\nprofile_version = "1.0.0"\n'
     )
     return project
 
