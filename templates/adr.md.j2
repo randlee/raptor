@@ -1,3 +1,17 @@
-## {{ record.id }}: {{ record.title }}
+---
+name: architecture-decision
+version: 1.0.0
+description: Render an architecture decision record.
+required_variables: [record]
+optional_variables: [references]
+defaults: {references: ""}
+---
+# {{ record.id }}: {{ record.title }}
+
+**Status:** {{ record.status }}
+**Owner:** {{ record.document_metadata.owner }}
+**ID Range:** {{ record.document_metadata.id_range }}
+
+## Decision
 
 {{ record.content.markdown }}

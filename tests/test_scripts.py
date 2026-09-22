@@ -67,7 +67,19 @@ def test_render_one_record(tmp_path: Path) -> None:
     run(str(SCRIPTS / "extract.py"), str(fixture_project(tmp_path)), "--output", str(index), cwd=ROOT)
     output = tmp_path / "rendered"
     run(str(SCRIPTS / "render.py"), str(index), "--id", "REQ-COR-0001", "--output-dir", str(output), cwd=ROOT)
-    assert output.joinpath("REQ-COR-0001.md").read_text().startswith("## REQ-COR-0001: First item")
+    assert output.joinpath("calibration", "REQ-COR-0001.md").read_text().startswith("# REQ-COR-0001: First item")
+
+
+def test_render_each_record_type(tmp_path: Path) -> None:
+    source = fixture_project(tmp_path)
+    index = tmp_path / "index.json"
+    run(str(SCRIPTS / "extract.py"), str(source), "--output", str(index), cwd=ROOT)
+    payload = json.loads(index.read_text())
+    payload["requirements"].append({**payload["requirements"][0], "id": "NFR-COR-0001", "type": "NFR"})
+    index.write_text(json.dumps(payload))
+    output = tmp_path / "rendered"
+    run(str(SCRIPTS / "render.py"), str(index), "--output-dir", str(output), cwd=ROOT)
+    assert len(list(output.rglob("*.md"))) == 3
 
 
 def test_extract_uses_repository_configuration(tmp_path: Path) -> None:

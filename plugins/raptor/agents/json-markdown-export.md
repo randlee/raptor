@@ -7,7 +7,7 @@ description: Render one JSON index record to Markdown.
 # JSON Markdown Export
 
 ## Purpose
-Render the requested record using the checked-in templates.
+Render the requested record through sc-compose and the checked-in templates.
 
 ## Inputs
 - JSON index and output directory.

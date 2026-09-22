@@ -1,0 +1,16 @@
+---
+name: design-document
+version: 1.0.0
+description: Render a design document.
+required_variables: [record]
+optional_variables: [summary]
+defaults: {summary: ""}
+---
+# {{ record.title }}
+
+**Status:** {{ record.status }}
+**Owner:** {{ record.document_metadata.owner }}
+
+## Design
+
+{{ record.content.markdown }}
