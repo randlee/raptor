@@ -1,6 +1,6 @@
 # Raptor Requirements
 
-**ID Range:** REQ-RAP-0001 through REQ-RAP-0007  
+**ID Range:** REQ-RAP-0001 through REQ-RAP-0008  
 **Status:** Draft  
 **Created:** 2026-09-22  
 **Last Updated:** 2026-09-22  
@@ -84,3 +84,13 @@ consumption of Raptor data: mapping the repository's code and documents to
 Raptor database classes and id ranges. Its secondary purpose is ingress:
 configuration for importing and syncing information, such as Markdown files,
 between the repository and the Raptor database.
+
+## REQ-RAP-0008: Ingress settings
+
+**Status:** Draft  
+
+The ingress files in a repository's `.raptor/` folder declare two things. First,
+which folders contain documents Raptor should ingest, so documents not under
+Raptor control are ignored. Second, a pointer to the current Raptor database:
+in production a URL that works on every computer; for test a full path, or
+better, an environment variable that names the database location.
