@@ -58,7 +58,10 @@ target: develop
 ## Required Work
 
 - Copy first, then edit. Do not rewrite functions. Do not remove test-plan
-  discovery, HTML conversion, summaries, or relationship handling.
+  discovery, HTML conversion, summaries, relationship handling, or the output
+  envelope (indexes by id, domain, status, and range; statistics; validation
+  results). The consumer's web viewer reads that envelope; the current rewrite
+  lacks all of it, which is why it is being replaced.
 - Run the copy against the consumer checkout from outside Raptor and diff every
   field against the existing index. Report counts only in the PR body.
 

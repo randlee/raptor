@@ -42,7 +42,10 @@ target: develop
   Consumer wording that is boilerplate is kept; consumer names, ids, and
   examples are replaced with invented ones.
 - `scripts/render.py`: renders one record or all records through sc-compose,
-  choosing the template by record type. Ceiling 120 lines. Dependency:
+  choosing the template by record type. Output path is `<domain>/<id>.md`, and
+  when the same id occurs in two source files the source file's stem is
+  appended, so no rendered file overwrites another (the consumer run found 65
+  repeated ids). Ceiling 120 lines. Dependency:
   `sc-compose` from PyPI (1.6.1 or later), used either through its Python
   bindings or by calling the `sc-compose` CLI with `subprocess`, whichever is
   shorter.
