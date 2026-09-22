@@ -21,25 +21,50 @@ target: develop
 
 ## Exact Targets
 
-- `skills/import-corpus/SKILL.md` (existing; update to the A.2 arguments)
-- `skills/query-corpus/SKILL.md` (new)
+Restored from c4b0bb6 (`git checkout c4b0bb6 -- <path>`), then edited:
+
+- `plugins/raptor/.claude-plugin/plugin.json`, `plugins/raptor/.codex-plugin/plugin.json`
+- `plugins/raptor/skills/import/`, `plugins/raptor/skills/export/`,
+  `plugins/raptor/skills/validate/` (SKILL.md and references)
+- `plugins/raptor/agents/` (markdown-json-import, json-sqlite-import,
+  sqlite-json-export, json-markdown-export, markdown-validate, json-validate,
+  sqlite-validate, registry.yaml)
+
+Moved and edited:
+
+- `skills/import-corpus/SKILL.md` becomes `plugins/raptor/skills/import/references/markdown-json.md`
+
+New:
+
+- `plugins/raptor/skills/query/SKILL.md`
+
+Not restored: `skills/round-trip/`, `agents/migration-round-trip.md`,
+`plugin-manifest.json`, every `dolt*.md` reference, `runtime-preflight.md`,
+`unsupported-responses.md`.
 
 ## Deliverables
 
-- `skills/import-corpus/SKILL.md`: run `extract.py` on the repository, read
-  each diagnostic, edit that repository's Markdown until the run reports zero
-  diagnostics, then run `load_sqlite.py`. Includes the five most common
-  Markdown drifts and the edit that fixes each, written as invented examples.
+- The restored skills and agents, each edited so every command it gives is one
+  of `scripts/extract.py`, `scripts/load_sqlite.py`, `scripts/render.py`, or
+  `sqlite3`, with the A.2 arguments. Mentions of the deleted runtime, Dolt,
+  provenance, transactions, and profile versions are removed. Ceiling per file:
+  its c4b0bb6 line count plus 20 lines.
+- `import/references/markdown-json.md`: the import-corpus procedure, run
+  `extract.py`, read each diagnostic, edit that repository's Markdown until the
+  run reports zero diagnostics, then `load_sqlite.py`, with the five most
+  common Markdown drifts and the edit that fixes each as invented examples.
   Ceiling 80 lines.
-- `skills/query-corpus/SKILL.md`: how a QA agent opens the SQLite file and
-  answers the usual questions with `sqlite3`: all requirements in a domain,
-  everything that references an id, everything with a given status, the
-  Markdown body of one id. One query per question. Ceiling 60 lines.
+- `skills/query/SKILL.md`: how a QA agent opens the SQLite file and answers
+  the usual questions with `sqlite3`: all requirements in a domain, everything
+  that references an id, everything with a given status, the Markdown body of
+  one id. One query per question. Ceiling 60 lines.
+- Both plugin.json files point at the restored skills and agents and nothing
+  else.
 
 ## Required Work
 
-- Every command in both skills is run once against the consumer checkout
-  before the PR opens, from outside Raptor.
+- Every command in every restored or new file is run once against the consumer
+  checkout before the PR opens, from outside Raptor.
 
 ## Explicit Code Samples
 
@@ -54,12 +79,13 @@ sqlite3 requirements.sqlite "select source_id, relation_kind from relationships 
 
 ## Acceptance Criteria
 
-- Both skill files under their ceilings; every command in them runs as written.
+- Every file under its ceiling; every command in every file runs as written;
+  no file mentions a script, module, or command that does not exist on develop.
 - No consumer names, ids, paths, or text; invented examples only.
 
 ## Required Validation
 
 - `rg -ni --hidden --glob '!.git/**' --glob '!.sc/**' '[p]3' .` prints nothing
-- Consumer architect agent: follow `import-corpus/SKILL.md` on the consumer
-  checkout and `query-corpus/SKILL.md` on the result; report whether each step
+- Consumer architect agent: follow the import skill on the consumer checkout
+  and the query skill on the result; report whether each step
   worked as written and any step that needed knowledge the skill did not give.

@@ -23,9 +23,15 @@ target: develop
 
 - `templates/requirement.md.j2`, `templates/nfr.md.j2`, `templates/adr.md.j2`
   (existing placeholders; replace)
-- `templates/design.md.j2`, `templates/test-plan.md.j2` (new)
+- `templates/design.md.j2`, `templates/test-plan.md.j2` (new; the c4b0bb6
+  versions under `plugins/raptor/templates/` are a starting point, 45 lines
+  for all five)
 - `scripts/render.py` (existing; switch from bare Jinja2 to sc-compose)
-- `README.md` (install line for the sc-compose wheel)
+- `plugins/raptor/agents/json-markdown-export.md` and
+  `skills/export/references/json-markdown.md` (restored in A.3; update the
+  render command)
+- `README.md` (add `pip install sc-compose`)
+- `.github/workflows/ci.yml` (the existing `corpus-scripts` job adds `sc-compose` to its pip install; no new job)
 
 ## Deliverables
 
@@ -37,20 +43,20 @@ target: develop
   examples are replaced with invented ones.
 - `scripts/render.py`: renders one record or all records through sc-compose,
   choosing the template by record type. Ceiling 120 lines. Dependency:
-  sc-compose (the wheel at the repository root, until it is published).
+  `sc-compose` from PyPI (1.6.1 or later).
 
 ## Required Work
 
 - Read the consumer's four TEMPLATE files and the record fields they map to.
   Where a template section has no record field, leave the section with an
   empty default rather than inventing a field.
-- The test for `render.py` skips when sc-compose is not importable, so CI on
-  Linux stays green until the wheel is published for Linux.
+- The test for `render.py` renders one invented record of each type through
+  sc-compose and runs in CI.
 
 ## Explicit Code Samples
 
 ```sh
-pip install sc_compose-1.6.1-cp311-cp311-macosx_11_0_arm64.whl
+pip install sc-compose
 python scripts/render.py requirements-index.json --id REQ-CORE-0001 --output-dir rendered
 ```
 
@@ -58,7 +64,6 @@ python scripts/render.py requirements-index.json --id REQ-CORE-0001 --output-dir
 
 - Byte-for-byte round trip of source documents. Rendered output follows the
   template; the source may not.
-- Publishing the sc-compose wheel.
 
 ## Acceptance Criteria
 

@@ -40,8 +40,8 @@ down as a Pydantic model and two SQL tables. It does not design a new one.
 | Sprint | Title | Branch | Doc |
 |---|---|---|---|
 | A.1 | Pydantic model of the record | `feature/A-1-record-model` | [sprint-A1.md](sprint-A1.md) |
-| A.2 | Copy the extractor, run it, validate against the model | `feature/A-2-extractor` | [sprint-A2.md](sprint-A2.md) |
-| A.3 | Skills to run the scripts | `feature/A-3-skills` | [sprint-A3.md](sprint-A3.md) |
+| A.2 | Copy the extractor, run it, validate against the model; `.raptor/` config definition | `feature/A-2-extractor` | [sprint-A2.md](sprint-A2.md) |
+| A.3 | Restore the skills and agents from c4b0bb6, pointed at the scripts | `feature/A-3-skills` | [sprint-A3.md](sprint-A3.md) |
 | A.4 | Convert the document templates to sc-compose | `feature/A-4-templates` | [sprint-A4.md](sprint-A4.md) |
 
 A.1 first. A.2 needs A.1 for its validation step. A.3 and A.4 follow A.2.
@@ -66,6 +66,13 @@ Each sprint is one PR to `develop` from a worktree created with
 6. The string that names the consumer documentation repository never appears
    in Raptor files. CI enforces this. Consumer paths, identifiers, and document
    text stay out as well.
+
+## What is in history at c4b0bb6 and comes back
+
+The operator wants the plugin infrastructure, skills, agents, and the
+`.raptor/` configuration definition from the deleted Phase A platform. They
+are restored and pointed at the four scripts in A.2 and A.3. The Python
+runtime, the schema package, and their tests stay deleted.
 
 ## What is already on develop (21c1d4c)
 

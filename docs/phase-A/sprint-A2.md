@@ -24,6 +24,10 @@ target: develop
 - `scripts/extract.py` (replace the 134-line rewrite with the copy)
 - `scripts/load_sqlite.py` (existing; change only if the copied output needs it)
 - `tests/test_scripts.py`, `tests/fixtures/` (existing; adjust to the copy)
+- `docs/configuration.md` (restore from c4b0bb6 and trim to the files below)
+- `.raptor/raptor.toml`, `.raptor/sources.toml`, `.raptor/routing.toml`,
+  `.raptor/identity.json` (Raptor's own, as the worked example; identity.json
+  restored from c4b0bb6)
 - `README.md` (the three commands, plus `pip install markdown pydantic`)
 - `.github/workflows/ci.yml` (the existing `corpus-scripts` job installs the
   two dependencies; no new job)
@@ -41,6 +45,15 @@ target: develop
   diagnostic naming the file, the id, and the field. Ceiling 30 lines added.
 - `scripts/load_sqlite.py`: unchanged unless the copied output has a field the
   two tables lack; ceiling stays 150 lines.
+- `.raptor/` configuration: `extract.py` reads `.raptor/raptor.toml` in the
+  target repository when present, follows it to `sources.toml` (roots, include
+  and exclude globs) and `routing.toml` (artifact types per source), and uses
+  those in place of the root and domain arguments. Arguments override. No
+  `.raptor/` directory means arguments only. Ceiling 60 lines added to
+  `extract.py`, TOML read with `tomllib`.
+- `docs/configuration.md`: the definition of those four files, restored from
+  c4b0bb6 and cut to what `extract.py` reads. Drop generated runtime state,
+  locks, transactions, and profile versions. Ceiling 100 lines.
 
 ## Required Work
 
@@ -68,6 +81,10 @@ python scripts/extract.py /path/to/docs --domains calibration camera --output ou
   difference is listed in the PR body with field name and count.
 - Every record validates against `Record`; `load_sqlite.py` loads them all.
 - `scripts/extract.py` under 2,000 lines; no new files outside the targets.
+- Running `extract.py` on Raptor itself with no arguments uses `.raptor/` and
+  produces Raptor's own index; the consumer architect agent's run uses either
+  a `.raptor/` directory kept in the consumer checkout or arguments, and says
+  which.
 - Neutrality gate clean.
 
 ## Required Validation
