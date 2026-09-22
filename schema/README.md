@@ -19,8 +19,8 @@ document = validate_document(load_canonical_json(payload))
 Regenerate or verify versioned schemas from the repository root:
 
 ```sh
-python -m raptor_schema.generate --output schema/json/v1
-python -m raptor_schema.generate --check --output schema/json/v1
+python -m raptor_schema.generate --output schema/json/v2
+python -m raptor_schema.generate --check --output schema/json/v2
 ```
 
 Canonical JSON is UTF-8-compatible text with sorted keys, compact separators,

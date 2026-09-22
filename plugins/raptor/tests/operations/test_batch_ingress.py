@@ -40,7 +40,7 @@ artifact_types = ["requirement"]
 
 [routes.profile]
 profile_id = "raptor"
-profile_version = "1.0.0"
+profile_version = "2.0.0"
 """
     )
     documents = (
@@ -63,9 +63,11 @@ def _repository(tmp_path: Path, *, registered: bool = True) -> Path:
     root = tmp_path / "repository"
     (root / "specifications").mkdir(parents=True)
     (root / "specifications/requirements.md").write_text(
-        """### REQ-RAP-001 — Configured ingress
+        """# Configured ingress
+
+## REQ-RAP-0001: Configured ingress
 Use only configured source paths.
-Acceptance: The report is deterministic.
+The report is deterministic.
 """
     )
     (root / "specifications/README.md").write_text("not an artifact\n")
@@ -133,6 +135,45 @@ def test_configured_ingress_apply_reports_are_byte_identical(tmp_path: Path) -> 
     second = (root / ".raptor/state/ingress-report.json").read_bytes()
 
     assert first == second
+
+
+def test_configured_design_route_selects_one_whole_document_record(
+    tmp_path: Path,
+) -> None:
+    root = _repository(tmp_path)
+    (root / "specifications/requirements.md").write_text(
+        "# Design record\n\n**Status:** Approved\n\n# Boundary\n\n## Components\n"
+    )
+    (root / ".raptor/routing.toml").write_text(
+        """schema_version = "1.0.0"
+
+[[routes]]
+source = "requirements"
+artifact_types = ["design_document"]
+
+[routes.profile]
+profile_id = "raptor"
+profile_version = "2.0.0"
+"""
+    )
+
+    result = configured_markdown_to_sqlite(
+        root,
+        ".raptor/raptor.toml",
+        ".raptor/state/ingress.sqlite",
+        ".raptor/state/ingress-report.json",
+        apply=True,
+    )
+
+    report = IngressReport.model_validate(result["report_data"])
+    assert report.entries[0].outcome == "imported"
+    store = SQLiteArtifactStore(root / ".raptor/state/ingress.sqlite")
+    try:
+        document = store.get_document(store.list_document_keys()[0])
+    finally:
+        store.close()
+    assert document.artifacts[0].id == "DOC-RAP-001"
+    assert document.non_item_segments == []
 
 
 def test_unregistered_authorized_path_is_diagnosed_without_partial_apply(tmp_path: Path) -> None:

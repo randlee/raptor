@@ -9,7 +9,7 @@ import pytest
 from raptor_schema import RepositoryRoutingConfig
 
 ROOT = Path(__file__).parents[3]
-SCHEMA = ROOT / "schema/json/v1/repository-routing-config.schema.json"
+SCHEMA = ROOT / "schema/json/v2/repository-routing-config.schema.json"
 
 
 def valid_payload() -> dict[str, object]:

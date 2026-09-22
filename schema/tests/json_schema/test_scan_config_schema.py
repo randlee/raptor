@@ -9,7 +9,7 @@ import pytest
 from raptor_schema import RepositoryScanConfig
 
 ROOT = Path(__file__).parents[3]
-SCHEMA = ROOT / "schema/json/v1/repository-scan-config.schema.json"
+SCHEMA = ROOT / "schema/json/v2/repository-scan-config.schema.json"
 
 
 def test_generated_scan_config_schema_accepts_neutral_example() -> None:

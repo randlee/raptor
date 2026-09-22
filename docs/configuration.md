@@ -37,7 +37,7 @@ Generated state is never source input and must be excluded from scans.
 
 `.raptor/sources.toml` is the authoritative allowlist of files that Raptor may
 inspect. The file decodes to `RepositoryScanConfig` and must validate against
-`schema/json/v1/repository-scan-config.schema.json` before filesystem traversal.
+`schema/json/v2/repository-scan-config.schema.json` before filesystem traversal.
 The initial contract answers only which files may be inspected. Artifact-family,
 parser, mapping, and rendering rules are separate future configuration contracts.
 
@@ -112,7 +112,7 @@ declaration is unauthorized and must not be read by a scan operation.
 `.raptor/routing.toml` binds every named scan source to the source profile and
 canonical artifact families permitted for that source. It decodes to
 `RepositoryRoutingConfig` and validates against
-`schema/json/v1/repository-routing-config.schema.json`.
+`schema/json/v2/repository-routing-config.schema.json`.
 
 ```toml
 schema_version = "1.0.0"

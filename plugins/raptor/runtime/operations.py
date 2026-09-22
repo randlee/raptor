@@ -12,7 +12,6 @@ from typing import Any, Literal
 from pydantic import BaseModel
 
 from raptor_schema import (
-    ArtifactKey,
     DocumentKey,
     Diagnostic,
     IdentityManifest,
@@ -20,7 +19,6 @@ from raptor_schema import (
     IngressReport,
     IngressReportEntry,
     ProfileSelection,
-    ReferenceValidationMode,
     RepositoryConfigManifest,
     RepositoryRoutingConfig,
     RepositoryScanConfig,
@@ -31,11 +29,8 @@ from raptor_schema import (
     load_canonical_json,
     validate_repository_manifest_identity,
     validate_source_routing,
-    validate_document,
-    validate_documents,
 )
 from raptor_schema.canonical import dump_canonical_fragment
-from raptor_schema._references import iter_canonical_references
 from raptor_schema.profiles import ParsedDocument, SourceInput
 
 from .identity import document_identity
@@ -208,14 +203,11 @@ def _markdown_sources(
 
 
 def _markdown_reference_mode(is_directory: bool, requested: str | None) -> str:
-    expected = "batch" if is_directory else "document"
-    selected = requested or expected
-    if selected != expected:
-        kind = "directories" if is_directory else "single Markdown files"
-        raise ValueError(
-            f"RAPTOR.REFERENCE.MODE_MISMATCH: {kind} require {expected} mode"
-        )
-    return selected
+    """Relationships are emitted raw and resolved by the SQLite projection."""
+    del is_directory
+    if requested not in {None, "structural", "document", "batch", "store"}:
+        raise ValueError("RAPTOR.REFERENCE.MODE_MISMATCH: unsupported mode")
+    return "emitted"
 
 
 def validate_markdown(
@@ -333,23 +325,6 @@ def _json_documents(
     )
 
 
-class _Resolver:
-    def __init__(
-        self, staged: tuple[SourceDocument, ...], store: SQLiteArtifactStore | None
-    ) -> None:
-        self._keys = {
-            (document.provenance.origin.repository_id, artifact.id)
-            for document in staged
-            for artifact in document.artifacts
-        }
-        self._store = store
-
-    def contains(self, key: ArtifactKey) -> bool:
-        return key.sort_key() in self._keys or bool(
-            self._store and self._store.contains(key)
-        )
-
-
 @contextmanager
 def _read_only_store(
     repository_root: Path, database: str
@@ -380,23 +355,7 @@ def _validate_references(
     mode_value: str,
     database: str | None,
 ) -> None:
-    mode = ReferenceValidationMode(mode_value)
-    if mode is ReferenceValidationMode.STORE:
-        if database is None:
-            raise ValueError(
-                "RAPTOR.REFERENCE.RESOLVER_REQUIRED: store mode requires --database"
-            )
-        with _read_only_store(repository_root, database) as store:
-            validate_documents(
-                documents,
-                reference_mode=mode,
-                resolver=_Resolver(documents, store),
-            )
-        return
-    if len(documents) == 1 and mode is not ReferenceValidationMode.BATCH:
-        validate_document(documents[0], reference_mode=mode)
-    else:
-        validate_documents(documents, reference_mode=mode)
+    del repository_root, documents, mode_value, database
 
 
 def _field_count(value: object) -> int:
@@ -408,7 +367,7 @@ def _field_count(value: object) -> int:
 
 
 def _canonical_reference_count(document: SourceDocument) -> int:
-    return sum(1 for _ in iter_canonical_references(document))
+    return sum(len(artifact.relationships) for artifact in document.artifacts)
 
 
 def _ingress_diagnostic(error: Exception) -> IngressDiagnostic:
@@ -507,6 +466,11 @@ def configured_markdown_to_sqlite(
                     document_id=document_id,
                     repository_path=PurePosixPath(relative),
                     content=read_repository_bytes(root, relative),
+                    routed_artifact_type=(
+                        route.artifact_types[0]
+                        if len(route.artifact_types) == 1
+                        else None
+                    ),
                 ),
             )
             if any(artifact.artifact_type not in route.artifact_types for artifact in document.artifacts):
@@ -704,8 +668,6 @@ def sqlite_export_proof(
         relationship_count=relationships.total_count,
         origin_digest=_fragment_sha256(document.provenance.origin),
         materialization_digest=_fragment_sha256(document.provenance.materialization),
-        typed_relationship_count=relationships.typed_count,
-        uri_relationship_count=relationships.uri_count,
     )
     report = IngressReport(
         report_version="1.0.0",

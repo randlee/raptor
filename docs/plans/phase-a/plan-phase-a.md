@@ -266,7 +266,7 @@ Phase A is complete only when:
 
 1. Every sprint PR has met its own acceptance criteria and merged in stack order.
 2. Every supported family traverses Markdown→JSON→SQLite→JSON→sc-compose→Markdown→JSON with semantic equality after the documented materialization transition and a zero-loss report.
-3. The complete authorized external consumer corpus traverses the same public interfaces through the A11 reference extractor; its validator and declared secondary gates are clean on rendered output, while consumer code and test data remain outside Raptor. The oracle is 783/783 index-equal records with zero blocked entries.
+3. The complete authorized external consumer corpus traverses the same public interfaces through the A11 reference extractor; its validator and declared secondary gates are clean on rendered output, while consumer code and test data remain outside Raptor. The oracle is 784/784 index-equal records with zero blocked entries.
 4. Repository checks find no `NFT`, Rust SQLx, Dolt integration, or bulk-migration implementation. External-consumer source, fixture, adapter, and identifier data remain absent; A12 may record only the execution coordinate and evidence contract needed for consumer-owned proof.
 5. Schema, SQL, templates, plugin assets, and tests are version-aligned and documented at their public entry points.
 6. Both client packages contain the same registered skills, focused references, agents, runtime modules, thin scripts, complete `.j2` inventory, schema vendor, and manifest metadata; CI fails omissions or version/path drift.

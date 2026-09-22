@@ -1,12 +1,9 @@
 ---
 name: raptor-test-plan
-version: 1.0.0
+version: 2.0.0
 format: markdown
 required_variables:
-  - provenance_block
+  - document.segments
   - artifacts
 ---
-{{ provenance_block }}
-{% for artifact in artifacts %}### {{ artifact.id }} — {{ artifact.title }}
-{{ artifact.body }}
-{% endfor %}
+{% for artifact in artifacts %}{{ artifact.content }}{% endfor %}

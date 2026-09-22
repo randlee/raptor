@@ -9,7 +9,7 @@ import pytest
 from raptor_schema import RepositoryConfigManifest
 
 ROOT = Path(__file__).parents[3]
-SCHEMA = ROOT / "schema/json/v1/repository-config-manifest.schema.json"
+SCHEMA = ROOT / "schema/json/v2/repository-config-manifest.schema.json"
 
 
 def test_generated_repository_manifest_schema_accepts_neutral_example() -> None:

@@ -1,59 +1,22 @@
-# SQL persistence mapping
+# SQLite v2 persistence mapping
 
-Raptor has one semantic schema: the versioned Pydantic models and canonical JSON
-contract. SQL files are dialect projections, not alternate domain models.
+SQLite is a projection of the `2.0.0` generic record, not an alternate model.
+`documents` owns the document envelope: provenance, title, metadata, and ordered
+`non_item_segments_json`. `artifacts` owns one row per
+`(repository_id, document_id, artifact_id)` and indexes its type, title, status,
+domain, source JSON, and verbatim Markdown content. Repeated local IDs in
+different documents are therefore valid and unambiguous.
 
-| Model value | SQLite ownership and projection |
-|---|---|
-| complete ordered `SourceDocument` | `source_documents.canonical_sha256`; independently verifies every canonical reference occurrence and all ordered artifact payloads before return |
-| `SourceDocument.schema_version` | `source_documents.schema_version`; verified against reconstructed JSON |
-| `SourceProvenance.origin` | complete canonical `origin_json`; repository/document identity is also projected into the composite key |
-| `SourceProvenance.materialization` | complete canonical `materialization_json`; current path is projected into `current_path` |
-| each canonical artifact | complete canonical `artifact_json`; ID, type, and status are indexed columns |
-| document artifact order | `document_artifacts.ordinal`, unique within a composite `DocumentKey`; `artifact_count` and `membership_sha256` preserve the expected ordered membership independently of surviving rows |
-| artifact relationships | unique semantic edges in `artifact_relationships` for typed composite targets and `artifact_uri_relationships` for URI targets |
-| design dependencies and test verification keys | typed rows in `artifact_relationships` with `depends_on` and `verifies` relations; when a derived edge collides with an explicit relationship, the single edge retains the explicit description |
+`relationships` is the only relationship table. It stores the source triple,
+source-relative ordinal, emitted `relation_type`, raw target token and context,
+plus a nullable resolved target triple. Resolution is populated only when the
+target token identifies exactly one artifact in the same repository. The raw
+token and context are always retained.
 
-Canonical JSON owns all optional values, extensions, source locations, and
-family-specific payloads. SQL `NULL` is used only for an optional relationship
-description. On load, the adapter structurally validates the JSON and rejects
-any disagreement with scalar, membership, ordinal, or relationship projections.
-The canonical document digest is independent of the deduplicated semantic-edge
-index, so changing or removing any explicit or family-derived reference
-occurrence is detected even when another occurrence projects to the same edge.
-Reads also fail closed when a repository, document, artifact, membership, or
-typed relationship endpoint has been corrupted behind foreign-key enforcement.
-Document and fragment JSON use the same canonical encoder, including key order,
-compact separators, omitted `None` fields, finite-number checks, and negative-zero
-normalization.
+Forward queries select `relationships` by the source repository/document
+triple. Reverse (`referenced_by`) queries select it by the three nullable target
+columns. No reverse rows, typed relationship enum, URI table, migration path, or
+family-derived relationship projection exists in v2.
 
-Replacement and deletion are document-keyed transactions. Source relationship
-rows are replaced, removed artifacts are deleted only when no external inbound
-reference exists, and retained artifact identities are updated in place. A path
-change is accepted only through a valid rendered provenance transition. There
-is no path-only operation.
-
-The table/key/foreign-key contract and JSON checks in
-`sqlite/0001_initial.sql` are the SQLite authority. The `ArtifactStore`
-protocol and conformance helper are dialect-neutral; connection handling,
-`json_valid`, foreign-key pragmas, and transaction syntax are SQLite-specific.
-`SQLiteArtifactStore.open_read_only`, `validate`, and `list_document_keys`
-provide the plugin boundary for immutable validation and enumeration without
-duplicating SQL outside the adapter.
-
-## Traceability query handoff
-
-The future agent-facing CLI reads document identity and current materialization
-from `source_documents(repository_id, document_id, current_path, origin_json,
-materialization_json)`, ordered membership from
-`document_artifacts(repository_id, document_id, artifact_id, ordinal)`, and
-artifact type/status from `artifacts(repository_id, artifact_id, artifact_type,
-status)`. Forward typed edges use
-`artifact_relationships(source_repository_id, source_artifact_id, relation,
-target_repository_id, target_artifact_id)`; reverse queries exchange source and
-target predicates. URI edges use
-`artifact_uri_relationships(source_repository_id, source_artifact_id, relation,
-target_uri)`. These are SQLite projection contracts only; this document adds no
-Rust implementation.
-The wheel build force-includes that authoritative file as a package resource;
-there is no second checked-in DDL copy.
+`sqlite/0001_initial.sql` is a replacement schema: imports create a fresh v2
+database from Markdown/JSON. It has no compatibility migration from v1.

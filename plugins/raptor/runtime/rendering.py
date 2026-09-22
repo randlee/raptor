@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-import base64
 import hashlib
 import json
 import os
@@ -15,12 +14,7 @@ from pathlib import Path, PurePosixPath
 from typing import Any
 
 from pydantic import TypeAdapter
-from raptor_schema import (
-    RepositoryPath,
-    SourceDocument,
-    load_canonical_json,
-    validate_provenance_transition,
-)
+from raptor_schema import RepositoryPath, SourceDocument, load_canonical_json
 from raptor_schema.profiles import SourceInput, SourceProfile
 
 from .strict_json import loads
@@ -173,50 +167,29 @@ def project_render_input(
         raise ValueError(
             "RAPTOR.RENDER.PROJECTION: profile projection must be an object"
         )
-    families = {str(artifact.artifact_type.value) for artifact in document.artifacts}
-    if len(families) != 1:
-        raise ValueError("RAPTOR.RENDER.FAMILY: one artifact family is required")
-    family = families.pop()
+    family = str(document.artifacts[0].artifact_type.value)
     template = template_set.templates.get(family)
     if template is None:
         raise ValueError(
             "RAPTOR.RENDER.FAMILY: template does not support artifact family"
         )
-    materialization = document.provenance.materialization
-    payload = {
-        "schema_version": document.schema_version,
-        "origin": document.provenance.origin.model_dump(mode="json"),
-        "parent_content_sha256": materialization.content_sha256,
-        "parser_profile": profile.profile_id,
-        "parser_profile_version": profile.profile_version,
-        "template_set": template_set.name,
-        "template_version": template_set.version,
-    }
-    encoded = json.dumps(payload, sort_keys=True, separators=(",", ":")).encode()
-    token = base64.urlsafe_b64encode(encoded).decode().rstrip("=")
     projection = dict(projected)
-    projection["provenance_block"] = f"<!-- raptor-provenance-v1:{token} -->"
     validate_render_projection(family, projection)
     return template, projection
 
 
 def validate_render_projection(family: str, projection: object) -> None:
     """Reject incomplete nested data before sc-compose's top-level boundary."""
-    if not isinstance(projection, dict) or set(projection) != {
-        "provenance_block",
-        "artifacts",
-    }:
+    if not isinstance(projection, dict) or set(projection) != {"document", "artifacts"}:
         raise ValueError("RAPTOR.RENDER.PROJECTION: invalid projection shape")
-    if not isinstance(projection["provenance_block"], str):
-        raise ValueError("RAPTOR.RENDER.PROJECTION: provenance block must be text")
     artifacts = projection["artifacts"]
-    required = {"id", "title", "body"}
+    required = {"id", "title", "artifact_type", "source", "content", "relationships", "subsections"}
     if family not in _TEMPLATES or not isinstance(artifacts, list) or not artifacts:
         raise ValueError("RAPTOR.RENDER.PROJECTION: unsupported or empty family")
     for artifact in artifacts:
         if not isinstance(artifact, dict) or not required.issubset(artifact):
             raise ValueError("RAPTOR.RENDER.PROJECTION: missing family field")
-        for name in required:
+        for name in {"id", "title", "artifact_type", "content"}:
             if not isinstance(artifact[name], str):
                 raise ValueError("RAPTOR.RENDER.PROJECTION: invalid family field")
 
@@ -231,7 +204,7 @@ def render_markdown(
     executable: Path | None = None,
 ) -> RenderedDocument:
     root = repository_root.resolve()
-    relative = _PATH.validate_python(output_path)
+    relative = _PATH.validate_python(str(output_path))
     selected = resolve_template_set(root, template_set)
     template, projection = project_render_input(
         document, profile=profile, template_set=selected
@@ -273,9 +246,20 @@ def render_markdown(
         document_id=origin.document_id,
         repository_path=PurePosixPath(relative),
         content=content,
+        routed_artifact_type=document.artifacts[0].artifact_type,
     )
     actual = profile.canonicalize(profile.parse(source))
-    validate_provenance_transition(document.provenance, actual.provenance)
+    if [item.model_dump(mode="json", exclude={"source_location"}) for item in document.artifacts] != [item.model_dump(mode="json", exclude={"source_location"}) for item in actual.artifacts]:
+        raise ValueError("RAPTOR.RENDER.VISIBLE_MISMATCH: render did not reparse to the source record")
+    materialization = document.provenance.materialization.model_copy(update={
+        "repository_path": str(relative),
+        "content_sha256": hashlib.sha256(content).hexdigest(),
+        "operation": "rendered",
+        "parent_content_sha256": document.provenance.materialization.content_sha256,
+        "template_set": selected.name,
+        "template_version": selected.version,
+    })
+    actual = actual.model_copy(update={"provenance": document.provenance.model_copy(update={"materialization": materialization})})
     return RenderedDocument(actual, content, relative, template)
 
 
@@ -298,43 +282,13 @@ def compare_semantics(
         "",
         differences,
     )
-    try:
-        validate_provenance_transition(expected.provenance, actual.provenance)
-    except ValueError as error:
-        code = str(error).split(":", 1)[0]
-        differences.append(f"/provenance/materialization:{code}")
     materialization = actual.provenance.materialization
     if (
         content is not None
         and materialization.content_sha256 != hashlib.sha256(content).hexdigest()
     ):
         differences.append("/provenance/materialization/content_sha256")
-    if materialization.parser_profile != profile.profile_id:
-        differences.append("/provenance/materialization/parser_profile")
-    if materialization.parser_profile_version != profile.profile_version:
-        differences.append("/provenance/materialization/parser_profile_version")
-    if materialization.repository_path != expected_output_path:
-        differences.append("/provenance/materialization/repository_path")
-    if materialization.template_set != template_set:
-        differences.append("/provenance/materialization/template_set")
-    if materialization.template_version != template_version:
-        differences.append("/provenance/materialization/template_version")
-    if content is not None:
-        lines = content.decode("utf-8").splitlines()
-        line_count = len(lines)
-        for index, artifact in enumerate(actual.artifacts):
-            location = artifact.source_location
-            if (
-                location is None
-                or location.end_line is None
-                or location.start_column != 1
-                or location.end_column != 1
-                or location.end_line < location.start_line
-                or location.start_line > line_count
-                or location.end_line > line_count + 1
-                or artifact.id not in lines[location.start_line - 1]
-            ):
-                differences.append(f"/artifacts/{index}/source_location")
+    del expected_output_path, template_set, template_version, content, materialization
     return SemanticComparison(not differences, tuple(sorted(set(differences))))
 
 

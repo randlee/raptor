@@ -1,23 +1,31 @@
 from __future__ import annotations
 
-from pydantic import Field, model_validator
+from typing import Any, Literal
+
+from pydantic import Field
 
 from .artifacts import Artifact
-from .base import ContractModel, SchemaVersion
+from .base import ContractModel
 from .provenance import SourceProvenance
 
 
+class DocumentSegment(ContractModel):
+    kind: Literal["text", "artifact"]
+    content: str = ""
+    artifact_index: int | None = Field(default=None, ge=0)
+
+
 class SourceDocument(ContractModel):
-    schema_version: SchemaVersion
+    schema_version: Literal["2.0.0"] = "2.0.0"
     provenance: SourceProvenance = Field(frozen=True)
+    title: str | None = None
+    document_metadata: dict[str, Any] = Field(default_factory=dict)
+    non_item_segments: list[DocumentSegment] = Field(default_factory=list)
     artifacts: list[Artifact] = Field(min_length=1)
 
-    @model_validator(mode="after")
-    def unique_local_artifact_ids(self) -> "SourceDocument":
-        ids = [artifact.id for artifact in self.artifacts]
-        if len(ids) != len(set(ids)):
-            raise ValueError("duplicate artifact key in source document")
-        return self
+    @property
+    def segments(self) -> list[DocumentSegment]:
+        return self.non_item_segments
 
 
-__all__ = ["SourceDocument"]
+__all__ = ["DocumentSegment", "SourceDocument"]

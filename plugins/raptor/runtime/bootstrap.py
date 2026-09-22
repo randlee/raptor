@@ -14,6 +14,7 @@ from .strict_json import loads
 from .requirements import sc_compose_requirement
 from .vendor import (
     PYDANTIC_CONSTRAINT,
+    CANONICAL_SCHEMA_VERSION,
     SCHEMA_VERSION,
     TREE_ALGORITHM,
     _plugin_inventory,
@@ -70,7 +71,7 @@ def _manifest(text: str) -> dict[str, Any]:
         raise BootstrapError("RAPTOR.BOOTSTRAP.MANIFEST: invalid vendor metadata")
     if (
         vendor["algorithm"] != TREE_ALGORITHM
-        or vendor["canonical_schema_version"] != SCHEMA_VERSION
+        or vendor["canonical_schema_version"] != CANONICAL_SCHEMA_VERSION
         or vendor["package_version"] != SCHEMA_VERSION
     ):
         raise BootstrapError("RAPTOR.BOOTSTRAP.MANIFEST: unsupported vendor authority")
@@ -182,8 +183,8 @@ def bootstrap(plugin_root: Path | None = None) -> ModuleType:
             "RAPTOR.BOOTSTRAP.PRECEDENCE: vendored runtime did not win import resolution"
         )
     storage = importlib.import_module("raptor_schema.storage.sqlite")
-    if getattr(storage, "MODEL_SCHEMA_VERSION", None) != SCHEMA_VERSION or vendor.get(
-        "package_version"
+    if getattr(storage, "MODEL_SCHEMA_VERSION", None) != CANONICAL_SCHEMA_VERSION or vendor.get(
+        "canonical_schema_version"
     ) != getattr(storage, "MODEL_SCHEMA_VERSION", None):
         raise BootstrapError(
             "RAPTOR.BOOTSTRAP.VERSION: schema or package version mismatch"
