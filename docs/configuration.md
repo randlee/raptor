@@ -1,9 +1,15 @@
 # Repository configuration
 
-Every repository keeps its Raptor data in `.raptor/` (REQ-RAP-0007). The
-product will read it mainly to map that repository's code and documents to
-Raptor database classes and id ranges. What follows describes only the ingress
-part that the import scripts use today.
+Every repository keeps its Raptor data in `.raptor/` (REQ-RAP-0007). The files
+fall into two groups.
+
+| Group | Purpose | Files today |
+|---|---|---|
+| Local mapping | Map this repository's code and documents to Raptor database classes and id ranges. Read by the product. | `identity.json` (repository id, document map). Id-range mapping is not yet declared here; today it is read from each document's `**ID Range:**` header. |
+| Ingress | Settings used to import and sync Markdown between the repository and the Raptor database. Read by the import scripts. | `raptor.toml` (manifest), `sources.toml` (which files), `routing.toml` (which artifact types each source may produce). |
+
+Adding a file to either group is a product decision recorded in
+`docs/requirements.md`, not something the import scripts invent.
 
 Repository configuration lives in `.raptor/`. When it is present,
 `scripts/extract.py` reads it unless repository-root or domain arguments are
