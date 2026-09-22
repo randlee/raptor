@@ -71,10 +71,25 @@ Id-less documents are not allowed: Raptor never invents an id.
     record model (a failure aborts the run without writing the index), and
     the text report truncates to 10 files and 5 errors each. All of that
     goes. The same entries are in the index's `validation` block.
-    Rules in this sprint: `MISSING_ID` (no item heading and no Document ID),
-    `DUPLICATE_ID`, `MISSING_HEADER_FIELD` (Status, Created, Last Updated,
-    Version, Owner), `INVALID_DATE` (Created or Last Updated not ISO 8601,
-    for example the literal `YYYY-MM-DD`). Nothing else.
+    Rules in this sprint, each with one fixed remedy that is printed with
+    the message so the author knows what to change:
+    - `MISSING_ID`: no item heading and no Document ID. Remedy: add
+      `## <TYPE>-<DOM>-<NNNN>: <title>` headings or a `**Document ID:**`
+      header line.
+    - `DUPLICATE_ID`: one line per occurrence, every file and line listed.
+      Remedy: an id is defined once; give the other definitions their own
+      ids or demote them to non-item headings.
+    - `MISSING_HEADER_FIELD`: Status, Created, Last Updated, Version or
+      Owner absent. Remedy: add `**<Field>:** <value>` to the header block.
+    - `INVALID_DATE`: Created or Last Updated not ISO 8601, for example the
+      literal `YYYY-MM-DD`. Remedy: use `YYYY-MM-DD`.
+    - `INVALID_STATUS`: Status not one of the allowed values. Remedy: use
+      one of them, listed in the message. Today the extractor prints a
+      warning and silently substitutes `Draft`; that substitution goes.
+    - `INVALID_HEADING`: a `## <ID>` line that does not match the heading
+      form. Remedy: `## <ID>: <title>`. Today this is a stray `print`.
+    Nothing else. Remedies are fixed text per rule, not inferred; the
+    script never guesses what the author meant.
   - exits non-zero when the validation summary has one or more errors. The
     index and the report are still written, so the fixture can be built and
     the caller still sees the failure. Today it returns 0 regardless.
