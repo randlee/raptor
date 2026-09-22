@@ -9,15 +9,17 @@ target: develop
 
 # Sprint B.1 — Schema redesign: header fields become per-item columns
 
-Raptor is three scripts run by skills: `extract.py`, `load_sqlite.py`,
-`render.py`. This sprint changes the schema they share. Nothing else.
+Raptor's import is three scripts run by skills: `extract.py`, `load_sqlite.py`,
+`render.py`. This sprint changes the schema they share so the SQLite fixture
+holds every item and header field the corpus has (REQ-RAP-0002, REQ-RAP-0004,
+REQ-RAP-0006). Nothing else.
 
 ## Goal
 
 - In Markdown, Status, Created, Last Updated and Version can only be edited at
-  the file level. In the database they are columns on every item, seeded from
-  the file header, so QA can query and change them per REQ, NFR, ADR, design,
-  and test plan.
+  the file level. In the fixture they are columns on every row, seeded from
+  the file header, so QA can query them per REQ, NFR, ADR, design document and
+  test plan. Every row also says which repository it came from.
 
 ## Exact Targets
 
@@ -28,21 +30,23 @@ Raptor is three scripts run by skills: `extract.py`, `load_sqlite.py`,
 
 ## Deliverables
 
-- `Record` gains top-level `created`, `last_updated`, `version` (strings;
-  `version` may be null). They move out of `document_metadata`, which keeps
-  `owner`, `id_range`, `range_description`. `type` becomes
-  `REQ | NFR | ADR | DESIGN | TEST`.
-- `artifacts` table gains `created`, `last_updated`, `version` columns;
-  `load_sqlite.py` writes them and loads the index's test plans as `TEST` rows
-  (one per plan, fields from the plan's `metadata`).
-- `extract.py`: reads `**Version:**` from the header; stamps the four fields on
-  every item of the file; emits one `DESIGN` item per file under a `design/`
-  directory (id from the file stem upper-cased, title from the H1, body the
-  whole document). Parsing fix: a file's first id heading is the document
-  title, not an item, when the file has no H1 and the same id recurs; a later
-  heading that repeats an id already seen in the file is folded into that
-  item as a subsection; an id seen in two files is reported as one diagnostic
-  naming both files.
+- `Record` gains top-level `repo`, `created`, `last_updated`, `version`
+  (strings; the last three may be null when the file header lacks them). They
+  move out of `document_metadata`, which keeps `owner`, `id_range`,
+  `range_description`. `type` becomes `REQ | NFR | ADR | DESIGN | TEST`.
+- `artifacts` table gains `repo`, `created`, `last_updated`, `version`
+  columns; `load_sqlite.py` writes them and loads the index's test plans as
+  `TEST` rows (one per plan, fields from the plan's `metadata`).
+- `extract.py`:
+  - `repo` is `repository_id` from `.raptor/raptor.toml`.
+  - reads `**Version:**` from the header and stamps the four fields on every
+    item of the file.
+  - any ingested file that has no `## <ID>:` heading becomes one row: type
+    from its route (`design_document` → `DESIGN`), id the file stem
+    upper-cased, title the H1 or the first heading, body the whole document.
+  - every id that appears more than once, in one file or across files, is
+    reported as one diagnostic naming each file and line. No parsing rule
+    works around it; the source is corrected (REQ-RAP-0006).
 - Templates print `**Status:**`, `**Created:**`, `**Last Updated:**`,
   `**Version:**` under each item's heading, from the item's own fields.
 
@@ -53,9 +57,12 @@ Raptor is three scripts run by skills: `extract.py`, `load_sqlite.py`,
 
 ## Acceptance
 
-- `python -m pytest -q tests` passes; a fixture with two files, one design
-  file, one test plan, and one repeated id covers every deliverable above.
-- Consumer run: every item row has non-null `created` and `last_updated`;
-  `version` non-null wherever the file header has one; zero rows for the
-  duplicate title headings; DESIGN and TEST rows present; validation errors 0.
+- `python -m pytest -q tests` passes; a fixture with two item files, one
+  id-less design file, one test plan, and one repeated id covers every
+  deliverable above.
+- Consumer run: every row has `repo = urn:raptor:repo:<that repository>`;
+  `created`, `last_updated` and `version` non-null wherever the file header
+  has them; one `DESIGN` row per ingested id-less file; 27 `TEST` rows; the
+  repeated-id diagnostics match the RAP-VAL-1 list until the source is
+  corrected; validation errors 0.
 - `rg -ni --hidden --glob '!.git/**' --glob '!.sc/**' '[p]3' .` prints nothing.
