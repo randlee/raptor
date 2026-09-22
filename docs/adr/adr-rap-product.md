@@ -248,9 +248,14 @@ registry and folder a record sits in today are where it happens to land.
 ### Decision
 
 The id is the primary key of its table. The file, range, registry and folder
-are not information about the record and are not stored. Version is a
-column; Dolt commits are the history. Requirements and non-functional
-requirements share one table, decisions have another.
+are not information about the record and are not stored. Neither is a
+repository, product or module: a record can apply to every repository, and
+the link from a consuming repository to the records it uses is a future
+edge declared in that repository's `.raptor/` folder. Code points to
+requirements; requirements do not point to code. No column exists that
+is not a field written in the document; the id prefix says REQ or NFR.
+Version is a column; Dolt commits are the history. Requirements and
+non-functional requirements share one table, decisions have another.
 
 ### Rationale
 
@@ -290,11 +295,11 @@ corpus uses.
 
 **Pros:**
 
-- No kind column.
+- The table says REQ or NFR.
 
 **Cons:**
 
-- Two tables with every column the same.
+- Two tables with every column the same; the id prefix already says it.
 
 **Why Rejected:** REQ and NFR share every column.
 

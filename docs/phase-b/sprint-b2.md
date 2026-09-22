@@ -45,9 +45,10 @@ deleted. Proven by round trip on the B.1 fixture. No crate change.
   verbatim. Line numbers are one-based. An H2 that is not an id heading ends
   the current record; its content is file-level prose and outside the record
   model. The splitter contains no label literal.
-- Per file: `raptor_schema.bind_file(tree, repository)`. After all files:
+- Per file: `raptor_schema.bind_file(tree)`. After all files:
   `check_inventory`, then `summarize`.
-- Output `{"metadata": {repository, generated, files, records},
+- Output `{"metadata": {repository, generated, files, records},` where
+  `repository` is the `repository_id` of the run, metadata and not a column;
   "requirements": [...], "decisions": [...],
   "diagnostics": {"issues": [...], "summary": {...}}}`. `generated` is UTC.
   Issues ordered by file then line. Exit `1` when issues is non-empty, else

@@ -39,12 +39,13 @@ diagnostics) are in `plan-phase-b.md` and the decisions in ADR-RAP-0004 to
   (from the id prefix), `Modal` (declared now, used in B.3).
 - Column groups as structs, flattened into each row type with
   `#[serde(flatten)]`: `Identity {id, title}`,
-  `Lifecycle {status, version, created, last_updated, owner}`,
-  `Provenance {repository, path, line}`. One accessor trait per group,
-  `HasIdentity`, `HasLifecycle`, `HasProvenance`, implemented by both rows.
-- Row types `Requirement {identity, kind, lifecycle, provenance}` and
-  `Decision {identity, lifecycle, provenance}`. A `Table` trait with the
-  table name and `fields() -> Vec<FieldMeta>`.
+  `Lifecycle {status, version, created, last_updated, owner}`. One accessor
+  trait per group, `HasIdentity`, `HasLifecycle`, implemented by both rows.
+- Row types `Requirement {identity, lifecycle}` and
+  `Decision {identity, lifecycle}`. No `kind` column: the id prefix says
+  REQ or NFR. No file, line or repository column: file and line live on
+  diagnostics only. A `Table` trait with the table name and
+  `fields() -> Vec<FieldMeta>`.
 - `FieldMeta {name, label, level, shape, section, required, sql_type}`.
   Field attributes are schemars extension keywords on each field. If the
   attribute is unavailable on fields in the schemars version used, a
@@ -79,15 +80,11 @@ pub struct FieldMeta { pub name: &'static str, pub label: &'static str,
 pub struct Identity { pub id: Id, pub title: String }
 pub struct Lifecycle { pub status: Status, pub version: Version,
     pub created: Date, pub last_updated: Date, pub owner: String }
-pub struct Provenance { pub repository: String, pub path: String, pub line: u32 }
 pub trait HasIdentity { fn identity(&self) -> &Identity; }
 pub trait HasLifecycle { fn lifecycle(&self) -> &Lifecycle; }
-pub trait HasProvenance { fn provenance(&self) -> &Provenance; }
 
-pub struct Requirement { pub identity: Identity, pub kind: RecordKind,
-    pub lifecycle: Lifecycle, pub provenance: Provenance }
-pub struct Decision { pub identity: Identity, pub lifecycle: Lifecycle,
-    pub provenance: Provenance }
+pub struct Requirement { pub identity: Identity, pub lifecycle: Lifecycle }
+pub struct Decision { pub identity: Identity, pub lifecycle: Lifecycle }
 pub trait Table { const NAME: &'static str; fn fields() -> Vec<FieldMeta>; }
 
 pub struct Diagnostic { pub file: String, pub line: u32, pub rule: Rule,
@@ -101,7 +98,7 @@ pub struct Bound { pub requirements: Vec<Requirement>,
 pub fn sql_ddl() -> String;
 pub fn json_schema() -> serde_json::Value;
 pub fn field_table(table: &str) -> Vec<FieldMeta>;
-pub fn bind_file(tree: &serde_json::Value, repository: &str) -> Bound;
+pub fn bind_file(tree: &serde_json::Value) -> Bound;
 pub fn check_inventory(requirements: &[Requirement], decisions: &[Decision]) -> Vec<Diagnostic>;
 pub fn summarize(diagnostics: &[Diagnostic]) -> serde_json::Value;
 ```
@@ -112,16 +109,16 @@ taking and returning JSON strings.
 ### Emission
 
 - `sql_ddl() -> String`: `requirements` and `decisions`, generated from the
-  field tables, `id TEXT PRIMARY KEY`, every B.1 column `NOT NULL`, `CHECK`
-  constraints from the `Status` and `RecordKind` enums. Hand-written SQL is
-  a defect.
+  field tables, `id TEXT PRIMARY KEY`, every B.1 column `NOT NULL`, a
+  `CHECK` constraint from the `Status` enum and one on `id` for the table's
+  prefixes. Hand-written SQL is a defect.
 - `json_schema() -> Value`: one document, both tables, groups as `$defs`,
   field attributes as extension keywords.
 - `field_table(table) -> Vec<FieldMeta>`.
 
 ### Binding and diagnostics
 
-- `bind_file(tree, repository) -> {requirements, decisions, diagnostics}`
+- `bind_file(tree) -> {requirements, decisions, diagnostics}`
   over one label tree. Header-level fields inherited, item line wins.
   Rules in B.1: `MISSING_ID`, `MISSING_FIELD`, `UNKNOWN_SECTION`,
   `UNKNOWN_LABEL`, `BAD_VALUE`, with the row effects in the plan.
@@ -143,14 +140,12 @@ taking and returning JSON strings.
 
 `tests/fixtures/records.json`: `{"requirements": [...], "decisions": [...]}`,
 four records in full row shape, values as the B.2 splitter will produce for
-the rendered files (paths `docs/requirements/<id>.md`,
-`docs/decisions/<id>.md`, heading lines). Repository
-`urn:raptor:repo:fixture`.
+the rendered files.
 
 | id | exercises |
 |---|---|
 | REQ-FIX-0001 | item `Status` Active over header Draft |
-| NFR-FIX-0001 | kind NFR; different dates |
+| NFR-FIX-0001 | NFR prefix in the `requirements` table; different dates |
 | ADR-FIX-0001 | decisions table |
 | ADR-FIX-0002 | same owner and version as 0001, distinct dates |
 

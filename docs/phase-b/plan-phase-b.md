@@ -18,7 +18,12 @@ later as their own tables on the same groups and enums.
 A requirement or a decision is a record identified by `<TYPE>-<DOMAIN>-<NNNN>`.
 The id is the primary key. The file is where the record lands today; which
 ids share a file is not information. The range, the registry and the folder
-are not information about the record either.
+are not information about the record either. Nor is a repository, product
+or module: a record can apply to every repository, and the link from a
+consuming repository to the records it uses is a future edge declared in
+that repository's `.raptor/` folder, not a column here: code points to
+requirements, requirements do not point to code. File and line stay
+on diagnostics, where they are used, and nowhere else.
 
 There are two tables, `requirements` (REQ and NFR) and `decisions` (ADR).
 Columns that carry the same information in both are defined once as a
@@ -30,7 +35,6 @@ are one enum each, shared by every table.
 |---|---|---|
 | Identity | `id`, `title` | both |
 | Lifecycle | `status`, `version`, `created`, `last_updated`, `owner`; B.4 adds `supersedes`, `superseded_by` | both |
-| Provenance | `repository`, `path`, `line` | both |
 | RelatedDocuments | `related_documents` as `{requirements, architecture_decisions, design_documents, work_items, external_references}` | both, from B.3 |
 
 | Enum or type | Values |
@@ -210,9 +214,9 @@ ADR-RAP-0004 to ADR-RAP-0006 in `docs/adr/adr-rap-product.md`, with
   are the history.
 - Edges are derived from the JSON columns, not stored; integrity is a
   diagnostic; the two supersession scalars are foreign keys.
-- `kind` (REQ or NFR) is stored on `requirements` rows and `repository` in
-  Provenance, both derivable, both kept because "queryable by repository"
-  (REQ-RAP-0004) and "all NFR" are direct queries. Strike either if unwanted.
+- No column that is not a field in the document: no `kind` (the id prefix
+  says REQ or NFR), no `repository`, `path` or `line`, no `product` or
+  `module`. Operator decision, 2026-09-22, recorded in ADR-RAP-0005.
 - An `id_list` item is `{id, note}`: the link path is not stored, the
   renderer resolves it from the inventory; the trailing description after
   the link is kept as `note` so the round trip is exact.
@@ -228,6 +232,7 @@ ADR-RAP-0004 to ADR-RAP-0006 in `docs/adr/adr-rap-product.md`, with
 | Status values outside the enum, about a hundred lines across the corpus | same |
 | Which local read model the CLI uses against a remote Dolt server | CLI phase, its own ADR |
 | Test plans and design documents as tables | later phase |
+| Filtering by product, repository and module (REQ-RAP-0004): an edge from a consuming repository's `.raptor/` mapping to record ids, not a column | future schema version, its own ADR |
 
 ## Rules for every sprint
 

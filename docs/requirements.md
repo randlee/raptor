@@ -114,7 +114,9 @@ work in.
 
 **Acceptance Criteria:**
 
-- [ ] A query filtered by repository returns only that repository's items.
+- [ ] Given a consuming repository's `.raptor/` mapping, a query scoped to
+  that repository, product or module returns only the items the mapping
+  names.
 
 ## REQ-RAP-0005: Agent access
 
