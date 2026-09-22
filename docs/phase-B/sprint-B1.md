@@ -1,133 +1,110 @@
 ---
 id: B.1
-title: Schema redesign — header fields become per-item columns
+title: Schema contract and fixtures
 status: planned
 branch: feature/B-1-schema
 worktree: ../raptor-worktrees/feature/B-1-schema
 target: develop
+depends_on: []
 ---
 
-# Sprint B.1 — Schema redesign: header fields become per-item columns
+# Sprint B.1 — Schema contract and fixtures
 
-Raptor's import is three scripts run by skills: `extract.py`, `load_sqlite.py`,
-`render.py`. This sprint changes the schema they share so the SQLite fixture
-holds every item and header field the corpus has (REQ-RAP-0002, REQ-RAP-0006).
-Nothing else. Only fields that appear in the consumer Markdown become
-columns; any other schema change is discussed with the operator first.
-Id-less documents are not allowed: Raptor never invents an id.
-
-## Goal
-
-- In Markdown, Status, Created, Last Updated and Version can only be edited at
-  the file level. In the fixture they are columns on every row, seeded from
-  the file header, so QA can query them per REQ, NFR, ADR, TEST and design
-  document.
+Defines what every other Phase B sprint builds against: the record model, the
+SQL that initialises the database, and Markdown fixtures that comply with the
+model together with the exact JSON they must produce. No script changes.
 
 ## Exact Targets
 
-- `schema/record.py`, `schema/record.schema.json`, `schema/schema.sql`
-- `scripts/extract.py`, `scripts/load_sqlite.py`, `scripts/render.py`
-- `templates/*.md.j2` (header lines only)
-- `tests/test_scripts.py`, `tests/fixtures/`
+- `schema/record.py`
+- `schema/record.schema.json`
+- `schema/schema.sql`
+- `tests/test_record.py`
+- `tests/fixtures/**` (new files allowed here only)
 
 ## Deliverables
 
-- `Record` gains top-level `created`, `last_updated`, `version`, all
-  required and never null, like `status`. A file whose header lacks any of
-  the five fields is a `MISSING_HEADER_FIELD` error and none of its items
-  is emitted; the source is corrected. `created` and `last_updated` are
-  ISO 8601 (REQ-RAP-0009); the source headers are date-only `YYYY-MM-DD`
-  and are stored as written, never given a time or zone. They move out of
-  `document_metadata`, which keeps `owner` only. `id_range` and
-  `range_description` are dropped: a range is a document-level search
-  convenience in one source repository, not a field of an item, and most
-  repositories have no such header. Raptor neither reads, stores, prints
-  nor validates it: the `**ID Range:**` lines in the three templates, the
-  two fields in `record.py` and `record.schema.json`, and the range parsing
-  in `extract.py` all go.
-  `type` becomes `REQ | NFR | ADR | TEST | DESIGN`.
-- `artifacts` table gains `created`, `last_updated`, `version` columns,
-  `TEXT NOT NULL`; `status` becomes `NOT NULL` too. `load_sqlite.py` writes
-  them. The separate test-plan path in the index and
-  loader goes away: TEST items arrive through the same list as every other
-  item.
-- `extract.py`:
-  - reads `**Version:**` from the header and stamps the four fields on every
-    item of the file.
-  - `## TEST-<DOM>-<NNNN>:` headings are items of type `TEST`, handled by
-    the same heading rule as REQ, NFR and ADR.
-  - a file whose header carries `**Document ID:**` and that has no item
-    headings is one item of type `DESIGN`: id from that field, title from the
-    H1, body the whole document.
-  - a file with neither an item heading nor a `**Document ID:**` is a
-    validation error naming the file. No row is emitted; the source is
-    corrected (REQ-RAP-0006).
-  - every id that appears more than once, in one file or across files, is
-    reported as one diagnostic per occurrence naming file and line. No
-    parsing rule works around it.
-  - error reporting is rewritten. The whole inventory is always processed;
-    the script never stops at the first problem. Output is JSON only: the
-    index's `validation.issues` list holds every problem as one object
-    (`file`, `line`, `rule`, `id`, `message`, `remedy`), complete, never
-    truncated, and `validation.summary` holds the count per rule. Agents
-    group by `rule` or by `file` with a query. Stdout prints one line: the
-    output path and the count per rule. The text report
-    (`reports/extraction-report.txt`) and its writer are deleted. Today the
-    `validation` block is hard-coded to zero errors and the only check is
-    the record model, whose failure aborts the run without writing the
-    index. All of that goes.
-    Rules in this sprint, each with one fixed remedy that is printed with
-    the message so the author knows what to change:
-    - `MISSING_ID`: no item heading and no Document ID. Remedy: add
-      `## <TYPE>-<DOM>-<NNNN>: <title>` headings or a `**Document ID:**`
-      header line.
-    - `DUPLICATE_ID`: one line per occurrence, every file and line listed.
-      Remedy: an id is defined once; give the other definitions their own
-      ids or demote them to non-item headings.
-    - `MISSING_HEADER_FIELD`: Status, Created, Last Updated, Version or
-      Owner absent. Remedy: add `**<Field>:** <value>` to the header block.
-    - `INVALID_DATE`: Created or Last Updated not ISO 8601, for example the
-      literal `YYYY-MM-DD`. Remedy: use `YYYY-MM-DD`.
-    - `INVALID_STATUS`: Status not one of the allowed values. Remedy: use
-      one of them, listed in the message. Today the extractor prints a
-      warning and silently substitutes `Draft`; that substitution goes.
-    - `INVALID_HEADING`: a `## <ID>` line that does not match the heading
-      form. Remedy: `## <ID>: <title>`. Today this is a stray `print`.
-    Nothing else. Remedies are fixed text per rule, not inferred; the
-    script never guesses what the author meant.
-  - exits non-zero when the validation summary has one or more errors. The
-    index and the report are still written, so the fixture can be built and
-    the caller still sees the failure. Today it returns 0 regardless.
-  - honours `.raptor/raptor.toml` whenever it exists under the project
-    root, whether that root is auto-detected, `--project-root`, or the
-    positional argument. Today an explicit root silently ignores the config
-    and falls back to the built-in domain list, which scans nothing on a
-    repository laid out differently.
-  - adds no ingress parse options. If one proves necessary it is proposed
-    as an option any repository could use and discussed with the operator
-    before it is added.
-- Templates print `**Status:**`, `**Created:**`, `**Last Updated:**`,
-  `**Version:**` under each item's heading, from the item's own fields.
+### `schema/record.py`
+
+- `Record.type`: `Literal["REQ", "NFR", "ADR", "TEST", "DESIGN"]`.
+- `Record.status`: `str` (was `str | None`).
+- New required fields on `Record`: `created: str`, `last_updated: str`,
+  `version: str`. ISO 8601 date as written in the source (REQ-RAP-0009),
+  never null.
+- `DocumentMetadata`: `owner: str` only. Remove `created`, `last_updated`,
+  `id_range`, `range_description`.
+- `Relationships`: remove `family`. Delete class `Family`.
+- Everything else unchanged: `Source`, `Content`, `Reference`,
+  `ReferencedBy`, `Subsection`, `extra="forbid"`.
+
+### `schema/record.schema.json`
+
+- Regenerated from `Record.model_json_schema()`. The existing test asserts
+  equality; it keeps passing.
+
+### `schema/schema.sql`
+
+- `artifacts` columns, in order: `id TEXT NOT NULL`, `title TEXT NOT NULL`,
+  `type TEXT NOT NULL`, `status TEXT NOT NULL`, `created TEXT NOT NULL`,
+  `last_updated TEXT NOT NULL`, `version TEXT NOT NULL`, `domain TEXT`,
+  `document_metadata TEXT NOT NULL`, `source TEXT NOT NULL`,
+  `content TEXT NOT NULL`, `subsections TEXT NOT NULL`.
+- `relationships` table and index unchanged.
+
+### `tests/fixtures/`
+
+Replace `items.md` with two directories. These are the Markdown artifacts
+that comply with the schema; B.2, B.3 and B.4 are tested against them.
+
+- `clean/` — every file has the header block `**Status:**`, `**Created:**`,
+  `**Last Updated:**`, `**Version:**`, `**Owner:**`:
+  - `requirements.md`: one `## REQ-FIX-0001:` and one `## NFR-FIX-0001:`
+    item; the NFR carries its own `**Status:**` line that differs from the
+    header.
+  - `adr.md`: one `## ADR-FIX-0001:` item that mentions `REQ-FIX-0001`.
+  - `test-plan.md`: two `## TEST-FIX-0001:` / `## TEST-FIX-0002:` items.
+  - `design.md`: `**Document ID:** DESIGN-FIX-0001`, an H1, no item headings.
+  - `expected-index.json`: the exact `requirements` array (six records) and
+    `validation` block (`issues: []`, `summary` all zero) the extractor must
+    produce for `clean/`, in file order, ids ascending within a file.
+- `dirty/` — one problem per file, plus the expected diagnostics:
+  - `no-id.md`: header block, an H1, no items, no Document ID.
+  - `missing-version.md`: one REQ item; header lacks `**Version:**`.
+  - `bad-date.md`: one REQ item; `**Created:** YYYY-MM-DD`.
+  - `bad-status.md`: one REQ item; `**Status:** Whenever`.
+  - `bad-heading.md`: one good REQ item and one line `## REQ-FIX-9 no colon`.
+  - `dup-a.md`, `dup-b.md`: both define `## REQ-FIX-0002:`; `dup-a.md`
+    also defines it twice.
+  - `expected-issues.json`: the exact `validation.issues` array (objects
+    with `file`, `line`, `rule`, `id`, `message`, `remedy`) and `summary`
+    for `dirty/`, ordered by file then line.
+- `.raptor/` for the fixture project: `raptor.toml`, `sources.toml` (root
+  `docs`), `routing.toml` (all five artifact types), so tests copy one tree.
+
+### `tests/test_record.py`
+
+- Keep the schema-equality assertion.
+- Replace the inline fixture with the first record of
+  `clean/expected-index.json`; assert every record in that file validates.
+- Assert `Record` rejects a record with `status: null`, with a missing
+  `version`, and with `document_metadata.id_range` present.
+
+## Out of scope
+
+Anything not named above. In particular: no change to any script, template
+or test other than `tests/test_record.py`; no new model fields beyond the
+three named; no change to `Source`, `Content`, `Subsection`.
 
 ## Ceilings
 
-- `extract.py` 2,050 lines; `load_sqlite.py` 60; `render.py` 120;
-  `record.py` 120; each template 60. No new files except fixtures.
+- `record.py` 70 lines; `schema.sql` 14 lines; each fixture Markdown file
+  40 lines; `test_record.py` 40 lines.
 
 ## Acceptance
 
-- `python -m pytest -q tests` passes; a fixture with one REQ file, one test
-  plan with two `## TEST-` headings, one design file with `**Document ID:**`,
-  one file with no id at all, one file missing a header field, and one
-  repeated id covers every deliverable. The test asserts the exact
-  `validation.issues` objects for each dirty file and the non-zero exit
-  code.
-- Consumer run: every row has `status`, `created`, `last_updated` and
-  `version` (all 157 inventory files carry them today); one `TEST` row per
-  `## TEST-` heading; one
-  `DESIGN` row per design file that has `**Document ID:**` (4 today);
-  every remaining id-less file listed as a validation error (39 design files,
-  the schema reference, the HITL files today, fewer as the source is
-  corrected); repeated-id diagnostics match the RAP-VAL-1 list until the
-  source is corrected; exit code is non-zero until it is.
+- `python -m pytest -q tests/test_record.py` passes.
+- `schema/record.schema.json` equals `Record.model_json_schema()`.
+- `sqlite3 :memory: < schema/schema.sql` succeeds.
+- Every record in `clean/expected-index.json` validates against `Record`;
+  every object in `dirty/expected-issues.json` has exactly the six keys.
 - `rg -ni --hidden --glob '!.git/**' --glob '!.sc/**' '[p]3' .` prints nothing.
