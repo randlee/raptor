@@ -40,5 +40,20 @@ protocol and conformance helper are dialect-neutral; connection handling,
 `SQLiteArtifactStore.open_read_only`, `validate`, and `list_document_keys`
 provide the plugin boundary for immutable validation and enumeration without
 duplicating SQL outside the adapter.
+
+## Traceability query handoff
+
+The future agent-facing CLI reads document identity and current materialization
+from `source_documents(repository_id, document_id, current_path, origin_json,
+materialization_json)`, ordered membership from
+`document_artifacts(repository_id, document_id, artifact_id, ordinal)`, and
+artifact type/status from `artifacts(repository_id, artifact_id, artifact_type,
+status)`. Forward typed edges use
+`artifact_relationships(source_repository_id, source_artifact_id, relation,
+target_repository_id, target_artifact_id)`; reverse queries exchange source and
+target predicates. URI edges use
+`artifact_uri_relationships(source_repository_id, source_artifact_id, relation,
+target_uri)`. These are SQLite projection contracts only; this document adds no
+Rust implementation.
 The wheel build force-includes that authoritative file as a package resource;
 there is no second checked-in DDL copy.

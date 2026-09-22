@@ -161,6 +161,32 @@
           ],
           "title": "Sqlite Outcome",
           "type": "string"
+        },
+        "typed_relationship_count": {
+          "anyOf": [
+            {
+              "minimum": 0,
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Typed Relationship Count"
+        },
+        "uri_relationship_count": {
+          "anyOf": [
+            {
+              "minimum": 0,
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Uri Relationship Count"
         }
       },
       "required": [

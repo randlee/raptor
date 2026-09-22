@@ -4,6 +4,7 @@ import json
 import hashlib
 import sqlite3
 from collections.abc import Iterable
+from dataclasses import dataclass
 from importlib.resources import files
 from pathlib import Path
 from typing import cast
@@ -23,6 +24,7 @@ from ..models import (
     ArtifactKey,
     DocumentKey,
     RepositoryId,
+    RelationshipType,
     SourceDocument,
     validate_provenance_transition,
 )
@@ -102,6 +104,38 @@ class _OverlayResolver:
             return True
         owner = self._store._artifact_owner(value)
         return owner is not None and owner not in self._replaced_documents
+
+
+@dataclass(frozen=True)
+class TypedTraceabilityEdge:
+    source: ArtifactKey
+    relation: RelationshipType
+    target: ArtifactKey
+
+
+@dataclass(frozen=True)
+class UriTraceabilityEdge:
+    source: ArtifactKey
+    relation: RelationshipType
+    target_uri: str
+
+
+@dataclass(frozen=True)
+class TraceabilityRelationships:
+    typed: tuple[TypedTraceabilityEdge, ...]
+    uri: tuple[UriTraceabilityEdge, ...]
+
+    @property
+    def typed_count(self) -> int:
+        return len(self.typed)
+
+    @property
+    def uri_count(self) -> int:
+        return len(self.uri)
+
+    @property
+    def total_count(self) -> int:
+        return self.typed_count + self.uri_count
 
 
 class SQLiteArtifactStore:
@@ -193,6 +227,108 @@ class SQLiteArtifactStore:
             DocumentKey(repository_id=repository_id, document_id=document_id)
             for repository_id, document_id in rows
         ]
+
+    def traceability_relationships(
+        self, key: DocumentKey
+    ) -> TraceabilityRelationships:
+        """Return the stored typed and URI edges emitted by one document."""
+        self._require_foreign_keys()
+        typed_rows = cast(
+            list[tuple[str, str, str, str, str]],
+            self._connection.execute(
+                """
+                SELECT relationship.source_repository_id,
+                       relationship.source_artifact_id,
+                       relationship.relation,
+                       relationship.target_repository_id,
+                       relationship.target_artifact_id
+                FROM artifact_relationships AS relationship
+                JOIN document_artifacts AS membership
+                  ON membership.repository_id = relationship.source_repository_id
+                 AND membership.artifact_id = relationship.source_artifact_id
+                WHERE membership.repository_id = ? AND membership.document_id = ?
+                ORDER BY relationship.source_repository_id,
+                         relationship.source_artifact_id,
+                         relationship.relation,
+                         relationship.target_repository_id,
+                         relationship.target_artifact_id
+                """,
+                (key.repository_id, key.document_id),
+            ).fetchall(),
+        )
+        uri_rows = cast(
+            list[tuple[str, str, str, str]],
+            self._connection.execute(
+                """
+                SELECT relationship.source_repository_id,
+                       relationship.source_artifact_id,
+                       relationship.relation,
+                       relationship.target_uri
+                FROM artifact_uri_relationships AS relationship
+                JOIN document_artifacts AS membership
+                  ON membership.repository_id = relationship.source_repository_id
+                 AND membership.artifact_id = relationship.source_artifact_id
+                WHERE membership.repository_id = ? AND membership.document_id = ?
+                ORDER BY relationship.source_repository_id,
+                         relationship.source_artifact_id,
+                         relationship.relation,
+                         relationship.target_uri
+                """,
+                (key.repository_id, key.document_id),
+            ).fetchall(),
+        )
+        return TraceabilityRelationships(
+            typed=tuple(
+                TypedTraceabilityEdge(
+                    source=ArtifactKey(repository_id=row[0], artifact_id=row[1]),
+                    relation=RelationshipType(row[2]),
+                    target=ArtifactKey(repository_id=row[3], artifact_id=row[4]),
+                )
+                for row in typed_rows
+            ),
+            uri=tuple(
+                UriTraceabilityEdge(
+                    source=ArtifactKey(repository_id=row[0], artifact_id=row[1]),
+                    relation=RelationshipType(row[2]),
+                    target_uri=row[3],
+                )
+                for row in uri_rows
+            ),
+        )
+
+    def reverse_typed_relationships(
+        self, target: ArtifactKey
+    ) -> tuple[TypedTraceabilityEdge, ...]:
+        """Return typed edges that target one artifact."""
+        self._require_foreign_keys()
+        rows = cast(
+            list[tuple[str, str, str, str, str]],
+            self._connection.execute(
+                """
+                SELECT source_repository_id,
+                       source_artifact_id,
+                       relation,
+                       target_repository_id,
+                       target_artifact_id
+                FROM artifact_relationships
+                WHERE target_repository_id = ? AND target_artifact_id = ?
+                ORDER BY source_repository_id,
+                         source_artifact_id,
+                         relation,
+                         target_repository_id,
+                         target_artifact_id
+                """,
+                target.sort_key(),
+            ).fetchall(),
+        )
+        return tuple(
+            TypedTraceabilityEdge(
+                source=ArtifactKey(repository_id=row[0], artifact_id=row[1]),
+                relation=RelationshipType(row[2]),
+                target=ArtifactKey(repository_id=row[3], artifact_id=row[4]),
+            )
+            for row in rows
+        )
 
     def validate(self) -> None:
         self._require_foreign_keys()
@@ -738,4 +874,7 @@ __all__ = [
     "MODEL_SCHEMA_VERSION",
     "SQLiteArtifactStore",
     "StorageError",
+    "TraceabilityRelationships",
+    "TypedTraceabilityEdge",
+    "UriTraceabilityEdge",
 ]
