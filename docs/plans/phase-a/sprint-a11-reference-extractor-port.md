@@ -2,31 +2,28 @@
 
 ## Objective
 
-Move the working reference Markdown extractor into Raptor, write its JSON to
-SQLite, and render the same JSON through five sc-compose Jinja templates to
-produce the same Markdown as the consumer templates.
+Move the working reference Markdown extractor into Raptor, write its JSON to SQLite,
+and render it through five sc-compose Jinja templates to produce the source Markdown.
 
 - Branch: `phase-a/11-reference-extractor-port`
 - Stack relation: `must_follow A10`
 - PR-completion trigger: A10 merges first.
 
-The reference checkout is read only. Its source, identifiers, paths,
-configuration, templates, and fixture values never enter Raptor. Raptor uses
-invented, domain-neutral fixtures only.
+The reference checkout is read only. Its source, identifiers, paths, configuration,
+templates, and fixture values never enter Raptor; Raptor uses invented fixtures only.
 
 ## Reference facts and parser contract
 
-The reference index has 783 records. Each record has these ten fields:
-`id`, `title`, `type`, `status`, `domain`, `document_metadata`,
-`source`, `content`, `relationships`, and `subsections`. Status
-spellings are Draft, Proposed, Active, Approved, Deprecated, and Superseded.
+The reference index has 783 records. Each has `id`, `title`, `type`, `status`,
+`domain`, `document_metadata`, `source`, `content`, `relationships`, and `subsections`.
+Status spellings are Draft, Proposed, Active, Approved, Deprecated, and Superseded.
 
 | Input | Parser behavior |
 |---|---|
 | `## REQ|NFR|ADR-<scope>-<four digits>: <title>` | Parse level-two artifacts in source order. |
 | `#### TEST...: <title>` | Preserve level-four test headings as ordered test-plan evidence. |
-| Bold preamble | Parse metadata before body sections and preserve unknown keys. |
-| Nested sections | Preserve title, level, Markdown body, summary/HTML when emitted, source range, and order. |
+| Bold preamble | Parse metadata before sections and preserve unknown keys. |
+| Nested sections | Preserve title, level, Markdown text, summary/HTML when emitted, source range, and order. |
 | Ranges and references | Preserve raw token/context and resolve target document/id only when unique in the repository. |
 | Invalid UTF-8, malformed heading/preamble, unsupported status, duplicate heading, bad nested heading, or no artifact | Emit one stable failure-class code and fail closed for that document; never silently skip it. |
 
@@ -45,23 +42,41 @@ plans additionally preserve zero or more level-four TEST headings.
 
 ## Scope boundary
 
-A11 is Python/Pydantic/parser/template work only. It changes the existing
-`markdown_to_json.py` and runtime operations, not Rust, SQLx, Dolt, a new
-framework, or consumer automation. Update registered agents and templates that
-reference the old grammar. A9/A10 callers use the new model and composite key.
+A11 is Python/Pydantic/parser/template work only. It changes `markdown_to_json.py`
+and runtime operations, not Rust, SQLx, Dolt, a framework, or consumer automation.
+Update registered agents/templates that reference the old grammar; A9/A10 use the new key.
 
 The artifact is the index record: ten source fields plus `artifact_type`,
-published at schema version `2.0.0` in `schema/json/v2`. No synthetic
-family fields are added. Relationships are stored as emitted: raw token and
-context with nullable resolved document/id when unique. One relationships table
-is sufficient. Replace v1 SQLite `0001` with v2 `0001`; the SQLite database
-is regenerated from Markdown and has no migration path.
+published at schema version `2.0.0` in `schema/json/v2`. No synthetic family
+fields are added. `SourceDocument` also retains title, preamble, overview, and
+all non-item Markdown as ordered verbatim segments, including text before and
+between item blocks. SQLite stores those segments in
+`documents.non_item_segments_json`; the smaller one-column form preserves their
+order and placement. Relationships keep emitted raw token/context with nullable
+resolved document/id when unique. Replace v1 SQLite `0001` with v2 `0001`; the
+SQLite database is regenerated from Markdown and has no migration path.
 
-The five sc-compose Jinja templates receive canonical JSON. For the same JSON,
-their Markdown must equal the consumer TEMPLATE Markdown produced by literal
-`{{KEY}}` replacement, after LF normalization, one trailing newline, and the
-application-date token only. Local invented fixtures mirror the template
-structure; A12 performs the consumer-side parity diff.
+| Index field | SQLite column | Jinja usage | Markdown construct |
+|---|---|---|---|
+| SourceDocument envelope | `documents.non_item_segments_json` | `document.segments` | Title, preamble, overview, and text before/between item blocks. |
+| `id` | `artifacts.artifact_id` | `artifact.id` | `## ID: Title` item heading. |
+| `title` | `artifacts.title` | `artifact.title` | Item heading title. |
+| `type` | `artifacts.artifact_type` | `artifact.type` | Selects the family layout. |
+| `status` | `artifacts.status` | `artifact.status` | Parsed from the item's bold Status line when present; stored for queries; not rendered separately. |
+| `domain` | `artifacts.domain` | `artifact.domain` | Derived from source path; not rendered. |
+| `document_metadata` | `documents.metadata_json` | `document.metadata` | Bold document preamble. |
+| `source` | `artifacts.source_json` | `artifact.source` | Source order and item placement. |
+| `content` | `artifacts.content_markdown` (verbatim) | `artifact.content` | Item body rendered verbatim after the heading; summary/HTML re-derived on reparse. |
+| `relationships` | `relationships` | `artifact.relationships` | Item reference/range text. |
+| `subsections` | derived from `content_markdown` | re-derived on reparse | Not rendered. |
+
+Every template consumes all ten fields plus the envelope; `artifact.body` and `provenance_block` are removed from template inputs. The five templates are the
+sc-compose form of the consumer layouts: level-one title, bold preamble, `---`
+rules, `## ID: Title` item blocks, per-item bold Status, and nested `###`/`####`
+sections. `render(extract(document))` is byte-equal to the source document
+after LF normalization and exactly one trailing newline, then reparses to equal
+JSON. Local invented fixtures mirror that layout; A12 repeats the diff in the
+consumer checkout.
 
 ## Deliverables
 
@@ -69,7 +84,7 @@ structure; A12 performs the consumer-side parity diff.
 |---|---|---|
 | A11-D1 | Port the parser grammar into the existing profile/runtime path; remove the native grammar and fixtures. | Parser tests cover valid documents and every failure class. |
 | A11-D2 | Publish the 2.0.0 Pydantic/JSON schema and replacement SQLite 0001 with composite document/artifact identity and emitted relationships. | Model, schema, SQLite, duplicate-ID, and relationship tests. |
-| A11-D3 | Replace all five Jinja templates and render from canonical JSON through sc-compose. | Invented five-family fixture parity and Markdown-to-JSON equality. |
+| A11-D3 | Replace all five Jinja templates with the consumer layout and render from canonical JSON through sc-compose. | Invented fixture byte parity and Markdown-to-JSON equality. |
 | A11-D4 | Update A9/A10 callers, registered agents/templates, documentation, and tests for the replacement parser/model. | Existing ingress/export suites re-run without a wrapper or adapter. |
 
 ## Acceptance criteria
@@ -81,7 +96,7 @@ structure; A12 performs the consumer-side parity diff.
 | A11-AC3 | Duplicate local IDs in different source documents become separate composite-key rows; emitted relationships retain raw token/context and resolve uniquely when possible. |
 | A11-AC4 | SQLite uses replacement v2 0001 DDL; ingress regenerates the database from Markdown with no migration path. |
 | A11-AC5 | A9/A10 use the replacement parser/model/key contract and their suites pass. |
-| A11-AC6 | All five Jinja templates produce parity Markdown for the same canonical JSON under the three permitted normalizations, then reparse to equal JSON. |
+| A11-AC6 | `render(extract(document))` is byte-equal to the source after LF normalization and one trailing newline, then reparses to equal JSON. |
 | A11-AC7 | No Rust, SQLx, Dolt, new framework, external source assets, or consumer automation is added. |
 
 ## Authoritative validation commands

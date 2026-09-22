@@ -19,7 +19,7 @@ runbook. The consumer agent retains commands and detailed reports locally.
 |---|---|---|
 | A12-D1 | Create consumer-owned configuration and registered document identities using A9 operations. | Configuration validation and identity output stay in the consumer checkout. |
 | A12-D2 | Run Raptor `markdown_to_json.py` over consumer roots and diff JSON field-by-field against `requirements-index.json`. | 783/783 records, zero blocked, and a plain comparison report. |
-| A12-D3 | Run JSON→SQLite→JSON→sc-compose→Markdown→JSON and the five-template parity diff. | Zero-loss round trip; parity after LF, trailing-newline, and application-date normalization only. |
+| A12-D3 | Run JSON→SQLite→JSON→sc-compose→Markdown→JSON and the five-template parity diff. | Zero-loss round trip; rendered Markdown equals its source after LF normalization and one trailing newline. |
 | A12-D4 | Run the consumer validator and declared secondary gates on Raptor-rendered Markdown. | Clean validator/gate result; counts reported to ATM. |
 
 ## Acceptance criteria
@@ -29,7 +29,7 @@ runbook. The consumer agent retains commands and detailed reports locally.
 | A12-AC1 | Direct extraction is field-equal to the index for 783/783 records with zero blocked documents. |
 | A12-AC2 | Every selected document completes the import, export, render, and reparse loop or has an explicit diagnostic. |
 | A12-AC3 | Completed documents have zero loss for fields, ordering, relationships, identity, origin, and materialization provenance. |
-| A12-AC4 | The five templates produce the same Markdown as the consumer templates for the same JSON under the three permitted normalizations. |
+| A12-AC4 | `render(extract(document))` is byte-equal to its source after LF normalization and one trailing newline. |
 | A12-AC5 | The consumer validator and declared secondary gates are clean on rendered output. |
 | A12-AC6 | Consumer source assets remain outside Raptor; ATM receives counts only. |
 
