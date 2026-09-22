@@ -77,6 +77,7 @@ from .identity import (
     IdentityManifest,
     validate_identity_registration,
 )
+from .ingress import IngressDiagnostic, IngressReport, IngressReportEntry
 from .provenance import (
     MaterializationProvenance,
     OriginProvenance,
@@ -121,6 +122,9 @@ __all__ = [
     "IdentityConflict",
     "IdentityDocument",
     "IdentityManifest",
+    "IngressDiagnostic",
+    "IngressReport",
+    "IngressReportEntry",
     "JsonObject",
     "LifecycleStatus",
     "MaterializationProvenance",
