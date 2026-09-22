@@ -1,0 +1,13 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "Raptor artifact record",
+  "type": "object",
+  "required": ["id", "title", "type", "status", "domain", "document_metadata", "source", "content", "relationships", "subsections"],
+  "properties": {
+    "id": {"type": "string"}, "title": {"type": "string"}, "type": {"enum": ["REQ", "NFR", "ADR"]},
+    "status": {"type": "string"}, "domain": {"type": "string"},
+    "document_metadata": {"type": "object"}, "source": {"type": "object"},
+    "content": {"type": "object", "required": ["markdown"], "properties": {"markdown": {"type": "string"}}},
+    "relationships": {"type": "object"}, "subsections": {"type": "array"}
+  }
+}
