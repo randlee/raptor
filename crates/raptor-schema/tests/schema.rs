@@ -24,7 +24,15 @@ fn fixture_and_emissions_are_valid() {
         .unwrap()
         .execute_batch(&sql_ddl())
         .unwrap();
-    assert_eq!(field_table("requirements").len(), 8);
+    assert_eq!(field_table("requirements").len(), 9);
+    assert_eq!(
+        field_table("requirements")
+            .into_iter()
+            .filter(|field| field.name == "status")
+            .map(|field| field.level)
+            .collect::<Vec<_>>(),
+        [Level::Header, Level::Item]
+    );
     assert_eq!(
         field_table("decisions")
             .into_iter()
@@ -38,7 +46,8 @@ fn fixture_and_emissions_are_valid() {
             "version",
             "created",
             "last_updated",
-            "owner"
+            "owner",
+            "status"
         ]
     );
     let validator = jsonschema::validator_for(&json_schema()).unwrap();
