@@ -1,5 +1,10 @@
 # Repository configuration
 
+Every repository keeps its Raptor data in `.raptor/` (REQ-RAP-0007). The
+product will read it mainly to map that repository's code and documents to
+Raptor database classes and id ranges. What follows describes only the ingress
+part that the import scripts use today.
+
 Repository configuration lives in `.raptor/`. When it is present,
 `scripts/extract.py` reads it unless repository-root or domain arguments are
 provided. Configuration makes the permitted scan inventory explicit; it is not

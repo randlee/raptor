@@ -1,6 +1,6 @@
 # Raptor Requirements
 
-**ID Range:** REQ-RAP-0001 through REQ-RAP-0006  
+**ID Range:** REQ-RAP-0001 through REQ-RAP-0007  
 **Status:** Draft  
 **Created:** 2026-09-22  
 **Last Updated:** 2026-09-22  
@@ -73,3 +73,14 @@ are several source repositories; none is named in this repository. The output
 is a SQLite database containing every item and header field the corpora have,
 used as the test fixture for the product. Source documents are corrected
 in their own repository rather than worked around in the import scripts.
+
+## REQ-RAP-0007: Per-repository `.raptor/` folder
+
+**Status:** Draft  
+
+Each repository stores all of its Raptor-specific data in a `.raptor/` folder
+at the repository root, as TOML and other files. Its primary purpose is
+consumption of Raptor data: mapping the repository's code and documents to
+Raptor database classes and id ranges. Its secondary purpose is ingress:
+configuration for importing and syncing information, such as Markdown files,
+between the repository and the Raptor database.
