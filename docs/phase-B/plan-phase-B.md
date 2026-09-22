@@ -20,11 +20,11 @@ sprint of Raptor code; the other gaps are closed where they belong.
 
 - **Tight scripts.** Three scripts, no framework. Every line ceiling in a
   sprint document is a hard limit; a sprint that needs more explains why.
-- **Very good error reporting.** Dirty source is expected. Every problem the
-  extractor finds is one line the author can act on: `file:line: RULE id
-  message`, every occurrence listed, nothing truncated, grouped by file. The
-  same list is in the JSON index for tools. A run with errors exits non-zero
-  and still writes its outputs.
+- **Very good error reporting, in JSON.** Dirty source is expected. Every
+  problem the extractor finds is one object an agent can act on: file, line,
+  rule, id, message, fixed remedy. Every occurrence, nothing truncated, the
+  whole inventory in one pass. No text report: the readers are agents. A run
+  with errors exits non-zero and still writes its outputs.
 - **No exceptions for one repository.** The scripts know one document
   format: a header block of `**Field:** value` lines, items as `## <ID>:
   <title>` headings, or a `**Document ID:**` for a document without items.

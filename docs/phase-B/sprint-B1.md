@@ -66,21 +66,16 @@ Id-less documents are not allowed: Raptor never invents an id.
     reported as one diagnostic per occurrence naming file and line. No
     parsing rule works around it.
   - error reporting is rewritten. The whole inventory is always processed;
-    the script never stops at the first problem. Every problem is one line,
-    `file:line: RULE id message. Remedy`. The text report has three
-    sections: a count per rule; every line grouped by rule, so all files
-    with the same problem are fixed together; every line grouped by file,
-    so one file is fixed in one pass. JSON is the primary output: the
-    index's `validation.issues` list carries every entry as an object
-    (`file`, `line`, `rule`, `id`, `message`, `remedy`) and is what agents
-    and the future import skill read. The text report is rendered from that
-    list for humans, written next to the `--output` file (not into
-    `reports/` under the current directory as today), and the per-rule
-    counts are printed to stdout. Complete, never truncated. Today the
-    `validation` block is hard-coded to zero errors, the only check is the
-    record model (a failure aborts the run without writing the index), and
-    the text report truncates to 10 files and 5 errors each. All of that
-    goes. The same entries are in the index's `validation` block.
+    the script never stops at the first problem. Output is JSON only: the
+    index's `validation.issues` list holds every problem as one object
+    (`file`, `line`, `rule`, `id`, `message`, `remedy`), complete, never
+    truncated, and `validation.summary` holds the count per rule. Agents
+    group by `rule` or by `file` with a query. Stdout prints one line: the
+    output path and the count per rule. The text report
+    (`reports/extraction-report.txt`) and its writer are deleted. Today the
+    `validation` block is hard-coded to zero errors and the only check is
+    the record model, whose failure aborts the run without writing the
+    index. All of that goes.
     Rules in this sprint, each with one fixed remedy that is printed with
     the message so the author knows what to change:
     - `MISSING_ID`: no item heading and no Document ID. Remedy: add
@@ -124,8 +119,9 @@ Id-less documents are not allowed: Raptor never invents an id.
 - `python -m pytest -q tests` passes; a fixture with one REQ file, one test
   plan with two `## TEST-` headings, one design file with `**Document ID:**`,
   one file with no id at all, one file missing a header field, and one
-  repeated id covers every deliverable. The test asserts the exact report
-  lines for each dirty file and the non-zero exit code.
+  repeated id covers every deliverable. The test asserts the exact
+  `validation.issues` objects for each dirty file and the non-zero exit
+  code.
 - Consumer run: every row has `status`, `created`, `last_updated` and
   `version` (all 157 inventory files carry them today); one `TEST` row per
   `## TEST-` heading; one
