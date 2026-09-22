@@ -9,6 +9,23 @@ fn only(bound: &Bound, rule: Rule) -> &Diagnostic {
     assert_eq!(bound.diagnostics.len(), 1);
     let diagnostic = &bound.diagnostics[0];
     assert_eq!(diagnostic.rule, rule);
+    assert_eq!(
+        (diagnostic.message, diagnostic.remedy),
+        match rule {
+            Rule::MissingId | Rule::MissingField =>
+                ("required field is missing", "Add the required field."),
+            Rule::BadValue => ("field value is invalid", "Use the documented value format."),
+            Rule::UnknownSection => (
+                "section is not defined",
+                "Remove the section or use an allowed section."
+            ),
+            Rule::UnknownLabel => (
+                "label is not defined",
+                "Remove the label or use an allowed label."
+            ),
+            Rule::DuplicateId => ("duplicate identifier", "Make the identifier unique."),
+        }
+    );
     diagnostic
 }
 
@@ -33,22 +50,36 @@ fn fixture_and_emissions_are_valid() {
             .collect::<Vec<_>>(),
         [Level::Header, Level::Item]
     );
-    assert_eq!(
-        field_table("decisions")
+    let names = |json: String| {
+        json.split(',')
+            .map(|part| {
+                part.split(':')
+                    .next()
+                    .unwrap()
+                    .trim_matches('{')
+                    .trim_matches('"')
+                    .to_owned()
+            })
+            .collect::<Vec<_>>()
+    };
+    let fields = |table| {
+        field_table(table)
             .into_iter()
             .filter(|field| field.name != "id_range")
-            .map(|field| field.name)
-            .collect::<Vec<_>>(),
-        [
-            "id",
-            "title",
-            "status",
-            "version",
-            "created",
-            "last_updated",
-            "owner",
-            "status"
-        ]
+            .fold(Vec::new(), |mut names, field| {
+                if !names.contains(&field.name) {
+                    names.push(field.name)
+                };
+                names
+            })
+    };
+    assert_eq!(
+        fields("requirements"),
+        names(serde_json::to_string(&requirements[0]).unwrap())
+    );
+    assert_eq!(
+        fields("decisions"),
+        names(serde_json::to_string(&decisions[0]).unwrap())
     );
     let validator = jsonschema::validator_for(&json_schema()).unwrap();
     assert!(validator.validate(&fixture).is_ok());
@@ -80,7 +111,13 @@ fn inventory_reports_each_duplicate() {
             lifecycle,
         },
     ];
-    assert_eq!(check_inventory(&rows, &[]).len(), 2);
+    let diagnostics = check_inventory(&rows, &[]);
+    assert_eq!(diagnostics.len(), 2);
+    assert!(diagnostics.iter().all(|diagnostic| {
+        diagnostic.rule == Rule::DuplicateId
+            && (diagnostic.message, diagnostic.remedy)
+                == ("duplicate identifier", "Make the identifier unique.")
+    }));
 }
 
 #[test]

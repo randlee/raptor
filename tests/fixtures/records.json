@@ -1,1 +1,42 @@
-{"requirements":[{"id":"REQ-FIX-0001","title":"Requirement","status":"Active","version":"1.0.0","created":"2026-01-01","last_updated":"2026-01-02","owner":"Example Team"},{"id":"NFR-FIX-0001","title":"Quality","status":"Draft","version":"1.0.0","created":"2026-01-03","last_updated":"2026-01-04","owner":"Example Team"}],"decisions":[{"id":"ADR-FIX-0001","title":"Decision","status":"Approved","version":"1.0.0","created":"2026-01-05","last_updated":"2026-01-06","owner":"Example Team"},{"id":"ADR-FIX-0002","title":"Decision two","status":"Approved","version":"1.0.0","created":"2026-01-07","last_updated":"2026-01-08","owner":"Example Team"}]}
+{
+  "requirements": [
+    {
+      "id": "REQ-FIX-0001",
+      "title": "Requirement",
+      "status": "Active",
+      "version": "1.0.0",
+      "created": "2026-01-01",
+      "last_updated": "2026-01-02",
+      "owner": "Example Team"
+    },
+    {
+      "id": "NFR-FIX-0001",
+      "title": "Quality",
+      "status": "Draft",
+      "version": "1.0.0",
+      "created": "2026-01-03",
+      "last_updated": "2026-01-04",
+      "owner": "Example Team"
+    }
+  ],
+  "decisions": [
+    {
+      "id": "ADR-FIX-0001",
+      "title": "Decision",
+      "status": "Approved",
+      "version": "1.0.0",
+      "created": "2026-01-05",
+      "last_updated": "2026-01-06",
+      "owner": "Example Team"
+    },
+    {
+      "id": "ADR-FIX-0002",
+      "title": "Decision two",
+      "status": "Approved",
+      "version": "1.0.0",
+      "created": "2026-01-07",
+      "last_updated": "2026-01-08",
+      "owner": "Example Team"
+    }
+  ]
+}

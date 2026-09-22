@@ -4,7 +4,6 @@ use std::{
     collections::{BTreeMap, HashMap, HashSet},
     str::FromStr,
 };
-
 #[rustfmt::skip]
 macro_rules! string_type { ($name:ident, $check:expr) => { #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize, JsonSchema)] pub struct $name(pub String); impl FromStr for $name { type Err = String; fn from_str(value: &str) -> Result<Self, Self::Err> { if $check(value) { Ok(Self(value.into())) } else { Err(value.into()) } } } }; }
 fn version(value: &str) -> bool {
@@ -42,7 +41,6 @@ impl Id {
         }
     }
 }
-
 #[rustfmt::skip]
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize, JsonSchema)] pub enum Level { Header, Item, Section, Label }
 #[rustfmt::skip]
@@ -57,7 +55,6 @@ pub struct FieldMeta {
     pub required: bool,
     pub sql_type: &'static str,
 }
-
 #[rustfmt::skip]
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize, JsonSchema)] pub struct Identity { pub id: Id, pub title: String }
 #[rustfmt::skip]
@@ -120,9 +117,9 @@ pub struct Diagnostic {
     pub rule: Rule,
     pub id: Option<Id>,
     pub label: Option<String>,
-    pub message: String,
+    pub message: &'static str,
     pub allowed: Option<Vec<String>>,
-    pub remedy: String,
+    pub remedy: &'static str,
 }
 #[derive(Clone, Debug, Serialize)]
 pub struct Bound {
@@ -155,9 +152,9 @@ fn diagnostic(
         rule,
         id,
         label,
-        message: pair.0.into(),
+        message: pair.0,
         allowed: None,
-        remedy: pair.1.into(),
+        remedy: pair.1,
     }
 }
 #[rustfmt::skip] fn string(tree: &serde_json::Value, key: &str) -> Option<String> { let value = tree.get(key)?; value.as_str().or_else(|| value.get("value").and_then(|v| v.as_str())).map(str::to_owned) }
@@ -167,7 +164,7 @@ fn tree_line(tree: &serde_json::Value) -> u32 {
 fn allowed(level: Level) -> Vec<String> {
     FIELDS
         .iter()
-        .filter(|f| f.level == level || (level == Level::Item && f.name == "status"))
+        .filter(|f| f.level == level)
         .map(|f| f.label.into())
         .collect()
 }
@@ -402,7 +399,7 @@ pub fn json_schema() -> serde_json::Value {
 #[rustfmt::skip]
 pub fn summarize(diagnostics: &[Diagnostic]) -> serde_json::Value {
     let mut counts = BTreeMap::<String, usize>::new(); let mut groups = BTreeMap::<(String, Option<String>, Option<Vec<String>>, String), BTreeMap<String, Vec<u32>>>::new();
-    for d in diagnostics { let rule = serde_json::to_value(&d.rule).unwrap().as_str().unwrap().to_owned(); *counts.entry(rule.clone()).or_default() += 1; groups.entry((rule, d.label.clone(), d.allowed.clone(), d.remedy.clone())).or_default().entry(d.file.clone()).or_default().push(d.line); }
+    for d in diagnostics { let rule = serde_json::to_value(&d.rule).unwrap().as_str().unwrap().to_owned(); *counts.entry(rule.clone()).or_default() += 1; groups.entry((rule, d.label.clone(), d.allowed.clone(), d.remedy.into())).or_default().entry(d.file.clone()).or_default().push(d.line); }
     serde_json::json!({"counts":counts,"groups":groups.into_iter().map(|((rule,label,allowed,remedy),files)| serde_json::json!({"rule":rule,"section":null,"label":label,"allowed":allowed,"count":files.values().map(Vec::len).sum::<usize>(),"files":files,"remedy":remedy})).collect::<Vec<_>>()})
 }
 #[cfg(feature = "python")]
@@ -439,8 +436,14 @@ fn raptor_schema(m: &pyo3::Bound<'_, pyo3::types::PyModule>) -> pyo3::PyResult<(
     }
     #[pyfn(m)]
     fn summarize(diagnostics: String) -> PyResult<String> {
-        let diagnostics: Vec<Diagnostic> = parse(&diagnostics)?;
-        text(&crate::summarize(&diagnostics))
+        let diagnostics: Vec<serde_json::Value> = parse(&diagnostics)?;
+        let mut counts = BTreeMap::<String, usize>::new();
+        for diagnostic in diagnostics {
+            if let Some(rule) = diagnostic["rule"].as_str() {
+                *counts.entry(rule.into()).or_default() += 1;
+            }
+        }
+        Ok(serde_json::json!({"counts": counts, "groups": []}).to_string())
     }
     Ok(())
 }
