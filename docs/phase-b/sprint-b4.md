@@ -4,8 +4,9 @@ title: ADR columns
 status: planned
 branch: feature/b-4-adr-columns
 worktree: ../raptor-worktrees/feature/b-4-adr-columns
-target: develop
+target: feature/b-3-req-columns
 depends_on: [B.3]
+relation: must_follow B.3; adds the group shape on top of the B.3 shapes and reuses its corpus-run report format
 ---
 
 # Sprint B.4 — ADR columns

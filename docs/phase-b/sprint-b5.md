@@ -4,8 +4,9 @@ title: Own inventory; consumer run
 status: planned
 branch: feature/b-5-own-inventory
 worktree: ../raptor-worktrees/feature/b-5-own-inventory
-target: develop
+target: feature/b-4-adr-columns
 depends_on: [B.4]
+relation: must_follow B.4; the consumer run needs every column
 ---
 
 # Sprint B.5 — Own inventory; consumer run

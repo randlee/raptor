@@ -6,6 +6,7 @@ branch: feature/b-1-schema-crate
 worktree: ../raptor-worktrees/feature/b-1-schema-crate
 target: develop
 depends_on: []
+relation: bottom of the stack; based on develop
 ---
 
 # Sprint B.1 — The `raptor-schema` crate
@@ -53,6 +54,60 @@ diagnostics) are in `plan-phase-b.md` and the decisions in ADR-RAP-0004 to
   `Last Updated`, `Owner`; item level `Status` (a record's own line wins
   over the header); header level `ID Range` with shape `derived`, validated
   against the record ids in the file and not stored.
+
+### Signatures
+
+The public surface of the crate, as it must read; names are fixed, bodies
+and derives are the developer's.
+
+```rust
+pub enum Status { Draft, Proposed, Active, Approved, Deprecated, Superseded }
+pub enum RecordKind { Req, Nfr, Adr }
+pub enum Modal { Must, Should, MustNot }
+pub struct Version(String);   // X.Y.Z, one digit each
+pub struct Date(String);      // YYYY-MM-DD, validated
+pub struct Id(String);        // (REQ|NFR|ADR)-[A-Z]{2,5}-\d{4}
+impl Id { pub fn kind(&self) -> RecordKind; }
+
+pub enum Level { Header, Item, Section, Label }
+pub enum Shape { Text, Date, Version, Status, Id, IdList, TextList,
+                 StatementList, Checklist, LinkList, Group, Derived }
+pub struct FieldMeta { pub name: &'static str, pub label: &'static str,
+    pub level: Level, pub shape: Shape, pub section: Option<&'static str>,
+    pub required: bool, pub sql_type: &'static str }
+
+pub struct Identity { pub id: Id, pub title: String }
+pub struct Lifecycle { pub status: Status, pub version: Version,
+    pub created: Date, pub last_updated: Date, pub owner: String }
+pub struct Provenance { pub repository: String, pub path: String, pub line: u32 }
+pub trait HasIdentity { fn identity(&self) -> &Identity; }
+pub trait HasLifecycle { fn lifecycle(&self) -> &Lifecycle; }
+pub trait HasProvenance { fn provenance(&self) -> &Provenance; }
+
+pub struct Requirement { pub identity: Identity, pub kind: RecordKind,
+    pub lifecycle: Lifecycle, pub provenance: Provenance }
+pub struct Decision { pub identity: Identity, pub lifecycle: Lifecycle,
+    pub provenance: Provenance }
+pub trait Table { const NAME: &'static str; fn fields() -> Vec<FieldMeta>; }
+
+pub struct Diagnostic { pub file: String, pub line: u32, pub rule: Rule,
+    pub id: Option<Id>, pub label: Option<String>, pub message: &'static str,
+    pub allowed: Option<Vec<String>>, pub remedy: &'static str }
+pub enum Rule { MissingId, MissingField, UnknownSection, UnknownLabel,
+                BadValue, DuplicateId }   // DanglingReference in B.3
+
+pub struct Bound { pub requirements: Vec<Requirement>,
+    pub decisions: Vec<Decision>, pub diagnostics: Vec<Diagnostic> }
+pub fn sql_ddl() -> String;
+pub fn json_schema() -> serde_json::Value;
+pub fn field_table(table: &str) -> Vec<FieldMeta>;
+pub fn bind_file(tree: &serde_json::Value, repository: &str) -> Bound;
+pub fn check_inventory(requirements: &[Requirement], decisions: &[Decision]) -> Vec<Diagnostic>;
+pub fn summarize(diagnostics: &[Diagnostic]) -> serde_json::Value;
+```
+
+The Python module exposes the last six as functions of the same name,
+taking and returning JSON strings.
 
 ### Emission
 

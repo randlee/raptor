@@ -4,8 +4,9 @@ title: Python on the crate
 status: planned
 branch: feature/b-2-python-on-crate
 worktree: ../raptor-worktrees/feature/b-2-python-on-crate
-target: develop
+target: feature/b-1-schema-crate
 depends_on: [B.1]
+relation: must_follow B.1; imports the crate B.1 builds
 ---
 
 # Sprint B.2 — Python on the crate

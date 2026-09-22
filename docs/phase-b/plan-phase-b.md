@@ -178,6 +178,18 @@ so that none can be added by habit.
 | B.4 ADR columns | `context`, `decision`, `rationale`, `consequences`, `alternatives`, `implementation`, `impact_analysis`, `decision_date`, `supersedes`, `superseded_by`; `group` shape; foreign keys; corpus run | B.3 |
 | B.5 Own inventory; consumer run | ingest set trimmed to Raptor's two record files, which already follow the schema; importer clean over Raptor; the grouped non-compliance report | B.4 |
 
+Every sprint is `must_follow` its predecessor; none is `parallel_safe`,
+because each one edits the crate, the fixture and the tests the previous
+one wrote. The five branches form one GitHub stack on `develop`
+(`/gh-stack`): `feature/b-1-schema-crate` is based on `develop`, and each
+later branch is based on the branch before it, as the `target` line of its
+sprint document says. The worktree is created with `/sc-git-worktree
+--base <target>`; the PR is created with `gh stack link <target> <branch>`
+(then `gh stack link <stack#> <branch>` to grow the stack); merge-forward
+after a fix to an earlier sprint is `gh stack rebase --upstack`; the stack
+merges bottom-up with `gh stack merge --yes` after QA pass and green CI.
+Branch, directory and file names are lower case.
+
 One hand-written fixture, `tests/fixtures/records.json`, is the golden file
 for both the Rust and the Python tests. B.1 writes it and renders it. B.2
 proves the parser by round trip: render, split, bind, compare for equality.
@@ -236,6 +248,10 @@ ADR-RAP-0004 to ADR-RAP-0006 in `docs/adr/adr-rap-product.md`, with
 - **Diagnostics in JSON.** As above. Readers are agents.
 - **No exceptions for one repository.** The format is what the templates
   emit. A line the template would not have written is reported, not parsed.
+- **One stack.** Branch from the `target` in the sprint document, never from
+  `develop` directly for B.2 to B.5; PRs are linked with `gh stack link`;
+  merges use `gh stack merge --yes`; rebases use `gh stack rebase --upstack`.
+  Lower case for every branch, directory and file name.
 - **Neutrality gate before every commit.**
   `rg -ni --hidden --glob '!.git/**' --glob '!.sc/**' '[p]3' .` prints nothing.
 

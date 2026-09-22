@@ -4,8 +4,9 @@ title: REQ and NFR columns
 status: planned
 branch: feature/b-3-req-columns
 worktree: ../raptor-worktrees/feature/b-3-req-columns
-target: develop
+target: feature/b-2-python-on-crate
 depends_on: [B.2]
+relation: must_follow B.2; extends the fixture, templates and tests B.2 writes
 ---
 
 # Sprint B.3 — REQ and NFR columns
