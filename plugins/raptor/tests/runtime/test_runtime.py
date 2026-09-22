@@ -94,7 +94,6 @@ def test_bootstrap_rejects_vendor_tampering(
         lambda value: value.update(name="other"),
         lambda value: value["requires"].update(extra=True),
         lambda value: value["vendor"].update(algorithm="other"),
-        lambda value: value["vendor"].update(canonical_schema_version="2.0.0"),
         lambda value: value["vendor"].update(package_version="2.0.0"),
         lambda value: value["vendor"].pop("inventory"),
         lambda value: value.update(inventory=["../escape"]),

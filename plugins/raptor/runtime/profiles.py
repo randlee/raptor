@@ -15,6 +15,7 @@ _TITLE = re.compile(r"^#[ \t]+(?P<title>.+?)[ \t]*$", re.MULTILINE)
 _STATUS = re.compile(r"^\*\*Status:\*\*[ \t]*(?P<status>[^\r\n]+)[ \t]*$", re.MULTILINE)
 _SUBSECTION = re.compile(r"^(?P<marks>#{3,6})[ \t]+(?P<title>.+?)[ \t]*$", re.MULTILINE)
 _REFERENCE = re.compile(r"(?P<id>(?:REQ|NFR|ADR|DES|TST|TEST)-[A-Z0-9][A-Z0-9-]*-[0-9]{4,})")
+_DOCUMENT_ID = re.compile(r"^\*\*ID:\*\*[ \t]*(?P<id>(?:DES|TST|TEST)-[A-Z0-9][A-Z0-9-]*-[0-9]{4,})[ \t]*$", re.MULTILINE)
 _KINDS = {
     "REQ": ArtifactType.REQUIREMENT,
     "NFR": ArtifactType.NON_FUNCTIONAL_REQUIREMENT,
@@ -71,7 +72,15 @@ class RaptorMarkdownProfile:
             raise ValueError(f"RAPTOR.REFERENCE.MALFORMED_HEADING: line {line}")
         matches = list(_ITEM.finditer(text))
         if not matches:
-            raise ValueError("RAPTOR.REFERENCE.NO_ITEM")
+            document_id = _DOCUMENT_ID.search(text)
+            title = _TITLE.search(text)
+            if document_id is None or title is None:
+                raise ValueError("RAPTOR.REFERENCE.NO_ITEM")
+            return ParsedDocument(
+                source=source,
+                frontmatter=cast(FrozenJsonObject, validate_json_object({"markdown": text})),
+                sections=(ParsedSection(kind=document_id.group("id").split("-", 1)[0], heading=title.group("title"), body=text, location=SourceLocation(start_line=1, start_column=1, end_line=text.count("\n") + 1, end_column=1), attributes={"artifact_id": document_id.group("id"), "ordinal": 0, "whole_document": True}),),
+            )
         seen: set[str] = set()
         sections: list[ParsedSection] = []
         for index, match in enumerate(matches):
@@ -95,8 +104,19 @@ class RaptorMarkdownProfile:
         title_match = _TITLE.search(text)
         segments: list[DocumentSegment] = []
         artifacts: list[Artifact] = []
+        if parsed.sections and bool(parsed.sections[0].attributes.get("whole_document")):
+            section = parsed.sections[0]
+            status_match = _STATUS.search(text)
+            try:
+                whole_status = LifecycleStatus(status_match.group("status").strip()) if status_match else None
+            except ValueError as error:
+                raise ValueError("RAPTOR.REFERENCE.UNSUPPORTED_STATUS") from error
+            artifacts.append(Artifact(artifact_type=_KINDS[section.kind], id=str(section.attributes["artifact_id"]), title=section.heading or "", status=whole_status, domain=parsed.source.repository_path.parts[0] if len(parsed.source.repository_path.parts) > 1 else None, source={"ordinal": 0, "layout": "whole_document"}, content=text, relationships=_relationships(text), subsections=_subsections(text), source_location=section.location))
+            segments.append(DocumentSegment(kind="artifact", artifact_index=0))
+            matches = []
         cursor = 0
-        for index, (match, section) in enumerate(zip(matches, parsed.sections, strict=True)):
+        sections = () if artifacts else parsed.sections
+        for index, (match, section) in enumerate(zip(matches, sections, strict=True)):
             if match.start() > cursor:
                 segments.append(DocumentSegment(kind="text", content=text[cursor:match.start()]))
             content = section.body
@@ -110,11 +130,11 @@ class RaptorMarkdownProfile:
             artifacts.append(Artifact(artifact_type=_KINDS[section.kind], id=str(section.attributes["artifact_id"]), title=section.heading or "", status=status, domain=parsed.source.repository_path.parts[0] if len(parsed.source.repository_path.parts) > 1 else None, source={"ordinal": index, "start_line": section.location.start_line, "end_line": section.location.end_line}, content=content, relationships=_relationships(content), subsections=_subsections(content), source_location=section.location))
             segments.append(DocumentSegment(kind="artifact", artifact_index=index))
             cursor = matches[index + 1].start() if index + 1 < len(matches) else len(text)
-        if cursor < len(text):
+        if cursor < len(text) and not artifacts:
             segments.append(DocumentSegment(kind="text", content=text[cursor:]))
         digest = hashlib.sha256(text.encode()).hexdigest()
         path = parsed.source.repository_path.as_posix()
-        return SourceDocument(provenance=SourceProvenance(origin=OriginProvenance(repository_id=parsed.source.repository_id, document_id=parsed.source.document_id, initial_repository_path=path, original_content_sha256=digest, source_format="markdown", parser_profile=self.profile_id, parser_profile_version=self.profile_version), materialization=MaterializationProvenance(repository_path=path, content_sha256=digest, operation="imported", parser_profile=self.profile_id, parser_profile_version=self.profile_version)), title=title_match.group("title") if title_match else None, document_metadata=_metadata(text[:matches[0].start()]), non_item_segments=segments, artifacts=artifacts)
+        return SourceDocument(provenance=SourceProvenance(origin=OriginProvenance(repository_id=parsed.source.repository_id, document_id=parsed.source.document_id, initial_repository_path=path, original_content_sha256=digest, source_format="markdown", parser_profile=self.profile_id, parser_profile_version=self.profile_version), materialization=MaterializationProvenance(repository_path=path, content_sha256=digest, operation="imported", parser_profile=self.profile_id, parser_profile_version=self.profile_version)), title=title_match.group("title") if title_match else None, document_metadata=_metadata(text[:matches[0].start()] if matches else text), non_item_segments=segments, artifacts=artifacts)
 
     def project_render_input(self, document: SourceDocument) -> JsonObject:
         artifacts = [item.model_dump(mode="json", exclude_none=True) for item in document.artifacts]
@@ -124,7 +144,7 @@ class RaptorMarkdownProfile:
             if segment.kind == "artifact":
                 artifact = artifacts[segment.artifact_index or 0]
                 rendered["artifact"] = artifact
-                rendered["markdown"] = f"## {artifact['id']}: {artifact['title']}{artifact['content']}"
+                rendered["markdown"] = artifact["content"] if artifact["source"].get("layout") == "whole_document" else f"## {artifact['id']}: {artifact['title']}{artifact['content']}"
             segments.append(rendered)
         return validate_json_object({"document": {"title": document.title, "metadata": document.document_metadata, "segments": segments}, "artifacts": artifacts})
 
