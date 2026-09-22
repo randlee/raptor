@@ -241,7 +241,7 @@ An external repository may supply Markdown adapters, profile rules, and its own 
 | REQ-RAP-013 | A9 | configured batch inventory and per-path ingress report |
 | REQ-RAP-014 | A10 | deterministic SQLite export, sc-compose render, field-coverage report, and reparse proof |
 | REQ-RAP-015 | A10, A11 | zero-loss report for canonical fields, relationships, identity, and provenance; queryable SQLite traceability checks |
-| REQ-RAP-016 | A11 | external extractor/audit and web-test evidence on rendered output |
+| REQ-RAP-016 | A11 | external validator and declared secondary-gate evidence on rendered output |
 | NFR-RAP-008 | A9–A11 | deterministic, fail-closed per-path and aggregate evidence |
 | PA-NFR-001, PA-NFR-002 | every sprint | repository-wide forbidden-content gates |
 | PA-NFR-003 | A1, A2 | bounded Python implementation; no SQLx dependency |
@@ -254,7 +254,7 @@ Phase A is complete only when:
 
 1. Every sprint PR has met its own acceptance criteria and merged in stack order.
 2. Every supported family traverses Markdown→JSON→SQLite→JSON→sc-compose→Markdown→JSON with semantic equality after the documented materialization transition and a zero-loss report.
-3. The complete authorized external consumer corpus traverses the same public interfaces; its validator and web-consumer tests are clean on rendered output, while consumer code and test data remain outside Raptor.
+3. The complete authorized external consumer corpus traverses the same public interfaces; its validator and declared secondary gates are clean on rendered output, while consumer code and test data remain outside Raptor.
 4. Repository checks find no `NFT`, Rust SQLx, Dolt integration, or bulk-migration implementation. External-consumer source, fixture, adapter, and identifier data remain absent; A11 may record only the execution coordinate and evidence contract needed for consumer-owned proof.
 5. Schema, SQL, templates, plugin assets, and tests are version-aligned and documented at their public entry points.
 6. Both client packages contain the same registered skills, focused references, agents, runtime modules, thin scripts, complete `.j2` inventory, schema vendor, and manifest metadata; CI fails omissions or version/path drift.

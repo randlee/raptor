@@ -46,11 +46,11 @@ Owner: A10, A11.
 ## REQ-RAP-016 — External rendered-output compatibility
 
 Raptor shall demonstrate the same loop on the authorized external consumer
-corpus and run that repository's validator and web-consumer tests against the
-rendered output.
+corpus and run that repository's validator and declared secondary gates against
+the rendered output.
 
 Acceptance: each authorized source has a zero-loss result; all five families
-are represented; the consumer validator and web-consumer tests are clean; and the
+are represented; the consumer validator and declared secondary gates are clean; and the
 consumer supplies the evidence report without contributing fixtures or source
 documents to Raptor.
 
