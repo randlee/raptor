@@ -432,6 +432,12 @@ fn raptor_schema(m: &pyo3::Bound<'_, pyo3::types::PyModule>) -> pyo3::PyResult<(
         text(&crate::bind_file(&parse(&tree)?))
     }
     #[pyfn(m)]
+    fn check_inventory(requirements: String, decisions: String) -> PyResult<String> {
+        let requirements: Vec<Requirement> = parse(&requirements)?;
+        let decisions: Vec<Decision> = parse(&decisions)?;
+        text(&crate::check_inventory(&requirements, &decisions))
+    }
+    #[pyfn(m)]
     fn summarize(diagnostics: String) -> PyResult<String> {
         let diagnostics: Vec<serde_json::Value> = parse(&diagnostics)?;
         Ok(serde_json::json!({"counts": {}, "groups": diagnostics}).to_string())
