@@ -7,7 +7,8 @@ sprint of Raptor code; the other gaps are closed where they belong.
 | Gap | Requirement | Owner | Where |
 |---|---|---|---|
 | Status, Created, Last Updated, Version are file-level, not per item | REQ-RAP-0002 | Raptor | Sprint B.1 |
-| Design documents, test plans and other id-less documents never reach SQLite | REQ-RAP-0002 | Raptor | Sprint B.1 |
+| Test cases (`## TEST-` headings) and design documents (`**Document ID:**`) never reach SQLite | REQ-RAP-0002 | Raptor | Sprint B.1 |
+| 39 of 43 design files, the schema reference and the HITL files carry no id; id-less documents are not allowed | REQ-RAP-0006 | Consumer repository's architect, task RAP-VAL-1 | Assign ids in the source; Raptor reports each id-less file as a validation error and emits no row |
 | 30 ids repeated in the corpus (title headings, in-file repeats, cross-file collisions); one ID Range claimed by two files | REQ-RAP-0006 | Consumer repository's architect, task RAP-VAL-1 | Source correction; Raptor only reports each repeat as a diagnostic |
 | `hitl/**` excluded and `database/schema` omitted from the scan inventory | REQ-RAP-0008 | Consumer repository's architect, task RAP-VAL-1 | `.raptor/sources.toml`, `.raptor/routing.toml` in that repository |
 | Database pointer (URL, or path / environment variable for test) not declared in `.raptor/` | REQ-RAP-0008 | Product | Not in Phase B |
