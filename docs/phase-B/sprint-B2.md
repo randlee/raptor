@@ -12,8 +12,8 @@ parallel_with: [B.3]
 # Sprint B.2 — Parser reads the fields
 
 `scripts/extract.py` reads `Created`, `Last Updated`, `Version` and the
-item-level `Status`, puts them on every record, emits `TEST` and `DESIGN`
-rows, and stops producing the range fields. Proven by round trip against
+item-level `Status`, puts them on every record, emits a row for every id
+whatever its prefix, and stops producing the range fields. Proven by round trip against
 the B.1 templates. Line numbers refer to the file as of commit `315ddd6`.
 
 ## Exact Targets
@@ -25,24 +25,21 @@ the B.1 templates. Line numbers refer to the file as of commit `315ddd6`.
 
 ### Change in `extract.py`
 
-- `extract_document_metadata` 968: read `**Version:**` and
-  `**Document ID:**`; stop reading `**ID Range:**`; each field `None` when
-  absent, no defaults.
+- `extract_document_metadata` 968: read `**Version:**`; stop reading
+  `**ID Range:**`; each field `None` when absent, no defaults.
 - `normalize_status` 1033: return `None` for an unknown value; remove the
   default-to-Draft and its print (1051).
 - `extract_requirement_id_and_title` 1107: regex
-  `^##\s+([A-Z]+-[A-Z]+-\d{4}):\s*(.+)$` (was REQ/NFR/ADR only). A
-  `**Document ID:** <ID>` line is the other way to declare an id.
-- `process_requirement` 1183: one record per id declaration, whichever
-  spelling. `type` is the id's prefix. `status` from the declaration's own
-  `**Status:**` line, else the header; `created`, `last_updated`, `version`
-  from the header; `document_metadata` is `{"owner": ...}`; no
-  `relationships.family`; remove the print at 1194. For a Document ID
-  declaration the title is the file's H1 and the body is the text after the
-  header block.
+  `^##\s+([A-Z]+-[A-Z]+-\d{4}):\s*(.+)$` (was REQ/NFR/ADR only). This
+  heading is the only way an id is declared; it is what the templates emit.
+- `process_requirement` 1183: one record per heading. `type` is the id's
+  prefix. `status` from the record's own `**Status:**` line, else the
+  header; `created`, `last_updated`, `version` from the header;
+  `document_metadata` is `{"owner": ...}`; no `relationships.family`;
+  remove the print at 1194.
 - `parse_file_content` 1056: the file is a container. Which ids share a file
   does not matter; a REQ and an NFR in one file or two files parse the same.
-  A file with no id declaration yields nothing (B.4 reports it).
+  A file with no id heading yields nothing (B.4 reports it).
 - `main` 1563: honour `.raptor/raptor.toml` under the given root, not only
   the current directory (1645). Remove the record-model abort (1756–1765)
   and the hard-coded validation block (1766): validate every record, keep

@@ -26,11 +26,16 @@ is a source-side search convenience and not an item field. Nothing else in
 the record changes. Any further schema change is discussed with the
 operator first.
 
-A file is only where an id happens to land today. An id is declared by
-`## <ID>: <title>` or by `**Document ID:** <ID>`; its type is its prefix;
-the header block of whichever file it sits in supplies Status, Created,
-Last Updated, Version and Owner. Which ids share a file is irrelevant: a
-REQ and an NFR in one file or in two parse the same.
+The templates are the grammar. Raptor is a database of records; the
+Markdown corpus is a serialization of those records, and the sc-compose
+templates are the serializer. The parser accepts exactly what the templates
+would emit: a header block of `**Field:** value` lines, then
+`## <ID>: <title>` per record, then its body. Anything else in a source
+file is a defect, reported with a remedy and fixed in the source. A file is
+only where an id happens to land today; which ids share a file is
+irrelevant, and a REQ and an NFR in one file or in two parse the same. The
+type of a record is the prefix of its id, so a `DESIGN-` id is a record like
+any other.
 
 ## Gaps closed elsewhere
 
@@ -67,9 +72,9 @@ one defect at a time.
 - **Very good error reporting, in JSON.** Every problem is one object: file,
   line, rule, id, message, fixed remedy. Every occurrence, whole inventory,
   one pass, no text report. Errors exit non-zero; output still written.
-- **No exceptions for one repository.** One document format: header block
-  of `**Field:** value` lines, items as `## <ID>: <title>`, or
-  `**Document ID:**` for a document without items.
+- **No exceptions for one repository.** The format is what the templates
+  emit, nothing more. A source line the template would not have written is
+  reported, not parsed.
 - **Parse options only when they are tool options.** Phase B adds none.
 
 Phase B does not wait on the consumer repository's corrections.

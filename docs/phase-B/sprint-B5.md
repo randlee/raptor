@@ -29,19 +29,19 @@ records the result. No script changes.
 ### Header blocks
 
 Each of the four documents gains, directly under its H1, the header block
-`**Document ID:**`, `**Status:**`, `**Created:**`, `**Last Updated:**`,
+`**Status:**`, `**Created:**`, `**Last Updated:**`,
 `**Version:**`, `**Owner:**`, followed by `---`. Ids are the ones
-`.raptor/identity.json` already assigns: `DOC-RAP-001` requirements (already
-compliant, no change), `DOC-RAP-002` architecture, `DOC-RAP-003` the ADR file
-(already compliant, no change), `DOC-RAP-004` project-plan. `configuration.md`
-and `startup-hook.md` receive `DOC-RAP-005` and `DOC-RAP-006`, added to
+`.raptor/identity.json` already assigns: `DOC-RAP-0001` requirements (already
+compliant, no change), `DOC-RAP-0002` architecture, `DOC-RAP-0003` the ADR file
+(already compliant, no change), `DOC-RAP-0004` project-plan. `configuration.md`
+and `startup-hook.md` receive `DOC-RAP-0005` and `DOC-RAP-0006`, added to
 `identity.json`. Dates come from each file's first and last commit in `git
 log`; Version `0.1.0`; Status `Draft`; Owner the repository owner as written
 in `docs/requirements.md`.
 
-The id format `DOC-RAP-NNN` has three digits where item ids have four. It is
-kept as it is: `**Document ID:**` values are stored as written and are not
-matched against the item-heading regex.
+Each document's single record is declared the same way as any other:
+`## DOC-RAP-0002: Architecture` under the header block. The ids in
+`identity.json` are renumbered to four digits to match the heading rule.
 
 ### Phase plans
 
@@ -75,11 +75,11 @@ is operator-only); no edit to `docs/requirements.md` or the ADR file.
 ## Acceptance
 
 - Extractor over Raptor's own repository: `validation.issues` empty, exit
-  `0`, one `DESIGN` row per header-block document, REQ and ADR rows as
+  `0`, one `DOC` row per header-block document, REQ and ADR rows as
   before.
 - `python -m pytest -q tests/` passes.
 - Consumer run: every `artifacts` row has all nine columns non-null; one
-  `TEST` row per `## TEST-` heading; one `DESIGN` row per file with a
-  Document ID; every id-less file and every repeated id appears in
-  `validation.issues`; exit `1` until the source is corrected.
+  row per `## <ID>:` heading whatever the prefix; every id-less file and
+  every repeated id appears in `validation.issues`; exit `1` until the
+  source is corrected.
 - `rg -ni --hidden --glob '!.git/**' --glob '!.sc/**' '[p]3' .` prints nothing.

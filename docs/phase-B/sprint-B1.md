@@ -18,7 +18,7 @@ round-trip.
 
 - `schema/record.py`, `schema/record.schema.json`, `schema/schema.sql`
 - `templates/requirement.md.j2`, `nfr.md.j2`, `adr.md.j2`, `design.md.j2`,
-  `test-plan.md.j2`
+  `test-plan.md.j2` (all five become the same item grammar)
 - `tests/fixtures/records.json` (new); delete `tests/fixtures/items.md`
 - `tests/test_record.py`
 
@@ -58,12 +58,11 @@ Each template prints, after the H1, the header block
 **Owner:** {{ record.document_metadata.owner }}  
 ```
 
-then `---`. Item templates (requirement, nfr, adr, test-plan) follow with
-`## {{ record.id }}: {{ record.title }}`, a `**Status:**` line, and
-`{{ record.content.markdown }}`. `design.md.j2` puts
-`**Document ID:** {{ record.id }}` first in the header block, `# {{ record.title }}`
-as the H1, and prints `{{ record.content.markdown }}` with no item heading.
-Every `**ID Range:**` line is removed. Nothing else in the templates changes.
+then `---`, then `## {{ record.id }}: {{ record.title }}`, a `**Status:**`
+line, and `{{ record.content.markdown }}`. All five templates, design
+included, emit this same grammar; they differ only in the H1 wording. Every
+`**ID Range:**` line is removed. Nothing else in the templates changes. What
+these templates emit is the only format the parser accepts.
 
 ### `tests/fixtures/records.json`
 
@@ -91,8 +90,8 @@ Dates differ between records; owner and version are shared.
 - `Record` rejects null `status`, missing `version`, and
   `document_metadata.id_range`.
 - Render the fixture through `scripts/render.py` to a temp dir: six files;
-  each has the five header lines; item files have `## <id>: <title>`; the
-  design file has `**Document ID:**`; no file has `ID Range`.
+  each has the five header lines and `## <id>: <title>`; no file has
+  `ID Range` or `Document ID`.
 - `schema.sql` executes in an in-memory SQLite without error.
 
 ## Out of scope
