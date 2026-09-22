@@ -37,7 +37,8 @@ deleted. Proven by round trip on the B.1 fixture. No crate change.
   `---` or `## `; trailing double spaces stripped. Record: `## <ID>: <title>`
   where the token matches `^[A-Z]+-[A-Z]{2,5}-\d{4}$`. Fields: bold lines
   before the first `###`. Sections: `###`; groups: `####` inside a section;
-  labels: bold lines inside either; items: lines starting `- `, `* ` or
+  labels: bold lines inside either, and text after the label on the same
+  line is the label's first prose line; items: lines starting `- `, `* ` or
   `N. `, checkbox prefix kept in the text; everything else non-empty is
   prose. Lines inside a fenced code block and lines starting `|` are prose
   verbatim. Line numbers are one-based. An H2 that is not an id heading ends

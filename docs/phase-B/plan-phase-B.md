@@ -152,8 +152,8 @@ so that none can be added by habit.
   nothing enforces it.
 - **The binder is the schema.** The only way to make the importer accept a
   label is a field attribute in the crate, which is a schema change and is
-  discussed with the operator first. There is no regex to widen and no
-  alias table to extend. The crate's acceptance check is that every label
+  decided by the operator between sprints, never inside one. There is no
+  regex to widen and no alias table to extend. The crate's acceptance check is that every label
   literal in `src/` occurs inside a field attribute.
 - **A diagnostic is never resolved in this repository.** Sprint acceptance
   for B.3, B.4 and B.5 is that the corpus run produces the grouped report and
@@ -176,7 +176,7 @@ so that none can be added by habit.
 | B.2 Python on the crate | splitter, bind loop, render over the field table, generic load; `extract.py` from 1,926 lines to about 200; round trip proven | B.1 |
 | B.3 REQ and NFR columns | `requirement_statement`, `rationale`, `success_criteria`, `dependencies`, `product_applicability`, `test_strategy`, `implementation_notes`, RelatedDocuments; `statement_list`, `checklist`, `id_list`, `link_list` shapes; edges view; corpus run | B.2 |
 | B.4 ADR columns | `context`, `decision`, `rationale`, `consequences`, `alternatives`, `implementation`, `impact_analysis`, `decision_date`, `supersedes`, `superseded_by`; `group` shape; foreign keys; corpus run | B.3 |
-| B.5 Own documents; consumer run | Raptor's own REQ and ADR files pass; ingest set trimmed; the grouped non-compliance report | B.4 |
+| B.5 Own inventory; consumer run | ingest set trimmed to Raptor's two record files, which already follow the schema; importer clean over Raptor; the grouped non-compliance report | B.4 |
 
 One hand-written fixture, `tests/fixtures/records.json`, is the golden file
 for both the Rust and the Python tests. B.1 writes it and renders it. B.2
@@ -186,8 +186,9 @@ defect at a time.
 
 ## Decisions recorded in this plan
 
-Discussed with the operator before writing; B.1 records them as
-ADR-RAP-0004 to ADR-RAP-0006 and corrects `docs/architecture.md`.
+Discussed with the operator before writing and recorded on this branch as
+ADR-RAP-0004 to ADR-RAP-0006 in `docs/adr/adr-rap-product.md`, with
+`docs/architecture.md` corrected to match. No sprint writes a decision.
 
 - The schema is defined once, in Rust, in `crates/raptor-schema`. Python
   imports the crate through maturin and owns no schema.
@@ -217,8 +218,19 @@ ADR-RAP-0004 to ADR-RAP-0006 and corrects `docs/architecture.md`.
 
 ## Rules for every sprint
 
+- **Unattended.** Every decision a sprint needs is in its document, this
+  plan or an ADR before it starts. A sprint that reaches a choice not made
+  here stops, states the choice in the completion message, and does not
+  pick. No sprint writes or amends an ADR.
 - **Exactly the named deliverables.** Anything else found is written in the
   completion message; it is not done.
+- **The orchestrator holds the line.** The assignment is the sprint document
+  verbatim, not a summary. On completion the orchestrator checks the diff
+  against Exact Targets and measures every ceiling before QA sees it. A file
+  outside Exact Targets, a line over a ceiling or a label literal in
+  `scripts/` returns the sprint to the developer with the list, and nothing
+  else is said about it. The orchestrator does not add scope, answer a
+  design question inside a sprint, or accept a partial sprint.
 - **Tight code.** Line ceilings are hard limits. No derive macro of our own,
   no configuration system, no plugin, no second parser.
 - **Diagnostics in JSON.** As above. Readers are agents.

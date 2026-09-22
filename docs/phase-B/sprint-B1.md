@@ -16,7 +16,8 @@ field attributes for today's fields plus the three Phase A missed, emission
 of SQL, JSON Schema and field table, the binder and its diagnostics, and a
 Python module built by maturin. No Python script changes; B.2 moves the
 scripts onto the crate. The contracts (field attributes, label tree,
-diagnostics) are in `plan-phase-B.md` and are not restated here.
+diagnostics) are in `plan-phase-B.md` and the decisions in ADR-RAP-0004 to
+0006; neither is restated here.
 
 ## Exact Targets
 
@@ -26,7 +27,6 @@ diagnostics) are in `plan-phase-B.md` and are not restated here.
 - `pyproject.toml` (new, repository root)
 - `.github/workflows/ci.yml` (`corpus-scripts` job only)
 - `tests/fixtures/records.json` (new), `tests/test_schema.py` (new)
-- `docs/adr/adr-rap-product.md` (ADR-RAP-0004 to 0006), `docs/architecture.md`
 
 ## Deliverables
 
@@ -110,29 +110,18 @@ the rendered files (paths `docs/requirements/<id>.md`,
 - `tests/test_schema.py`: `import raptor_schema`; `sql_ddl()` executes in
   `sqlite3`; `field_table("requirements")` lists the six labels above.
 
-### Product documents
-
-- `docs/adr/adr-rap-product.md` gains, in the file's existing item format:
-  ADR-RAP-0004 the schema is a Rust crate and Python owns none; ADR-RAP-0005
-  the record id is the primary key, version is a column, Dolt commits are
-  the history; ADR-RAP-0006 edges are derived from JSON columns, integrity is
-  an import diagnostic, supersession scalars are foreign keys.
-- `docs/architecture.md`: the paragraph naming `schema/record.py` as
-  authoritative and the sentence excluding code generation are replaced by
-  two sentences naming the crate and the three emitted artifacts.
-
 ## Out of scope
 
-Anything not named above. No change to `scripts/`, `templates/`, `schema/`
-or `tests/test_scripts.py`; they still run on the Phase A shape until B.2.
-No section columns, no list shapes, no edges view. No derive macro of our
-own. No Dolt.
+Anything not named above. No change to `scripts/`, `templates/`, `schema/`,
+`tests/test_scripts.py` or any file under `docs/`; the scripts still run on
+the Phase A shape until B.2. The decisions this crate implements are
+ADR-RAP-0004 to 0006, already written. No section columns, no list shapes,
+no edges view. No derive macro of our own. No Dolt.
 
 ## Ceilings
 
 Crate `src/` 450 lines; crate tests 250; `pyproject.toml` 15;
-`ci.yml` diff 10 lines; `records.json` 120; `test_schema.py` 25; each ADR
-item 20 lines.
+`ci.yml` diff 10 lines; `records.json` 120; `test_schema.py` 25.
 
 ## Acceptance
 
