@@ -80,5 +80,5 @@ python3 plugins/raptor/scripts/vendor_schema.py --check
 ## Non-closure
 
 - A9 does not prove SQLite export or rendered Markdown equivalence; A10 owns that proof.
-- A9 does not run an external consumer corpus; A11 owns that proof.
+- A9 does not run an external consumer corpus; A12 owns that proof.
 - Deferred: byte-unit ledgers, transformation/derivation proofs, trust policy, tool-bundle sandboxing, corpus split/combine lineage, certification engines, and multi-resource apply/recovery orchestration.

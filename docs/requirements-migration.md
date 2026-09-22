@@ -1,6 +1,6 @@
 # Phase A Round-Trip Completion Requirements
 
-Status: owned by Phase A sprints A9–A11. These requirements complete the
+Status: owned by Phase A sprints A9–A12. These requirements complete the
 existing Python/Pydantic/SQLite/sc-compose path; they do not introduce a new
 migration platform or modify the Rust CLI.
 
@@ -41,7 +41,7 @@ report is zero for fields, artifact order, relationships, identity, immutable
 origin, and materialization provenance. SQLite must retain queryable typed and
 URI relationships plus document/artifact membership and provenance projections.
 
-Owner: A10, A11.
+Owner: A10, A11, A12.
 
 ## REQ-RAP-016 — External rendered-output compatibility
 
@@ -54,7 +54,7 @@ are represented; the consumer validator and declared secondary gates are clean; 
 consumer supplies the evidence report without contributing fixtures or source
 documents to Raptor.
 
-Owner: A11.
+Owner: A12.
 
 ## NFR-RAP-008 — Deterministic, fail-closed evidence
 
@@ -63,7 +63,7 @@ SQLite result, rendered-output result, field coverage, provenance result, and
 relationship result. Missing configuration, an unsupported value, a failed
 comparison, or a non-zero loss report fails the operation.
 
-Owner: A9, A10, A11.
+Owner: A9, A10, A11, A12.
 
 ## Deferred scope
 

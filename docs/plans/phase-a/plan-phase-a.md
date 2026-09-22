@@ -2,10 +2,10 @@
 
 ## Status and authority
 
-- Status: A1–A8 merged; A9–A11 planned. A9–A11 implementation starts only after this plan gate passes and this PR merges.
+- Status: A1–A8 merged; A9–A12 planned. A9–A12 implementation starts only after this plan gate passes and this PR merges.
 - Source of truth: this file defines Phase A scope and ordering. Each linked sprint file is authoritative for that sprint's deliverables, acceptance criteria, and validation.
 - Branch model: one `gh-stack` PR per sprint in the order below, with the stack rooted at `develop`.
-- Product boundary: Raptor is a consumer-neutral system for requirements, non-functional requirements, architecture decisions, design documents, and test plans. Consumer-owned corpus proof is in scope for A11; consumer migration/apply remains outside this repository.
+- Product boundary: Raptor is a consumer-neutral system for requirements, non-functional requirements, architecture decisions, design documents, and test plans. The reference-extractor port is A11; consumer-owned corpus proof is A12; consumer migration/apply remains outside this repository.
 
 ## Outcome
 
@@ -77,9 +77,20 @@ This establishes the contract needed to migrate 30–50 repositories without put
 | A8 | [Repository configuration manifest](sprint-a8-repository-manifest-config.md) | `phase-a/08-repository-manifest-config` | `must_follow` A7 | Publish the explicit root manifest and cross-file repository-identity invariant. |
 | A9 | [Configured ingress and batch loss report](sprint-a9-configured-ingress.md) | `phase-a/09-configured-ingress` | `must_follow` A8 | Use validated `.raptor/` configuration to batch existing ingress operations and report every selected result. |
 | A10 | [SQLite export proof](sprint-a10-sqlite-export-proof.md) | `phase-a/10-sqlite-export-proof` | `must_follow` A9 | Prove the durable SQLite→canonical JSON→sc-compose→Markdown path, including traceability projections. |
-| A11 | [External corpus proof](sprint-a11-external-corpus-proof.md) | `phase-a/11-external-corpus-proof` | `must_follow` A10; commands finalized at assignment | Prove the complete loop and external compatibility on the authorized consumer corpus without copying consumer assets into Raptor. |
+| A11 | [Reference extractor port](sprint-a11-reference-extractor-port.md) | `phase-a/11-reference-extractor-port` | `must_follow` A10 | Replace the invented native Markdown grammar, re-derive models/keys/templates from the reference extractor, and publish the consumer-neutral external-proof handoff without importing consumer assets. |
+| A12 | [External corpus proof](sprint-a12-external-corpus-proof.md) | `phase-a/12-external-corpus-proof` | `must_follow` A11; commands finalized after A11 | Run the complete public-interface loop and external compatibility proof after direct extraction replaces the adapter. |
 
 All relations are `must_follow`. The public contract or generated artifact produced by each parent is consumed by its child. Parent development must be merged forward before every child development or fix round, and parent PRs merge before child PRs.
+
+### A1 contract supersession record
+
+A11 explicitly supersedes only the A1 parser/model assumptions contradicted by
+the working reference extractor: A1-D3, A1-D4, A1-D5, A1-D6, A1-D8 and the
+parser/model portions of A1-AC2, A1-AC4, A1-AC5, A1-AC8, A1-AC11, and A1-AC15.
+The replacement decisions, reference facts, and implementation evidence are
+normative in [A11](sprint-a11-reference-extractor-port.md). A1's provenance,
+schema-generation, plugin-boundary, neutrality, and Python-only decisions stay
+in force unless A11 names a specific replacement.
 
 ## Stack workflow
 
@@ -107,15 +118,17 @@ schema/
     models/
     canonical.py
     storage/
-  json/v1/
+  json/v1/                         # v1 migration input
+  json/v2/                         # active canonical contract after A11
   sql/sqlite/0001_initial.sql
+  sql/sqlite/0002_document_scoped_artifacts.sql
   tests/
     models/
     json_schema/
     storage/
 ```
 
-The Pydantic model and canonical JSON contract are the semantic/logical schema. Each database target has independent DDL and an adapter that must satisfy the same persistence conformance tests. Phase A creates only `schema/sql/sqlite/`; `schema/sql/dolt/` is created in a later phase when executable Dolt DDL and its adapter are delivered, never as an empty placeholder.
+The Pydantic model and canonical JSON contract are the semantic/logical schema. Each database target has independent DDL and an adapter that must satisfy the same persistence conformance tests. Phase A creates only `schema/sql/sqlite/`; `schema/sql/dolt/` is created in a later phase when executable Dolt DDL and its adapter are delivered, never as an empty placeholder. A11 is the explicit contract migration: v1 artifacts remain for v1 migration input, while the active canonical contract becomes `schema/json/v2/` with `sql/sqlite/0002_document_scoped_artifacts.sql`; implementations must not treat the layout above as v1-only after A11.
 
 ### Plugin layout and schema vendoring
 
@@ -240,9 +253,9 @@ An external repository may supply Markdown adapters, profile rules, and its own 
 | PA-REQ-012 | A8 | root manifest model/schema, typed artifact paths, and identity agreement validation |
 | REQ-RAP-013 | A9 | configured batch inventory and per-path ingress report |
 | REQ-RAP-014 | A10 | deterministic SQLite export, sc-compose render, field-coverage report, and reparse proof |
-| REQ-RAP-015 | A10, A11 | zero-loss report for canonical fields, relationships, identity, and provenance; queryable SQLite traceability checks |
-| REQ-RAP-016 | A11 | external validator and declared secondary-gate evidence on rendered output |
-| NFR-RAP-008 | A9–A11 | deterministic, fail-closed per-path and aggregate evidence |
+| REQ-RAP-015 | A10, A11, A12 | zero-loss report for canonical fields, relationships, identity, and provenance; queryable SQLite traceability checks |
+| REQ-RAP-016 | A11, A12 | A11 direct extraction and attestation handoff; A12 template parity and external validator/secondary-gate evidence on rendered output |
+| NFR-RAP-008 | A9–A12 | deterministic, fail-closed per-path and aggregate evidence |
 | PA-NFR-001, PA-NFR-002 | every sprint | repository-wide forbidden-content gates |
 | PA-NFR-003 | A1, A2 | bounded Python implementation; no SQLx dependency |
 | PA-NFR-004, PA-NFR-005 | A1–A8 | deterministic-output and unsupported-version tests |
@@ -254,8 +267,8 @@ Phase A is complete only when:
 
 1. Every sprint PR has met its own acceptance criteria and merged in stack order.
 2. Every supported family traverses Markdown→JSON→SQLite→JSON→sc-compose→Markdown→JSON with semantic equality after the documented materialization transition and a zero-loss report.
-3. The complete authorized external consumer corpus traverses the same public interfaces; its validator and declared secondary gates are clean on rendered output, while consumer code and test data remain outside Raptor.
-4. Repository checks find no `NFT`, Rust SQLx, Dolt integration, or bulk-migration implementation. External-consumer source, fixture, adapter, and identifier data remain absent; A11 may record only the execution coordinate and evidence contract needed for consumer-owned proof.
+3. The complete authorized external consumer corpus traverses the same public interfaces through the A11 reference extractor; its validator and declared secondary gates are clean on rendered output, while consumer code and test data remain outside Raptor. The oracle is 783/783 index-equal records with zero blocked entries.
+4. Repository checks find no `NFT`, Rust SQLx, Dolt integration, or bulk-migration implementation. External-consumer source, fixture, adapter, and identifier data remain absent; A12 may record only the execution coordinate and evidence contract needed for consumer-owned proof.
 5. Schema, SQL, templates, plugin assets, and tests are version-aligned and documented at their public entry points.
 6. Both client packages contain the same registered skills, focused references, agents, runtime modules, thin scripts, complete `.j2` inventory, schema vendor, and manifest metadata; CI fails omissions or version/path drift.
 
@@ -266,7 +279,7 @@ The following are intentionally deferred:
 - Dolt/MySQL DDL, drivers, operational topology, branching policy, and production migration.
 - Rust SQLx or any parallel Rust persistence implementation.
 - migration/apply of external source repositories.
-- external-consumer adapters, legacy spelling handling, identifier ranges, or Markdown fixtures. A11's consumer-owned compatibility proof is in scope, but its assets do not enter Raptor.
+- external-consumer adapters, legacy spelling handling, identifier ranges, or Markdown fixtures. A12's consumer-owned compatibility proof is in scope, but its assets do not enter Raptor.
 - byte-for-byte preservation of source Markdown formatting.
 - byte-unit ledgers, transformation or derivation proofs, trust policy, tool-bundle sandboxing, corpus split/combine lineage, certification engines, and multi-resource apply/recovery orchestration.
 - fleet orchestration, remote execution, registry service, web UI, authorization, and multi-tenant behavior.
@@ -283,4 +296,4 @@ The following are intentionally deferred:
 
 ## Handoff after Phase A
 
-The next phase may validate the logical schema against Dolt/MySQL and conduct additional consumer-owned pilots. Its entry criteria are a stable Phase A schema version, complete A9–A11 round-trip evidence, and no unresolved Phase A acceptance criterion.
+The next phase may validate the logical schema against Dolt/MySQL and conduct additional consumer-owned pilots. Its entry criteria are a stable Phase A schema version, complete A9–A12 round-trip evidence, and no unresolved Phase A acceptance criterion.

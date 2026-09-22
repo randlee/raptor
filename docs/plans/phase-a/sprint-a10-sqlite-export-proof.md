@@ -76,6 +76,6 @@ python3 plugins/raptor/scripts/vendor_schema.py --check
 
 ## Non-closure
 
-- A10 proves Raptor-owned family fixtures and reusable export behavior; A11 proves the external corpus.
+- A10 proves Raptor-owned family fixtures and reusable export behavior; A12 proves the external corpus.
 - A10 does not add consumer-specific templates, profiles, or fixtures to Raptor.
 - Deferred: byte-unit ledgers, transformation/derivation proofs, trust policy, tool-bundle sandboxing, corpus split/combine lineage, certification engines, and multi-resource apply/recovery orchestration.
