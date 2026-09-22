@@ -1,10 +1,10 @@
 ---
-name: requirement
+name: decision
 version: 1.0.0
 description: Render a schema record.
 required_variables: [record, fields]
 ---
-# Requirement: {{ record.title }}
+# Decision: {{ record.title }}
 
 {% for field in fields if field.level == "Header" %}{% if field.shape == "Derived" %}**{{ field.label }}:** {{ record.id }} through {{ record.id }}{{ '  ' }}
 {% else %}**{{ field.label }}:** {{ record[field.name] }}{{ '  ' }}
