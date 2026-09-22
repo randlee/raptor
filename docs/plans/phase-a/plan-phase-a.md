@@ -29,7 +29,7 @@ This establishes the contract needed to migrate 30–50 repositories without put
 
 | ID | Requirement |
 |---|---|
-| PA-REQ-001 | Define one canonical source-record representation for Requirement, NonFunctionalRequirement, ArchitectureDecision, DesignDocument, and TestPlan documents. |
+| PA-REQ-001 | Define one generic source-record representation: its ten fields and source Markdown survive byte-for-byte, while family content stays inside that Markdown and derived subsections. |
 | PA-REQ-002 | Preserve stable repository/document/artifact composite identity, immutable origin, and current materialization provenance so artifacts remain traceable across repositories, storage, registered path changes, and rendering. |
 | PA-REQ-003 | Publish Pydantic models and generated JSON Schemas from one implementation contract under top-level `schema/`. |
 | PA-REQ-004 | Provide deterministic, structured source-profile validation findings before canonical conversion. |
@@ -253,7 +253,7 @@ An external repository may supply Markdown adapters, profile rules, and its own 
 | REQ-RAP-013 | A9 | configured batch inventory and per-path ingress report |
 | REQ-RAP-014 | A10 | deterministic SQLite export, sc-compose render, field-coverage report, and reparse proof |
 | REQ-RAP-015 | A10, A11, A12 | zero-loss report for canonical fields, relationships, identity, and provenance; queryable SQLite traceability checks |
-| REQ-RAP-016 | A11, A12 | A11 direct extraction and local template parity; A12 consumer template parity and external validator/secondary-gate evidence on rendered output |
+| REQ-RAP-016 | A12 | Consumer template parity and external validator/secondary-gate evidence on rendered output |
 | NFR-RAP-008 | A9–A12 | deterministic, fail-closed per-path and aggregate evidence |
 | PA-NFR-001, PA-NFR-002 | every sprint | repository-wide forbidden-content gates |
 | PA-NFR-003 | A1, A2 | bounded Python implementation; no SQLx dependency |

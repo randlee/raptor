@@ -37,7 +37,7 @@ Pydantic/canonical JSON contract.
 |---|---|
 | A10-AC1 | Each REQ, NFR, ADR, design, and test-plan document completes SQLite→JSON→sc-compose→Markdown→JSON with canonical semantic equality after only the documented materialization transition. |
 | A10-AC2 | Two renders of identical canonical JSON produce identical Markdown bytes. |
-| A10-AC3 | The loss report is zero for every content-bearing field and explicitly includes artifact order, typed/URI relationships, repository/document/artifact identity, immutable origin, and materialization provenance. |
+| A10-AC3 | The loss report is zero for every content-bearing field and explicitly includes artifact order, emitted relationships, repository/document/artifact identity, immutable origin, and materialization provenance. |
 | A10-AC4 | Forward and reverse traceability queries return queryable emitted relationship types represented by canonical JSON. |
 | A10-AC5 | `schema/sql/README.md` identifies the traceability tables and columns as the future Rust CLI handoff contract without adding Rust code. |
 | A10-AC6 | Markdown is generated only by sc-compose; Python validates, queries, compares, and reports but does not assemble complete Markdown documents. |

@@ -75,7 +75,7 @@ Markdown and has no migration path.
 | `document_metadata` | `documents.metadata_json` | `document.metadata` | Parsed from the preamble segment in the envelope; stored for queries; not rendered separately. |
 | `source` | `artifacts.source_json` | `artifact.source` | Source order and item placement. |
 | `content` | `artifacts.content_markdown` (verbatim) | `artifact.content` | Item body rendered verbatim after the heading; summary/HTML re-derived on reparse. |
-| `relationships` | `relationships` | `artifact.relationships` | Emitted `mentions` reference/range text; reverse is queried. |
+| `relationships` | `relationships` | `artifact.relationships` | Parsed from reference text inside content; stored for queries; not rendered separately. |
 | `subsections` | derived from `content_markdown` | re-derived on reparse | Not rendered. |
 
 Every template consumes all ten fields plus the envelope; `artifact.body` and `provenance_block` are removed from template inputs. The five templates are the
@@ -93,7 +93,7 @@ consumer checkout.
 | A11-D1 | Port the parser grammar into the existing profile/runtime path; remove the native grammar and fixtures. | Parser tests cover valid documents and every failure class. |
 | A11-D2 | Publish the 2.0.0 generic-record schema and replacement SQLite 0001 with repository/document/artifact identity and emitted relationships. | Model, schema, SQLite, duplicate-ID, and relationship tests. |
 | A11-D3 | Replace all five Jinja templates with the consumer layout and render from canonical JSON through sc-compose. | Invented fixture byte parity and Markdown-to-JSON equality. |
-| A11-D4 | Update A9/A10 callers, registered agents/templates, docs, ci.yml Verify generated schemas/Verify deterministic schema vendor gates to v2, delete `schema/json/v1`, and use replacement v2 DDL. | Existing ingress/export suites re-run after named contract changes; Enforce Phase A5 exclusions is unchanged because `markdown_to_json.py` is modified, not wrapped. |
+| A11-D4 | Update A9/A10 callers, registered agents/templates, docs, ci.yml Verify generated schemas/Verify deterministic schema vendor gates to v2, delete `schema/json/v1`, use replacement v2 DDL, and rewrite `schema/sql/README.md` to the single `relationships` table and re-pointed forward/reverse queries. | Existing ingress/export suites re-run after named contract changes; Enforce Phase A5 exclusions is unchanged because `markdown_to_json.py` is modified, not wrapped. |
 
 ## Acceptance criteria
 
