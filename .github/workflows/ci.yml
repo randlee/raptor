@@ -15,7 +15,8 @@ jobs:
       - uses: actions/setup-python@v5
         with:
           python-version: "3.11"
-      - run: pip install pytest markdown Pydantic sc-compose
+      - run: pip install maturin pytest markdown Pydantic sc-compose
+      - run: pip install .
       - run: python -m pytest -q tests
 
   neutrality:
