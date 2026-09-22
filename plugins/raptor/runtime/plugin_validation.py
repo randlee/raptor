@@ -256,9 +256,17 @@ def _operation_contract(
 SCRIPT_CONTRACTS.update(
     {
         "markdown_to_json.py": _operation_contract(
-            {"runtime.operations.markdown_to_json"},
-            {"markdown_to_json"},
-            calls={"mode.add_argument", "parser.add_mutually_exclusive_group"},
+            {
+                "runtime.operations.configured_markdown_to_sqlite",
+                "runtime.operations.markdown_to_json",
+            },
+            {"configured_markdown_to_sqlite", "markdown_to_json"},
+            calls={
+                "mode.add_argument",
+                "parser.add_mutually_exclusive_group",
+                "parser.error",
+            },
+            lambdas=2,
         ),
         "import_sqlite.py": _operation_contract(
             {"runtime.operations.import_sqlite"},
