@@ -110,6 +110,7 @@ no corpus run, no change to `.raptor/` or `docs/`.
 
 - `pip install . && python -m pytest -q tests/` passes.
 - `rg -n '\*\*[A-Z][A-Za-z ]+:\*\*' scripts/` prints nothing.
-- `rg -n 'pydantic|record\.py|schema\.sql' scripts tests .github` prints nothing.
+- `rg -n 'pydantic|record\.py|schema\.sql\b' scripts tests .github` prints
+  nothing (`\b` keeps the crate's `sql_ddl` out of the match).
 - `rg -c 'print\(' scripts/extract.py` prints `1`.
 - `rg -ni --hidden --glob '!.git/**' --glob '!.sc/**' '[p]3' .` prints nothing.
