@@ -177,7 +177,7 @@ def test_read_only_validation_and_document_enumeration(
     assert not path.with_name(f"{path.name}-wal").exists()
 
 
-def test_constructor_rejects_borrowed_connection_and_ddl_override() -> None:
+def test_constructor_rejects_borrowed_db_handle_and_ddl_override() -> None:
     connection = sqlite3.connect(":memory:")
     with pytest.raises(TypeError, match="store-owned"):
         SQLiteArtifactStore(connection)  # type: ignore[arg-type]
