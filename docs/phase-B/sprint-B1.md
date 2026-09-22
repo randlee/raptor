@@ -65,8 +65,18 @@ Id-less documents are not allowed: Raptor never invents an id.
   - every id that appears more than once, in one file or across files, is
     reported as one diagnostic per occurrence naming file and line. No
     parsing rule works around it.
-  - error reporting is rewritten to one format: `file:line: RULE id message`,
-    one line per occurrence, grouped by file, complete. Today the
+  - error reporting is rewritten. The whole inventory is always processed;
+    the script never stops at the first problem. Every problem is one line,
+    `file:line: RULE id message. Remedy`. The text report has three
+    sections: a count per rule; every line grouped by rule, so all files
+    with the same problem are fixed together; every line grouped by file,
+    so one file is fixed in one pass. JSON is the primary output: the
+    index's `validation.issues` list carries every entry as an object
+    (`file`, `line`, `rule`, `id`, `message`, `remedy`) and is what agents
+    and the future import skill read. The text report is rendered from that
+    list for humans, written next to the `--output` file (not into
+    `reports/` under the current directory as today), and the per-rule
+    counts are printed to stdout. Complete, never truncated. Today the
     `validation` block is hard-coded to zero errors, the only check is the
     record model (a failure aborts the run without writing the index), and
     the text report truncates to 10 files and 5 errors each. All of that
