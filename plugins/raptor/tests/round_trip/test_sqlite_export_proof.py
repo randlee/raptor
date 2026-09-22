@@ -68,11 +68,12 @@ def test_sqlite_export_render_reparse_has_zero_loss(tmp_path: Path, index: int) 
 
     report = IngressReport.model_validate(result["report_data"])
     entry = report.entries[0]
-    assert entry.zero_loss is True
-    assert entry.artifact_order_preserved is True
-    assert entry.identity_preserved is True
-    assert entry.origin_preserved is True
-    assert entry.materialization_preserved is True
+    assert entry.relationship_count is not None
+    assert entry.typed_relationship_count is not None
+    assert entry.uri_relationship_count is not None
+    assert entry.relationship_count == (
+        entry.typed_relationship_count + entry.uri_relationship_count
+    )
     assert (root / "docs/output.md").is_file()
     assert (root / "proof.json").is_file()
 

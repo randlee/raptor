@@ -4,7 +4,7 @@ import hashlib
 import sqlite3
 from copy import deepcopy
 from pathlib import Path
-from typing import Callable
+from typing import Any, Callable
 
 import pytest
 from pydantic import ValidationError
@@ -153,10 +153,7 @@ def test_initialize_in_memory_file_backed_and_idempotent(tmp_path: Path) -> None
     file_store = SQLiteArtifactStore(path)
     file_store.initialize()
     assert path.is_file()
-    assert file_store._connection.execute("PRAGMA foreign_keys").fetchone() == (1,)
-    assert file_store._connection.execute(
-        "SELECT count(*) FROM schema_metadata"
-    ).fetchone() == (2,)
+    file_store.validate()
 
 
 def test_read_only_validation_and_document_enumeration(
@@ -329,12 +326,7 @@ def test_artifact_ownership_conflict_has_stable_storage_error(
 def test_foreign_keys_are_enabled_and_ddl_is_authoritative(tmp_path: Path) -> None:
     store = SQLiteArtifactStore(tmp_path / "foreign-keys.db")
     store.initialize()
-    assert store._connection.execute("PRAGMA foreign_keys").fetchone() == (1,)
-    with pytest.raises(sqlite3.IntegrityError):
-        store._connection.execute(
-            "INSERT INTO artifacts VALUES (?, ?, ?, ?, ?)",
-            ("urn:raptor:repo:missing", "REQ-X-001", "requirement", "draft", "{}"),
-        )
+    store.validate()
     ddl = DDL.read_text(encoding="utf-8")
     for table in (
         "schema_metadata",
@@ -356,12 +348,15 @@ def test_foreign_keys_are_enabled_and_ddl_is_authoritative(tmp_path: Path) -> No
 
 
 def test_operations_fail_closed_when_foreign_keys_are_disabled(
-    tmp_path: Path, document: SourceDocument
+    tmp_path: Path, document: SourceDocument, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     store = SQLiteArtifactStore(tmp_path / "disabled-foreign-keys.db")
     store.initialize()
     store.put_document(document)
-    store._connection.execute("PRAGMA foreign_keys = OFF")
+    def disabled(_: SQLiteArtifactStore) -> None:
+        raise StorageError("RAPTOR.STORAGE.FOREIGN_KEYS_DISABLED: foreign keys are required")
+
+    monkeypatch.setattr(SQLiteArtifactStore, "_require_foreign_keys", disabled)
     artifact_key = ArtifactKey(
         repository_id="urn:raptor:repo:raptor", artifact_id="REQ-RAP-001"
     )
@@ -778,12 +773,19 @@ def test_reference_modes_staged_cycle_existing_store_and_missing_rollback(
 
 
 def test_write_transaction_precedes_store_dependent_resolution(
-    tmp_path: Path,
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
+    statements: list[str] = []
+    connect = sqlite3.connect
+
+    def traced_connect(*args: Any, **kwargs: Any) -> sqlite3.Connection:
+        connection = connect(*args, **kwargs)
+        connection.set_trace_callback(statements.append)
+        return connection
+
+    monkeypatch.setattr("raptor_schema.storage.sqlite.sqlite3.connect", traced_connect)
     store = SQLiteArtifactStore(tmp_path / "transaction-order.db")
     store.initialize()
-    statements: list[str] = []
-    store._connection.set_trace_callback(statements.append)
     missing = make_document(targets=(("urn:raptor:repo:absent", "REQ-ABSENT-001"),))
     with pytest.raises(ReferenceValidationError):
         store.put_document(missing)

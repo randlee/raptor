@@ -13,7 +13,6 @@ from pydantic import BaseModel
 
 from raptor_schema import (
     ArtifactKey,
-    DesignDocument,
     DocumentKey,
     Diagnostic,
     IdentityManifest,
@@ -28,7 +27,6 @@ from raptor_schema import (
     SQLiteArtifactStore,
     SourceDocument,
     SourceRoute,
-    TestPlan,
     dump_canonical_json,
     load_canonical_json,
     validate_repository_manifest_identity,
@@ -37,6 +35,7 @@ from raptor_schema import (
     validate_documents,
 )
 from raptor_schema.canonical import dump_canonical_fragment
+from raptor_schema._references import iter_canonical_references
 from raptor_schema.profiles import ParsedDocument, SourceInput
 
 from .identity import document_identity
@@ -46,8 +45,12 @@ from .profiles import resolve_profile
 _MANIFEST_PATH = ".raptor/raptor.toml"
 
 
-def _digest(value: BaseModel) -> str:
+def _fragment_sha256(value: BaseModel) -> str:
     return hashlib.sha256(dump_canonical_fragment(value).encode()).hexdigest()
+
+
+def _document_sha256(document: SourceDocument) -> str:
+    return hashlib.sha256(dump_canonical_json(document).encode()).hexdigest()
 
 
 def _report_bytes(report: IngressReport) -> bytes:
@@ -404,15 +407,8 @@ def _field_count(value: object) -> int:
     return 1
 
 
-def _relationship_count(document: SourceDocument) -> int:
-    total = 0
-    for artifact in document.artifacts:
-        total += len(artifact.relationships)
-        if isinstance(artifact, DesignDocument):
-            total += sum(len(component.dependencies) for component in artifact.components)
-        elif isinstance(artifact, TestPlan):
-            total += sum(len(case.verifies) for case in artifact.test_cases)
-    return total
+def _canonical_reference_count(document: SourceDocument) -> int:
+    return sum(1 for _ in iter_canonical_references(document))
 
 
 def _ingress_diagnostic(error: Exception) -> IngressDiagnostic:
@@ -567,14 +563,14 @@ def configured_markdown_to_sqlite(
                     document_id=document.provenance.origin.document_id,
                     route=route.source,
                     profile=route.profile,
-                    canonical_digest=_digest(document),
+                    canonical_digest=_document_sha256(document),
                     sqlite_outcome=sqlite_outcome,
                     field_count=_field_count(
                         document.model_dump(mode="json", exclude_none=True)
                     ),
-                    relationship_count=_relationship_count(document),
-                    origin_digest=_digest(document.provenance.origin),
-                    materialization_digest=_digest(document.provenance.materialization),
+                    relationship_count=_canonical_reference_count(document),
+                    origin_digest=_fragment_sha256(document.provenance.origin),
+                    materialization_digest=_fragment_sha256(document.provenance.materialization),
                 )
     report = IngressReport(
         report_version="1.0.0",
@@ -671,16 +667,9 @@ def sqlite_export_proof(
         document = store.get_document(
             DocumentKey(repository_id=repository_id, document_id=document_id)
         )
-        typed_count = store._connection.execute(
-            "SELECT count(*) FROM artifact_relationships "
-            "WHERE source_repository_id = ?",
-            (repository_id,),
-        ).fetchone()[0]
-        uri_count = store._connection.execute(
-            "SELECT count(*) FROM artifact_uri_relationships "
-            "WHERE source_repository_id = ?",
-            (repository_id,),
-        ).fetchone()[0]
+        relationships = store.traceability_relationships(
+            DocumentKey(repository_id=repository_id, document_id=document_id)
+        )
     profile = resolve_profile(root, profile_id, profile_version)
     rendered = render_markdown(
         document,
@@ -709,19 +698,14 @@ def sqlite_export_proof(
         profile=ProfileSelection(
             profile_id=profile.profile_id, profile_version=profile.profile_version
         ),
-        canonical_digest=_digest(document),
+        canonical_digest=_document_sha256(document),
         sqlite_outcome="validated",
         field_count=_field_count(document.model_dump(mode="json", exclude_none=True)),
-        relationship_count=_relationship_count(document),
-        origin_digest=_digest(document.provenance.origin),
-        materialization_digest=_digest(document.provenance.materialization),
-        zero_loss=True,
-        artifact_order_preserved=True,
-        typed_relationship_count=int(typed_count),
-        uri_relationship_count=int(uri_count),
-        identity_preserved=True,
-        origin_preserved=True,
-        materialization_preserved=True,
+        relationship_count=relationships.total_count,
+        origin_digest=_fragment_sha256(document.provenance.origin),
+        materialization_digest=_fragment_sha256(document.provenance.materialization),
+        typed_relationship_count=relationships.typed_count,
+        uri_relationship_count=relationships.uri_count,
     )
     report = IngressReport(
         report_version="1.0.0",

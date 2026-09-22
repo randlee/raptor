@@ -33,13 +33,8 @@ class IngressReportEntry(ContractModel):
     relationship_count: int | None = Field(default=None, ge=0)
     origin_digest: Sha256 | None = None
     materialization_digest: Sha256 | None = None
-    zero_loss: bool | None = None
-    artifact_order_preserved: bool | None = None
     typed_relationship_count: int | None = Field(default=None, ge=0)
     uri_relationship_count: int | None = Field(default=None, ge=0)
-    identity_preserved: bool | None = None
-    origin_preserved: bool | None = None
-    materialization_preserved: bool | None = None
     diagnostic: IngressDiagnostic | None = None
 
     @model_validator(mode="after")
