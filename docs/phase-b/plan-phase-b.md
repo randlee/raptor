@@ -186,8 +186,10 @@ so that none can be added by habit.
 Every sprint is `must_follow` its predecessor; none is `parallel_safe`.
 B.2 imports the crate B.1 builds; B.3 and B.4 each extend the crate, the
 fixture, the templates and the tests of the sprint before; B.5 runs the
-importer with every column in place. The five branches form one GitHub stack on `develop`
-(`/gh-stack`): `feature/b-1-schema-crate` is based on `develop`, and each
+importer with every column in place. The five branches form one GitHub stack on
+`integrate/phase-b`, the phase's integration branch cut from `develop`, which
+merges to `develop` when the phase ends (`/gh-stack`):
+`feature/b-1-schema-crate` is based on `integrate/phase-b`, and each
 later branch is based on the branch before it, as the `target` line of its
 sprint document says. The worktree is created with `/sc-git-worktree
 --base <target>`; the PR is created with `gh stack link <target> <branch>`
@@ -255,7 +257,8 @@ ADR-RAP-0004 to ADR-RAP-0006 in `docs/adr/adr-rap-product.md`, with
 - **No exceptions for one repository.** The format is what the templates
   emit. A line the template would not have written is reported, not parsed.
 - **One stack.** Branch from the `target` in the sprint document, never from
-  `develop` directly for B.2 to B.5; PRs are linked with `gh stack link`;
+  `develop` or `integrate/phase-b` directly for B.2 to B.5; PRs are linked
+  with `gh stack link --base integrate/phase-b`;
   merges use `gh stack merge --yes`; rebases use `gh stack rebase --upstack`.
   Lower case for every branch, directory and file name.
 - **Neutrality gate before every commit.**

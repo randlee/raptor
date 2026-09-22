@@ -4,9 +4,9 @@ title: The raptor-schema crate
 status: planned
 branch: feature/b-1-schema-crate
 worktree: ../raptor-worktrees/feature/b-1-schema-crate
-target: develop
+target: integrate/phase-b
 depends_on: []
-relation: bottom of the stack; based on develop
+relation: bottom of the stack; based on integrate/phase-b
 ---
 
 # Sprint B.1 — The `raptor-schema` crate
