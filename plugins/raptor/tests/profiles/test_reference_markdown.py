@@ -52,10 +52,33 @@ def test_duplicate_heading_is_a_named_failure() -> None:
         RaptorMarkdownProfile().parse(source)
 
 
-def test_bad_nested_heading_is_a_named_failure() -> None:
-    source = _inline(b"## REQ-CORE-0001: Parent\n\n## Child section\n")
-    with pytest.raises(ValueError, match=r"RAPTOR\.REFERENCE\.BAD_NESTED_HEADING: line 3"):
-        RaptorMarkdownProfile().parse(source)
+def test_plain_level_two_headings_remain_in_item_content() -> None:
+    source = _inline(
+        b"# Invented\n\n"
+        b"## REQ-CORE-0001: First\n\n"
+        b"**Status:** Draft\n\n"
+        b"Body.\n\n"
+        b"## Grouping heading\n\n"
+        b"Group text.\n\n"
+        b"## REQ-CORE-0002: Second\n\n"
+        b"**Status:** Draft\n\n"
+        b"## Trailing heading\n\n"
+        b"Tail.\n"
+    )
+    document = RaptorMarkdownProfile().canonicalize(RaptorMarkdownProfile().parse(source))
+
+    assert [item.id for item in document.artifacts] == ["REQ-CORE-0001", "REQ-CORE-0002"]
+    assert document.artifacts[0].content.endswith("## Grouping heading\n\nGroup text.\n\n")
+    assert document.artifacts[1].content.endswith("## Trailing heading\n\nTail.\n")
+    assert document.artifacts[0].subsections == []
+    assert document.artifacts[1].subsections == []
+    envelope = [segment for segment in document.non_item_segments if segment.kind == "text"]
+    assert len(envelope) == 1
+    assert envelope[0].model_dump() == {
+        "kind": "text",
+        "content": "# Invented\n\n",
+        "artifact_index": None,
+    }
 
 
 def test_unsupported_item_status_is_a_named_failure() -> None:

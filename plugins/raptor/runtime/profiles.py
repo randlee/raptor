@@ -15,7 +15,6 @@ _TITLE = re.compile(r"^#[ \t]+(?P<title>.+?)[ \t]*$", re.MULTILINE)
 _STATUS = re.compile(r"^\*\*Status:\*\*[ \t]*(?P<status>[^\r\n]+)[ \t]*$", re.MULTILINE)
 _SUBSECTION = re.compile(r"^(?P<marks>#{3,6})[ \t]+(?P<title>.+?)[ \t]*$", re.MULTILINE)
 _REFERENCE = re.compile(r"(?P<id>(?:REQ|NFR|ADR|TEST)-[A-Z0-9][A-Z0-9-]*-[0-9]{4,})")
-_NESTED_LEVEL_TWO = re.compile(r"^##(?!#)[ \t]+.*$", re.MULTILINE)
 _TEST_PLAN_ID = re.compile(r"^\*\*Test Plan ID:\*\*[ \t]*(?P<value>[^\r\n]+)[ \t]*$", re.MULTILINE)
 _TEST_PLAN_RANGE = re.compile(r"^(?P<start>TEST-[A-Z0-9][A-Z0-9-]*-[0-9]{4,})[ \t]+(?:through|to)[ \t]+TEST-[A-Z0-9][A-Z0-9-]*-[0-9]{4,}$", re.IGNORECASE)
 _TEST_PLAN_SINGLE = re.compile(r"^TEST-[A-Z0-9][A-Z0-9-]*-[0-9]{4,}$", re.IGNORECASE)
@@ -123,10 +122,6 @@ class RaptorMarkdownProfile:
             seen.add(artifact_id)
             end = matches[index + 1].start() if index + 1 < len(matches) else len(text)
             body = text[match.end():end]
-            nested = _NESTED_LEVEL_TWO.search(body)
-            if nested is not None:
-                line = text.count("\n", 0, match.end() + nested.start()) + 1
-                raise ValueError(f"RAPTOR.REFERENCE.BAD_NESTED_HEADING: line {line}")
             sections.append(ParsedSection(kind=match.group("kind"), heading=match.group("title"), body=body, location=SourceLocation(start_line=text.count("\n", 0, match.start()) + 1, start_column=1, end_line=text.count("\n", 0, end) + 1, end_column=1), attributes={"artifact_id": artifact_id, "ordinal": index}))
         return ParsedDocument(source=source, frontmatter=cast(FrozenJsonObject, validate_json_object({"markdown": text})), sections=tuple(sections))
 

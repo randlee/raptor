@@ -29,7 +29,7 @@ the parser-contract table.
 | Bold preamble | Parse metadata before sections and preserve unknown keys. |
 | Nested sections | Preserve title, level, Markdown text, summary/HTML when emitted, source range, and order. |
 | Ranges and references | Preserve raw token/context and resolve target document/id only when unique in the repository. |
-| Item-route invalid UTF-8, malformed heading/preamble, unsupported status, duplicate heading, bad nested heading, or no artifact | Emit one stable failure-class code and fail closed for that document; never silently skip it. Whole-document design/test-plan records fail closed only for invalid UTF-8; an off-list or absent preamble Status becomes null while its raw text remains in content. Configured ingress is atomic: a failing document aborts the run with `RAPTOR.INGRESS.BATCH_ABORTED` per NFR-RAP-004. |
+| Item-route invalid UTF-8, malformed heading/preamble, unsupported status, duplicate heading, or no artifact | Emit one stable failure-class code and fail closed for that document; never silently skip it. Whole-document design/test-plan records fail closed only for invalid UTF-8; an off-list or absent preamble Status becomes null while its raw text remains in content. Configured ingress is atomic: a failing document aborts the run with `RAPTOR.INGRESS.BATCH_ABORTED` per NFR-RAP-004. |
 
 The parser is the only built-in grammar. Delete the old native grammar and its
 fixtures. Exactly one route exists per family: per-item `##` headings are

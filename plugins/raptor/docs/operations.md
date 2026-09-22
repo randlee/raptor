@@ -33,10 +33,11 @@ The built-in reference extractor is the only parser. It recognizes level-two
 verbatim content, nested sections, raw reference tokens, and source order.
 Malformed headings (including a non-colon separator) fail with
 `RAPTOR.REFERENCE.MALFORMED_HEADING`; invalid UTF-8, duplicate item headings,
-bad nested headings, unsupported statuses, and ordinary selected files without
-an item fail closed with `RAPTOR.REFERENCE.INVALID_UTF8`,
-`RAPTOR.REFERENCE.DUPLICATE_HEADING`, `RAPTOR.REFERENCE.BAD_NESTED_HEADING`,
-`RAPTOR.REFERENCE.UNSUPPORTED_STATUS`, and `RAPTOR.REFERENCE.NO_ITEM`.
+unsupported statuses, and ordinary selected files without an item fail closed
+with `RAPTOR.REFERENCE.INVALID_UTF8`,
+`RAPTOR.REFERENCE.DUPLICATE_HEADING`, `RAPTOR.REFERENCE.UNSUPPORTED_STATUS`,
+and `RAPTOR.REFERENCE.NO_ITEM`. A plain level-two heading inside an item body is
+body text of that item.
 Configured design-document and test-plan routes each yield one generic record:
 verbatim `content` is the complete Markdown, the envelope is empty, and nested
 headings and mentions are derived from content. Design uses its registered
