@@ -43,7 +43,9 @@ target: develop
   examples are replaced with invented ones.
 - `scripts/render.py`: renders one record or all records through sc-compose,
   choosing the template by record type. Ceiling 120 lines. Dependency:
-  `sc-compose` from PyPI (1.6.1 or later).
+  `sc-compose` from PyPI (1.6.1 or later), used either through its Python
+  bindings or by calling the `sc-compose` CLI with `subprocess`, whichever is
+  shorter.
 
 ## Required Work
 
