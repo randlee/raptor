@@ -33,7 +33,9 @@ Id-less documents are not allowed: Raptor never invents an id.
 ## Deliverables
 
 - `Record` gains top-level `created`, `last_updated`, `version` (strings;
-  null when the file header lacks them). They move out of
+  null when the file header lacks them). `created` and `last_updated` are
+  ISO 8601 (REQ-RAP-0009); the source headers are date-only `YYYY-MM-DD`
+  and are stored as written, never given a time or zone. They move out of
   `document_metadata`, which keeps `owner` only. `id_range` and
   `range_description` are dropped: a range is a document-level search
   convenience in one source repository, not a field of an item, and most
@@ -68,7 +70,8 @@ Id-less documents are not allowed: Raptor never invents an id.
     goes. The same entries are in the index's `validation` block.
     Rules in this sprint: `MISSING_ID` (no item heading and no Document ID),
     `DUPLICATE_ID`, `MISSING_HEADER_FIELD` (Status, Created, Last Updated,
-    Version, Owner). Nothing else.
+    Version, Owner), `INVALID_DATE` (Created or Last Updated not ISO 8601,
+    for example the literal `YYYY-MM-DD`). Nothing else.
   - exits non-zero when the validation summary has one or more errors. The
     index and the report are still written, so the fixture can be built and
     the caller still sees the failure. Today it returns 0 regardless.
