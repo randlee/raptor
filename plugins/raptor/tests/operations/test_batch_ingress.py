@@ -40,7 +40,7 @@ artifact_types = ["requirement"]
 
 [routes.profile]
 profile_id = "raptor"
-profile_version = "1.0.0"
+profile_version = "2.0.0"
 """
     )
     documents = (
@@ -63,9 +63,11 @@ def _repository(tmp_path: Path, *, registered: bool = True) -> Path:
     root = tmp_path / "repository"
     (root / "specifications").mkdir(parents=True)
     (root / "specifications/requirements.md").write_text(
-        """### REQ-RAP-001 — Configured ingress
+        """# Configured ingress
+
+## REQ-RAP-0001: Configured ingress
 Use only configured source paths.
-Acceptance: The report is deterministic.
+The report is deterministic.
 """
     )
     (root / "specifications/README.md").write_text("not an artifact\n")

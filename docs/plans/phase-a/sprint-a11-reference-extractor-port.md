@@ -93,7 +93,7 @@ consumer checkout.
 | A11-D1 | Port the parser grammar into the existing profile/runtime path; remove the native grammar and fixtures. | Parser tests cover valid documents and every failure class. |
 | A11-D2 | Publish the 2.0.0 generic-record schema and replacement SQLite 0001 with repository/document/artifact identity and emitted relationships. | Model, schema, SQLite, duplicate-ID, and relationship tests. |
 | A11-D3 | Replace all five Jinja templates with the consumer layout and render from canonical JSON through sc-compose. | Invented fixture byte parity and Markdown-to-JSON equality. |
-| A11-D4 | Update A9/A10 callers, registered agents/templates, docs, ci.yml Verify generated schemas/Verify deterministic schema vendor gates to v2, delete `schema/json/v1`, use replacement v2 DDL, and rewrite `schema/sql/README.md` to the single `relationships` table and re-pointed forward/reverse queries. | Existing ingress/export suites re-run after named contract changes; Enforce Phase A5 exclusions is unchanged because `markdown_to_json.py` is modified, not wrapped. |
+| A11-D4 | Update A9/A10 callers, registered agents/templates, docs, ci.yml Verify generated schemas/Verify deterministic schema vendor gates to v2, remove the previous generated schema directory, use replacement v2 DDL, and rewrite `schema/sql/README.md` to the single `relationships` table and re-pointed forward/reverse queries. | Existing ingress/export suites re-run after named contract changes; Enforce Phase A5 exclusions is unchanged because `markdown_to_json.py` is modified, not wrapped. |
 
 ## Acceptance criteria
 

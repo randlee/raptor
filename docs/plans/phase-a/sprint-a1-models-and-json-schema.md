@@ -343,7 +343,7 @@ Every float must be finite; NaN and positive/negative infinity fail before canon
 | A1-D4 | Raptor dogfood corpus manifest mapping every fixture/example to originating `REQ-RAP-*`, `NFR-RAP-*`, or `ADR-RAP-*` artifacts. | corpus manifest consumed by Phase A tests |
 | A1-D5 | Installable `schema/` Pydantic v2 package with `SourceDocument`, provenance/location, typed references, shared envelope, and all five discriminated artifact families. | `schema/pyproject.toml`, `schema/src/raptor_schema/models/`, public exports |
 | A1-D6 | Strict validation for schema version, IDs/types, duplicate IDs, four explicit reference modes, family fields, extension namespace, and unknown fields. | validators and `schema/tests/models/` |
-| A1-D7 | Deterministic canonical JSON dump/load API and versioned JSON Schemas generated from Pydantic by one documented command. | `schema/src/raptor_schema/canonical.py`, `schema/json/v1/`, drift test |
+| A1-D7 | Deterministic canonical JSON dump/load API and versioned JSON Schemas generated from Pydantic by one documented command. | `schema/src/raptor_schema/canonical.py`, `schema/json/v2/`, drift test |
 | A1-D8 | Positive/negative tests derived only from the Raptor corpus, with origin artifact IDs recorded, plus compatibility documentation for external adapters. | `schema/tests/{models,json_schema}/` and package docs |
 | A1-D9 | Executable `SourceProfile` protocol and deeply immutable concrete boundary snapshots, recursive JSON render-projection contract, runtime `SourceInput` validation, `ProfileDescriptor` as data only, identity-manifest model/schema and conflict semantics, multi-repository composite identity, and origin/materialization transition rules. Discovery/loading/trust/invocation are documented future A4 contracts only. | `schema/src/raptor_schema/profiles.py`, explicit public exports, generated schema, nested-mutation/runtime boundary tests, and strict typed-consumer probe; no resolver, loader, registry, profile implementation, invocation wrapper, or registration executable |
 | A1-D10 | Raptor's own registered repository/document identities for its dogfood corpus and model/schema validation cases. | `.raptor/identity.json` mapped to Raptor `REQ-RAP-*`/`NFR-RAP-*`/`ADR-RAP-*` sources |
@@ -358,7 +358,7 @@ Every float must be finite; NaN and positive/negative infinity fail before canon
 | A1-AC4 | Valid representative instances of all five family payloads validate through `SourceDocument` and round-trip through canonical JSON with the specified ordering and omission behavior. |
 | A1-AC5 | Invalid discriminator/prefix, version, ID, duplicate, reference, location, relationship target, extension namespace, unknown field, ordering duplicate, and family constraint each produce deterministic validation errors. |
 | A1-AC6 | Generated schemas accept/reject the same committed cases as Pydantic for JSON-Schema-expressible constraints; Python-only cross-record checks are documented. |
-| A1-AC7 | Schema generation is deterministic and CI detects drift between `schema/src/` and `schema/json/v1/`. |
+| A1-AC7 | Schema generation is deterministic and CI detects drift between `schema/src/` and `schema/json/v2/`. |
 | A1-AC8 | Every fixture resolves through the corpus manifest to Raptor `REQ-RAP-*`, `NFR-RAP-*`, or `ADR-RAP-*`; no generic or external-consumer fixture is present. |
 | A1-AC9 | `schema/pyproject.toml` declares supported Python/Pydantic versions, installs in a clean environment, exposes consumer-neutral calls, and requires neither SQLite nor Rust. |
 | A1-AC10 | Product paths contain no `NFT`, external-consumer-specific artifact identifier or asset, or Rust SQLx dependency. |
@@ -377,8 +377,8 @@ python -m pip install -e 'schema[test]'
 python -m pytest schema/tests/models schema/tests/json_schema
 python -m pytest schema/tests/models -k 'field_contract or identity or reference_mode or measurement or provenance or profile or ordering or omission or relationship or diagnostic or location'
 python -m mypy --strict schema/src/raptor_schema schema/tests/typing/protocol_contract.py
-python -m raptor_schema.generate --check --output schema/json/v1
-git diff --exit-code -- schema/json/v1
+python -m raptor_schema.generate --check --output schema/json/v2
+git diff --exit-code -- schema/json/v2
 rg -n 'REQ-RAP-|NFR-RAP-|ADR-RAP-' docs/requirements.md docs/architecture.md docs/adr
 python -m json.tool .raptor/identity.json >/dev/null
 rg -n '\bNFT\b|REQ-GEN-|NFR-GEN-|ADR-GEN-' schema docs/requirements.md docs/architecture.md docs/adr && exit 1 || true

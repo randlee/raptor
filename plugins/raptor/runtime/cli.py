@@ -5,7 +5,6 @@ from collections.abc import Callable
 from typing import Any, cast
 
 from pydantic import ValidationError
-from raptor_schema import ReferenceValidationError
 
 from .agent_runner import redact
 
@@ -25,22 +24,7 @@ def failure(error: Exception) -> dict[str, Any]:
     message = str(error)
     prefix = message.split(":", 1)[0]
     code = prefix if prefix.startswith("RAPTOR.") else "RAPTOR.CLI.ERROR"
-    if isinstance(error, ReferenceValidationError):
-        diagnostic = error.diagnostic.model_dump(mode="json", exclude_none=True)
-        diagnostic.update(
-            mode=error.mode.value,
-            relation=error.relation,
-            source=error.source.model_dump(mode="json"),
-            target=error.target.model_dump(mode="json"),
-            document_key=error.document_key.model_dump(mode="json"),
-            json_pointer=error.json_pointer,
-        )
-        message = json.dumps(
-            redact(diagnostic),
-            sort_keys=True,
-            separators=(",", ":"),
-        )
-    elif isinstance(error, ValidationError):
+    if isinstance(error, ValidationError):
         code = "RAPTOR.VALIDATION.ERROR"
         message = "RAPTOR.VALIDATION.ERROR: input failed schema validation"
     elif code == "RAPTOR.CLI.ERROR":

@@ -28,12 +28,19 @@ profile ID, and version; executable consumer code is not loaded. External
 profiles still require `--allow-profile-code`, API version `1`, and no symlink or
 root escape. Raptor does not copy consumer profiles into the plugin.
 
-Reference modes are explicit. Markdown defaults to `document`; JSON defaults to
-`structural`. Use `batch` for a directory whose documents refer to one another,
-or `store --database <relative-path>` to resolve targets already in SQLite.
-Directory Markdown import defaults to `batch` and writes one canonical JSON file
-per registered document ID. Empty directories and non-batch directory modes are
-rejected.
+The built-in reference extractor is the only parser. It recognizes level-two
+`## REQ|NFR|ADR|DES|TST-<scope>-<four digits>: <title>` items and preserves their
+verbatim content, nested sections, raw reference tokens, and source order.
+Malformed headings (including a non-colon separator) fail with
+`RAPTOR.REFERENCE.MALFORMED_HEADING`; invalid UTF-8, duplicate item headings,
+bad nested headings, unsupported statuses, and ordinary selected files without
+an item fail closed with `RAPTOR.REFERENCE.INVALID_UTF8`,
+`RAPTOR.REFERENCE.DUPLICATE_HEADING`, `RAPTOR.REFERENCE.BAD_NESTED_HEADING`,
+`RAPTOR.REFERENCE.UNSUPPORTED_STATUS`, and `RAPTOR.REFERENCE.NO_ITEM`.
+Design and test-plan routes are the exception to the no-item inventory rule:
+each yields one generic record, with level-four TEST evidence retained in its
+source content/subsections. Relationships are emitted raw and SQLite resolves a
+target only when it is unique in the repository.
 
 ## Configured batch ingress
 
@@ -59,13 +66,9 @@ SQLite publish, so a batch never partially applies; the report is retained for
 operator review. The report is a versioned Raptor Pydantic contract and its
 generated JSON Schema is checked with the canonical schema/vendor drift gates.
 
-The native Markdown profile recognizes `REQ`, `NFR`, `ADR`, `DES`, and `TST`
-artifact headings. Design bodies use `Overview:`, a pipe-separated `Component:`
-(`name | responsibility`), optional comma-separated `Dependencies:`, and
-`Interface:` (`name | description | participants`).
-Test-plan bodies use `Objective:`, `Scope:`, `Test Case:`
-(`id | title | semicolon-separated steps | expected result`), `Verifies:`, and
-`Exit Criteria:`. There is no embedded-canonical-JSON escape hatch.
+`.raptor/sources.toml` is the inventory: Raptor never discovers arbitrary
+directories outside that explicit selected list. The default built-in `raptor`
+template set, not a consumer external set, renders SQLite/JSON exports.
 
 JSON→Markdown uses the five inventoried strict templates and requires
 `sc-compose >=1.6.1,<2.0.0`. Stored-document rendering uses the bounded journal

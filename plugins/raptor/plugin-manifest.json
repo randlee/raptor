@@ -13,7 +13,6 @@
     ".claude-plugin/plugin.json",
     ".codex-plugin/plugin.json",
     "_vendor/raptor_schema/__init__.py",
-    "_vendor/raptor_schema/_references.py",
     "_vendor/raptor_schema/canonical.py",
     "_vendor/raptor_schema/generate.py",
     "_vendor/raptor_schema/models/__init__.py",
@@ -119,10 +118,9 @@
   },
   "vendor": {
     "algorithm": "sha256:path-nul-bytes-nul:v1",
-    "canonical_schema_version": "1.0.0",
+    "canonical_schema_version": "2.0.0",
     "inventory": [
       "__init__.py",
-      "_references.py",
       "canonical.py",
       "generate.py",
       "models/__init__.py",
@@ -142,7 +140,7 @@
       "storage/sqlite.py"
     ],
     "package_version": "1.0.0",
-    "tree_sha256": "ddb97e9a5979136ce1ec15066c20a7547fa8c4e58c0f3c54d8635988c6828dd2"
+    "tree_sha256": "88225dd4558996f17a58da6548c28c6ef15c6a0b2f8e652343b7b6eda3a8e7ec"
   },
   "version": "1.0.0"
 }

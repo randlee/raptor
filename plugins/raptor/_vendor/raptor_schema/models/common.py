@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from enum import Enum
-from typing import Annotated, Literal
+from typing import Annotated
 from pydantic import ConfigDict, Field, GetJsonSchemaHandler, StrictInt, model_validator
 from pydantic.json_schema import JsonSchemaValue
 from pydantic_core import core_schema
@@ -26,36 +26,18 @@ class ArtifactType(str, Enum):
 
 
 class LifecycleStatus(str, Enum):
-    DRAFT = "draft"
-    PROPOSED = "proposed"
-    ACCEPTED = "accepted"
-    IMPLEMENTED = "implemented"
-    VERIFIED = "verified"
-    DEPRECATED = "deprecated"
-    REJECTED = "rejected"
-    SUPERSEDED = "superseded"
+    DRAFT = "Draft"
+    PROPOSED = "Proposed"
+    ACTIVE = "Active"
+    APPROVED = "Approved"
+    DEPRECATED = "Deprecated"
+    SUPERSEDED = "Superseded"
 
 
 class DiagnosticSeverity(str, Enum):
     ERROR = "error"
     WARNING = "warning"
     INFO = "info"
-
-
-class RelationshipType(str, Enum):
-    DEPENDS_ON = "depends_on"
-    SATISFIES = "satisfies"
-    IMPLEMENTS = "implements"
-    VERIFIES = "verifies"
-    SUPERSEDES = "supersedes"
-    RELATES_TO = "relates_to"
-
-
-class Priority(str, Enum):
-    CRITICAL = "critical"
-    HIGH = "high"
-    MEDIUM = "medium"
-    LOW = "low"
 
 
 class DocumentKey(ContractModel):
@@ -65,10 +47,11 @@ class DocumentKey(ContractModel):
 
 class ArtifactKey(ContractModel):
     repository_id: RepositoryId
+    document_id: DocumentId
     artifact_id: ArtifactId
 
-    def sort_key(self) -> tuple[str, str]:
-        return self.repository_id, self.artifact_id
+    def sort_key(self) -> tuple[str, str, str]:
+        return self.repository_id, self.document_id, self.artifact_id
 
 
 class SourceLocation(ContractModel):
@@ -102,41 +85,6 @@ class SourceLocation(ContractModel):
         return result
 
 
-class ArtifactTarget(ContractModel):
-    target_kind: Literal["artifact"]
-    repository_id: RepositoryId
-    artifact_id: ArtifactId
-
-    def key(self) -> ArtifactKey:
-        return ArtifactKey(repository_id=self.repository_id, artifact_id=self.artifact_id)
-
-
-class UriTarget(ContractModel):
-    target_kind: Literal["uri"]
-    target_uri: str = Field(
-        pattern=r"^(?:https?://[^\x00-\x20\x7f/?#]+(?:[/?#][^\x00-\x20\x7f]*)?|urn:[A-Za-z0-9](?:[A-Za-z0-9-]{0,30}[A-Za-z0-9])?:[A-Za-z0-9()+,.:=@;$_!*'%/?#-]+)$"
-    )
-
-
-RelationshipTarget = Annotated[ArtifactTarget | UriTarget, Field(discriminator="target_kind")]
-
-
-class ArtifactRelationship(ContractModel):
-    relation: RelationshipType
-    target: RelationshipTarget
-    description: NonEmptyText | None = None
-
-    def sort_key(self) -> tuple[str, str, str, str]:
-        if isinstance(self.target, ArtifactTarget):
-            return (
-                self.relation.value,
-                self.target.target_kind,
-                self.target.repository_id,
-                self.target.artifact_id,
-            )
-        return (self.relation.value, self.target.target_kind, "", self.target.target_uri)
-
-
 class Diagnostic(ContractModel):
     code: DiagnosticCode
     severity: DiagnosticSeverity
@@ -150,16 +98,10 @@ class Diagnostic(ContractModel):
 
 __all__ = [
     "ArtifactKey",
-    "ArtifactRelationship",
-    "ArtifactTarget",
     "ArtifactType",
     "Diagnostic",
     "DiagnosticSeverity",
     "DocumentKey",
     "LifecycleStatus",
-    "Priority",
-    "RelationshipTarget",
-    "RelationshipType",
     "SourceLocation",
-    "UriTarget",
 ]

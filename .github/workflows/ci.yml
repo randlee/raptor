@@ -45,8 +45,8 @@ jobs:
 
       - name: Verify generated schemas
         run: |
-          python -m raptor_schema.generate --check --output schema/json/v1
-          git diff --exit-code -- schema/json/v1
+          python -m raptor_schema.generate --check --output schema/json/v2
+          git diff --exit-code -- schema/json/v2
 
       - name: Verify built wheel outside repository
         run: |

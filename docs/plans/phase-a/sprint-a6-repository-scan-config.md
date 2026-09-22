@@ -33,7 +33,7 @@ traversal, artifact-family routing, parser selection, or consumer conventions.
 ```sh
 PYTHONDONTWRITEBYTECODE=1 PYTHONPATH=schema/src python3 -m pytest schema/tests
 PYTHONDONTWRITEBYTECODE=1 PYTHONPATH=schema/src python3 -m mypy --strict schema/src/raptor_schema schema/tests/typing/protocol_contract.py
-PYTHONDONTWRITEBYTECODE=1 PYTHONPATH=schema/src python3 -m raptor_schema.generate --check --output schema/json/v1
+PYTHONDONTWRITEBYTECODE=1 PYTHONPATH=schema/src python3 -m raptor_schema.generate --check --output schema/json/v2
 PYTHONDONTWRITEBYTECODE=1 python3 plugins/raptor/scripts/vendor_schema.py --check
 PYTHONDONTWRITEBYTECODE=1 python3 -m pytest plugins/raptor/tests
 rg -n -i --hidden --glob '!.git/**' --glob '!.sc/**' '[p]3' . && exit 1 || true

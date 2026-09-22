@@ -18,6 +18,7 @@ from .requirements import load_sc_compose_requirement
 TREE_ALGORITHM = "sha256:path-nul-bytes-nul:v1"
 PYDANTIC_CONSTRAINT = ">=2.10,<3"
 SCHEMA_VERSION = "1.0.0"
+CANONICAL_SCHEMA_VERSION = "2.0.0"
 
 
 class VendorError(RuntimeError):
@@ -553,7 +554,7 @@ def refresh(plugin_root: Path, *, fail_at: str | None = None) -> dict[str, Any]:
             "vendor": {
                 "algorithm": TREE_ALGORITHM,
                 "tree_sha256": post_hash,
-                "canonical_schema_version": SCHEMA_VERSION,
+                "canonical_schema_version": CANONICAL_SCHEMA_VERSION,
                 "package_version": package_version,
                 "inventory": inventory,
             },
@@ -667,7 +668,7 @@ def check(plugin_root: Path) -> None:
         or vendor.get("tree_sha256") != expected_hash
         or vendor.get("inventory") != expected_inventory
         or vendor.get("algorithm") != TREE_ALGORITHM
-        or vendor.get("canonical_schema_version") != SCHEMA_VERSION
+        or vendor.get("canonical_schema_version") != CANONICAL_SCHEMA_VERSION
         or vendor.get("package_version") != package_version
         or manifest.get("requires")
         != {
