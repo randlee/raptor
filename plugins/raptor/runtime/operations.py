@@ -701,7 +701,6 @@ def sqlite_export_proof(
     )
     if not comparison.equal:
         raise ValueError("RAPTOR.ROUND_TRIP.SEMANTIC_LOSS: " + ",".join(comparison.differences))
-    canonical = dump_canonical_json(document)
     entry = IngressReportEntry(
         repository_path=document.provenance.origin.initial_repository_path,
         outcome="imported",
@@ -710,12 +709,12 @@ def sqlite_export_proof(
         profile=ProfileSelection(
             profile_id=profile.profile_id, profile_version=profile.profile_version
         ),
-        canonical_digest=hashlib.sha256(canonical.encode()).hexdigest(),
+        canonical_digest=_digest(document),
         sqlite_outcome="validated",
         field_count=_field_count(document.model_dump(mode="json", exclude_none=True)),
-        relationship_count=_relationship_count(document.model_dump(mode="json", exclude_none=True)),
-        origin_digest=_digest(document.provenance.origin.model_dump(mode="json")),
-        materialization_digest=_digest(document.provenance.materialization.model_dump(mode="json")),
+        relationship_count=_relationship_count(document),
+        origin_digest=_digest(document.provenance.origin),
+        materialization_digest=_digest(document.provenance.materialization),
         zero_loss=True,
         artifact_order_preserved=True,
         typed_relationship_count=int(typed_count),
