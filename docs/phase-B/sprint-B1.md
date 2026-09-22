@@ -34,7 +34,13 @@ Id-less documents are not allowed: Raptor never invents an id.
 
 - `Record` gains top-level `created`, `last_updated`, `version` (strings;
   null when the file header lacks them). They move out of
-  `document_metadata`, which keeps `owner`, `id_range`, `range_description`.
+  `document_metadata`, which keeps `owner` only. `id_range` and
+  `range_description` are dropped: a range is a document-level search
+  convenience in one source repository, not a field of an item, and most
+  repositories have no such header. Raptor neither reads, stores, prints
+  nor validates it: the `**ID Range:**` lines in the three templates, the
+  two fields in `record.py` and `record.schema.json`, and the range parsing
+  in `extract.py` all go.
   `type` becomes `REQ | NFR | ADR | TEST | DESIGN`.
 - `artifacts` table gains `created`, `last_updated`, `version` columns;
   `load_sqlite.py` writes them. The separate test-plan path in the index and
@@ -62,8 +68,7 @@ Id-less documents are not allowed: Raptor never invents an id.
     goes. The same entries are in the index's `validation` block.
     Rules in this sprint: `MISSING_ID` (no item heading and no Document ID),
     `DUPLICATE_ID`, `MISSING_HEADER_FIELD` (Status, Created, Last Updated,
-    Version, Owner), `RANGE_OVERLAP` (two files claim overlapping ID Range),
-    `ID_OUTSIDE_RANGE`.
+    Version, Owner). Nothing else.
   - exits non-zero when the validation summary has one or more errors. The
     index and the report are still written, so the fixture can be built and
     the caller still sees the failure. Today it returns 0 regardless.
