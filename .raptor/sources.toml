@@ -1,0 +1,5 @@
+[[sources]]
+name = "documentation"
+root = "docs"
+include = ["*.md", "**/*.md"]
+exclude = []

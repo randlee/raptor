@@ -2,6 +2,7 @@
 
 **Status:** Approved
 **Owner:** Example Team
+**ID Range:** REQ-CORE-0001 through ADR-CORE-0001
 
 ## REQ-CORE-0001: First item
 
