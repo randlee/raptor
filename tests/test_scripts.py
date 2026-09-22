@@ -88,4 +88,4 @@ def test_extract_uses_repository_configuration(tmp_path: Path) -> None:
     run(str(SCRIPTS / "extract.py"), "--output", str(index), cwd=project)
     payload = json.loads(index.read_text())
     assert len(payload["requirements"]) == 2
-    assert {item["domain"] for item in payload["requirements"]} == {"documentation"}
+    assert {item["domain"] for item in payload["requirements"]} == {"docs"}
