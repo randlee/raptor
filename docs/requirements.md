@@ -1,6 +1,6 @@
 # Raptor Requirements
 
-**ID Range:** REQ-RAP-0001 through REQ-RAP-0008  
+**ID Range:** REQ-RAP-0001 through REQ-RAP-0009  
 **Status:** Draft  
 **Created:** 2026-09-22  
 **Last Updated:** 2026-09-22  
@@ -94,3 +94,12 @@ which folders contain documents Raptor should ingest, so documents not under
 Raptor control are ignored. Second, a pointer to the current Raptor database:
 in production a URL that works on every computer; for test a full path, or
 better, an environment variable that names the database location.
+
+## REQ-RAP-0009: Date and time are stored and exchanged in UTC
+
+**Status:** Draft  
+
+Every date or time Raptor stores (SQLite, Dolt) or passes in JSON is UTC, in
+ISO 8601 form. Human-facing output (HTML, non-JSON reports) shows local
+time. A value with no time component, such as `2026-09-22` from a Markdown
+header, is stored as that ISO 8601 date and is not given a time or zone.
