@@ -1,0 +1,6 @@
+{
+  "name": "raptor",
+  "version": "1.0.0",
+  "description": "Import, export, validate, and query Raptor artifacts.",
+  "skills": "./skills/"
+}

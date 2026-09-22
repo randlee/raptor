@@ -1,0 +1,19 @@
+agents:
+  markdown-json-import: agents/markdown-json-import.md
+  json-sqlite-import: agents/json-sqlite-import.md
+  sqlite-json-export: agents/sqlite-json-export.md
+  json-markdown-export: agents/json-markdown-export.md
+  markdown-validate: agents/markdown-validate.md
+  json-validate: agents/json-validate.md
+  sqlite-validate: agents/sqlite-validate.md
+skills:
+  import:
+    - markdown-json-import
+    - json-sqlite-import
+  export:
+    - sqlite-json-export
+    - json-markdown-export
+  validate:
+    - markdown-validate
+    - json-validate
+    - sqlite-validate
