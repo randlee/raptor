@@ -1,82 +1,83 @@
 ---
 id: B.4
-title: Loader, renderer and templates follow the contract
+title: Parser diagnostics
 status: planned
-branch: feature/B-4-load-render
-worktree: ../raptor-worktrees/feature/B-4-load-render
+branch: feature/B-4-diagnostics
+worktree: ../raptor-worktrees/feature/B-4-diagnostics
 target: develop
-depends_on: [B.1]
-parallel_with: [B.2, B.3]
+depends_on: [B.2]
 ---
 
-# Sprint B.4 — Loader, renderer and templates follow the contract
+# Sprint B.4 — Parser diagnostics
 
-`load_sqlite.py` and the templates consume the B.1 record shape. Built and
-tested against `tests/fixtures/clean/expected-index.json` directly, so this
-sprint does not wait for the extractor. `render.py` already maps all five
-types and needs no change.
+The parser reports every problem in the source as one JSON object with a
+fixed remedy, processes the whole inventory in one pass, exits non-zero
+when anything was found, and still writes its output. Readers are agents.
+Defects for the tests are made by mutating rendered files, one defect each.
 
 ## Exact Targets
 
-- `scripts/load_sqlite.py`
-- `templates/requirement.md.j2`, `nfr.md.j2`, `adr.md.j2`, `design.md.j2`,
-  `test-plan.md.j2`
-- `tests/test_scripts.py`
+- `scripts/extract.py`
+- `tests/test_extract.py`
 
 ## Deliverables
 
-### `scripts/load_sqlite.py`
+### Rules
 
-- `INSERT INTO artifacts` writes the twelve B.1 columns in B.1 order:
-  `created`, `last_updated`, `version` come from the record's top level.
-  `status` is `item["status"]`, not `.get`; a missing value is a failure.
-- `records()` reads `index["requirements"]` only; drop the `artifacts`
-  fallback.
-- `relationship_rows` unchanged; it already skips non-list groups.
-- Exit non-zero with the SQLite error on stderr if any insert fails; no
-  partial database left behind.
+A diagnostic is `{"file", "line", "rule", "id", "message", "remedy"}`;
+`id` is `null` when none is involved. Each rule is one constant with its
+message template and fixed remedy. Every occurrence is reported; nothing is
+truncated; no rule stops the run.
 
-### Templates
+| Rule | Raised when | Effect on rows | Remedy |
+|---|---|---|---|
+| `MISSING_ID` | file has no item heading and no `**Document ID:**` | none emitted | Add `**Document ID:** <PREFIX>-<AREA>-<NNNN>`, or `## <ID>: <title>` headings |
+| `DUPLICATE_ID` | an id occurs more than once in the inventory; raised at every occurrence, message names the others | all occurrences emitted | Give each item a unique id |
+| `MISSING_HEADER_FIELD` | any of Status, Created, Last Updated, Version, Owner absent; one per field | file's rows not emitted | Add `**<Field>:** <value>` to the header block |
+| `INVALID_DATE` | Created or Last Updated not ISO 8601 (`YYYY-MM-DD`, or full form with `Z` or offset) | file's rows not emitted | Write the date as `YYYY-MM-DD` |
+| `INVALID_STATUS` | header or item Status outside Draft, Proposed, Active, Approved, Accepted, Deprecated, Superseded (case-insensitive; Accepted stored as Approved, as today) | that row not emitted | Use one of: Draft, Proposed, Active, Approved, Deprecated, Superseded |
+| `INVALID_HEADING` | a `##` heading starts with an id-like token but is not `## <ID>: <title>` | that heading skipped | Write `## <PREFIX>-<AREA>-<NNNN>: <title>` |
+| `MODEL_REJECTED` | `Record` rejects a parsed record | that row not emitted | Report to the Raptor repository; extractor defect |
 
-- Every template prints, after the title, four lines:
-  `**Status:**`, `**Created:**`, `**Last Updated:**`, `**Version:**`, then
-  `**Owner:** {{ record.document_metadata.owner }}`.
-- Every `**ID Range:**` line and every reference to `id_range`,
-  `range_description` or `family` is removed.
-- Created and Last Updated print the stored value unchanged. These are
-  Markdown, agent-facing, and carry no time component (REQ-RAP-0009).
+### Change in `extract.py`
 
-### `tests/test_scripts.py`
+- Each `None` from `extract_document_metadata` raises
+  `MISSING_HEADER_FIELD`; each bad date `INVALID_DATE`; `normalize_status`
+  returning `None` raises `INVALID_STATUS`; the regex miss raises
+  `INVALID_HEADING`; the empty file case raises `MISSING_ID`.
+- `main`: after all files, one pass over ids raises `DUPLICATE_ID`; model
+  failures raise `MODEL_REJECTED`. `validation.issues` ordered by file then
+  line; `validation.summary` is `{rule: count}` for every rule, zeros
+  included. Exit `1` when issues is non-empty, else `0`; output written
+  either way. Stdout exactly one line:
+  `{"index": "<path>", "files": N, "records": N, "issues": N}`.
 
-- Fixture project copies `tests/fixtures/clean/` and its `.raptor/`.
-- `load_sqlite` test: load `clean/expected-index.json` directly; assert
-  `SELECT id, type, status, created, last_updated, version FROM artifacts`
-  returns the six expected rows, and `relationships` holds the ADR → REQ
-  reference in both directions.
-- `render_each_record_type`: one record of each of the five types renders
-  through its template and the output contains the four field lines and no
-  `ID Range`.
-- `extract_and_load_are_idempotent` and `extract_uses_repository_configuration`
-  stay, pointed at the `clean/` fixture. They pass only after B.2 merges;
-  mark them `xfail(strict=True)` in this sprint with the reason
-  `"needs B.2"`, so that the merge of B.2 must remove the marker.
+### `tests/test_extract.py`
+
+Starting from the rendered `records.json` project, one test per rule, each
+applying one mutation and asserting the exact diagnostic object and the
+exact row effect:
+
+- delete the `**Version:**` line → `MISSING_HEADER_FIELD`, no row from that file
+- `**Created:** YYYY-MM-DD` → `INVALID_DATE`
+- item `**Status:** Whenever` → `INVALID_STATUS`, that row absent, others present
+- heading `## REQ-FIX-9 no colon` appended → `INVALID_HEADING`, other rows intact
+- copy the ADR item under the same id into the REQ file → `DUPLICATE_ID` at both lines
+- a file with header block and H1 only → `MISSING_ID`
+- clean project → issues empty, summary all zero, exit `0`; every mutated
+  run exits `1` and still writes the index and the one stdout line.
 
 ## Out of scope
 
-Anything not named above. In particular: no change to `extract.py` or
-`render.py`; no HTML rendering; no local-time formatting (there is no HTML output in Phase B);
-no new templates; no schema change.
+Anything not named above. No new rules; no parse options; no
+autocorrection; no schema change; no change to loader, render or templates.
 
 ## Ceilings
 
-- `load_sqlite.py` 60 lines; each template 30 lines; `test_scripts.py`
-  120 lines.
+`extract.py` 350 lines (B.2 ceiling holds); `test_extract.py` 140.
 
 ## Acceptance
 
-- `python -m pytest -q tests/test_scripts.py tests/test_record.py` passes,
-  with the two `xfail` tests reported as expected failures.
-- `sqlite3 <db> 'PRAGMA table_info(artifacts)'` lists the twelve B.1 columns.
-- `rg -n 'ID Range|id_range|family|artifacts"' templates scripts/load_sqlite.py`
-  prints nothing.
+- `python -m pytest -q tests/` passes.
+- `rg -c 'print\(' scripts/extract.py` prints `1`.
 - `rg -ni --hidden --glob '!.git/**' --glob '!.sc/**' '[p]3' .` prints nothing.

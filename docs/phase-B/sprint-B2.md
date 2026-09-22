@@ -1,101 +1,90 @@
 ---
 id: B.2
-title: Extractor parses to the contract
+title: Parser, Markdown to JSON
 status: planned
-branch: feature/B-2-extract-parse
-worktree: ../raptor-worktrees/feature/B-2-extract-parse
+branch: feature/B-2-parse
+worktree: ../raptor-worktrees/feature/B-2-parse
 target: develop
 depends_on: [B.1]
-parallel_with: [B.4]
+parallel_with: [B.3]
 ---
 
-# Sprint B.2 — Extractor parses to the contract
+# Sprint B.2 — Parser, Markdown to JSON
 
-`scripts/extract.py` produces records that validate against the B.1
-`Record` model, for every fixture under `tests/fixtures/clean/`, and
-produces exactly `clean/expected-index.json`. Line numbers refer to the file
-as of commit `315ddd6`.
+`scripts/extract.py` becomes the inverse of the B.1 templates: it reads the
+one document format and emits `Record` objects. Proven by round trip:
+render `records.json`, parse the result, compare for equality. Line numbers
+refer to the file as of commit `315ddd6`.
 
 ## Exact Targets
 
 - `scripts/extract.py`
-- `tests/test_extract.py` (new)
+- `tests/test_extract.py` (new); delete `tests/test_scripts.py`
 
 ## Deliverables
 
 ### Delete from `extract.py`
 
-- The separate test-plan path, lines 192–914: `is_test_plan`,
-  `extract_test_plans`, `parse_test_plan_id`, `extract_test_plan_id`,
-  `expand_id_range`, `parse_requirement_range`,
-  `extract_covered_requirements`, `parse_adr_range`, `extract_covered_adrs`,
-  `extract_test_cases`, `parse_traceability_matrix_row`,
-  `extract_traceability_matrix`, `parse_test_plan`.
-- `extract_range_description` (line 928), `compute_family_members`
-  (line 1296), `compute_test_plan_metrics` (line 1407).
-- The `test_plans` and `test_plan_discovery` keys in `generate_json_output`
-  (line 1432) and every call site that feeds them in `main`.
+- `DOMAIN_MAP`, `PATH_DOMAIN_MAP` and the domain lookup.
+- Test-plan path, lines 192–914 (thirteen functions from `is_test_plan` to
+  `parse_test_plan`).
+- `extract_range_description` 928, `parse_subsections` 1119,
+  `markdown_to_html` 1173, `build_bidirectional_relationships` 1272,
+  `compute_family_members` 1296, `build_indexes` 1318,
+  `compute_statistics` 1357, `compute_test_plan_metrics` 1407,
+  `generate_extraction_report` 1467, `test_cross_platform_paths` 1859.
+- Every `print()`. The record-model abort at 1756–1765 and the hard-coded
+  validation block at 1766.
 
-### Change in `extract.py`
+### Keep and change
 
-- `extract_document_metadata` (line 968): read `**Version:**`; stop reading
-  `**ID Range:**`; return `status`, `created`, `last_updated`, `version`,
-  `owner`, each `None` when absent. No defaults, no normalisation here.
-- `extract_requirement_id_and_title` (line 1107): regex accepts the `TEST`
-  prefix. Pattern `^##\s+((REQ|NFR|ADR|TEST)-[A-Z]+-\d{4}):\s*(.+)$`. Any
-  other `##` heading that starts with an id-like token is returned as an
-  invalid heading (B.3 reports it; B.2 only surfaces it).
-- `process_requirement` (line 1183): `type` from the prefix, one of
-  `REQ|NFR|ADR|TEST`. Stamp `created`, `last_updated`, `version` from the
-  header onto the record; `status` from the item's own `**Status:**` line
-  when present, else the header. `document_metadata` is `{"owner": ...}`
-  only. Remove `relationships.family`. Remove the print at line 1194.
-- `parse_file_content` (line 1056): when a file has no item headings and a
-  `**Document ID:**` line, emit one `DESIGN` record: id from that line,
-  title from the H1, content is the whole file, `subsections` from the H2s,
-  `source.section_line` is the Document ID line. When it has neither,
-  emit nothing (B.3 reports it).
-- `normalize_status` (line 1033): remove the default-to-Draft at line 1051;
-  return `None` for a value outside the allowed set.
-- `main` (line 1563): honour `.raptor/raptor.toml` under the given root, not
-  only under the current directory (line 1645). Remove the record-model
-  abort at lines 1756–1765; instead validate every record and keep going.
-  (B.3 turns each failure into a diagnostic.)
-- `generate_json_output` (line 1432): output keys `metadata`,
-  `requirements`, `indexes`, `statistics`, `validation`. `validation` is
-  `{"issues": [], "summary": {}}` in this sprint; B.3 fills it.
+- `extract_document_metadata` 968: read `Status`, `Created`,
+  `Last Updated`, `Version`, `Owner`, `Document ID`; each `None` when
+  absent; no defaults.
+- `normalize_status` 1033: return `None` for an unknown value; no
+  default-to-Draft (line 1051).
+- `extract_requirement_id_and_title` 1107: regex
+  `^##\s+((REQ|NFR|ADR|TEST)-[A-Z]+-\d{4}):\s*(.+)$`.
+- `find_cross_references` 1143: returns `Reference` entries, `context` the
+  sentence containing the id; excludes the item's own id.
+- `process_requirement` 1183: emits a `Record`: `type` from the prefix;
+  `status` from the item's `**Status:**` line, else header; `created`,
+  `last_updated`, `version`, `owner` from the header; `body` the text after
+  the heading (and after the item Status line) up to the next `##`,
+  stripped of trailing blank lines.
+- `parse_file_content` 1056: a file with item headings yields one record
+  per heading. A file with no item headings and a `**Document ID:**` yields
+  one `DESIGN` record: `id` from that line, `title` from the H1, `body` the
+  text after the header block's `---`. A file with neither yields nothing
+  (B.4 reports it).
+- `main` 1563: honour `.raptor/raptor.toml` under the given root, not only
+  the current directory (line 1645). Validate every record with `Record`.
+  Write `{"records": [...], "validation": {"issues": [], "summary": {}}}`;
+  B.4 fills `validation`. Records in file order, then heading order.
 
 ### `tests/test_extract.py`
 
-- Run the extractor over a copy of `tests/fixtures/clean/`; assert the
-  `requirements` array equals `expected-index.json["requirements"]` after
-  the `source.file` paths are made relative.
-- Assert every record validates against `Record`.
-- Assert one record per `TEST` heading and one `DESIGN` record for
-  `design.md`.
-- Assert `--project-root <copy>` and running from inside the copy produce
-  the same file count.
-- Assert `dirty/` runs to completion (exit code not asserted here; B.3
-  asserts it) and emits no record for `no-id.md`.
+- Render `records.json` into a temp project under `docs/` with a `.raptor/`
+  that ingests `docs`; run the extractor; assert the output `records`
+  equal the fixture's six records, order-independent.
+- Multi-item file: concatenate the two rendered TEST files into one (second
+  file's header block removed); parse; assert both records unchanged.
+- Assert `--project-root <tmp>` and running from inside `<tmp>` give the
+  same records.
 
 ## Out of scope
 
-Anything not named above. In particular: no diagnostics beyond what B.1's
-model rejects; no exit-code change; no change to `generate_extraction_report`
-or the text report (B.3 deletes them); no change to `DOMAIN_MAP`,
-`PATH_DOMAIN_MAP`, `find_cross_references`, `build_bidirectional_relationships`,
-`build_indexes`, `compute_statistics`, `markdown_to_html`.
+Anything not named above. No diagnostics beyond an empty `validation`
+block; no exit-code change; no change to `render.py`, `load_sqlite.py`,
+templates or schema.
 
 ## Ceilings
 
-- `extract.py` 1,300 lines after the deletions (from 1,926).
-- `test_extract.py` 80 lines.
+`extract.py` 350 lines (from 1,926); `test_extract.py` 60.
 
 ## Acceptance
 
 - `python -m pytest -q tests/test_extract.py tests/test_record.py` passes.
-- Extractor over `clean/` produces `expected-index.json["requirements"]`
-  exactly.
-- `rg -n 'test_plan|id_range|range_description|family' scripts/extract.py`
+- `rg -n 'html|domain|test_plan|id_range|family|subsection|print\(' scripts/extract.py`
   prints nothing.
 - `rg -ni --hidden --glob '!.git/**' --glob '!.sc/**' '[p]3' .` prints nothing.

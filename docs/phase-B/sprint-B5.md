@@ -12,10 +12,10 @@ depends_on: [B.2, B.3, B.4]
 
 Raptor's `.raptor/sources.toml` ingests `docs/**/*.md`. Four of those
 documents have no header block and no id, and the phase plans carry YAML
-frontmatter instead of a header block. Under B.3 the extractor run over
+frontmatter instead of a header block. Under B.4 the parser run over
 Raptor's own repository would exit non-zero. This sprint makes Raptor pass
-its own gate, then runs the scripts over the consumer corpus and records the
-result. No script changes.
+its own gate, then runs the three scripts over the consumer corpus and
+records the result. No script changes.
 
 ## Exact Targets
 
@@ -55,9 +55,10 @@ Raptor would query.
 Run `extract.py`, `load_sqlite.py` and `render.py` over the consumer
 repository checkout (read-only) with the merged B.2–B.4 scripts. Write
 `docs/phase-B/consumer-run.md` with: commit of each repository, file count,
-record count per type, `validation.summary`, exit code, and the count of
+record count per type, `validation.summary`, exit code, the count of
 `MISSING_ID` and `DUPLICATE_ID` diagnostics compared with the consumer
-architect's RAP-VAL-1 report. The consumer repository is not named in the
+architect's RAP-VAL-1 report, and whether `load_sqlite.py --dump` of the
+loaded database equals the parser's `records` array. The consumer repository is not named in the
 file; it is "the consumer repository". Nothing in that checkout is edited.
 
 ## Out of scope
@@ -77,9 +78,8 @@ is operator-only); no edit to `docs/requirements.md` or the ADR file.
   `0`, one `DESIGN` row per header-block document, REQ and ADR rows as
   before.
 - `python -m pytest -q tests/` passes.
-- Consumer run: every `artifacts` row has non-null `status`, `created`,
-  `last_updated`, `version`; one `TEST` row per `## TEST-` heading; one
-  `DESIGN` row per file with a Document ID; every id-less file and every
-  repeated id appears in `validation.issues`; exit `1` until the source is
-  corrected.
+- Consumer run: every `artifacts` row has all nine columns non-null; one
+  `TEST` row per `## TEST-` heading; one `DESIGN` row per file with a
+  Document ID; every id-less file and every repeated id appears in
+  `validation.issues`; exit `1` until the source is corrected.
 - `rg -ni --hidden --glob '!.git/**' --glob '!.sc/**' '[p]3' .` prints nothing.

@@ -1,65 +1,80 @@
-# Phase B — Close the gaps between the corpus and the fixture
+# Phase B — Fill the gaps between the Markdown and the rows
 
-Phase A produced a SQLite fixture from one Markdown corpus. Comparing that
-fixture against `docs/requirements.md` shows the gaps below. Phase B is one
-schema change to three scripts, split into sprints that each touch their own
-files so they can be built and tested independently. The other gaps are
-closed where they belong.
+Phase A left gaps: information present in the Markdown files was not
+showing up in rows. Status, Created, Last Updated, Version and Owner were
+kept at file level instead of on each item; TEST items and design documents
+never became rows; computed things (HTML, summaries, path-derived domains,
+section lines, subsection indexes) were stored as if they were information;
+and the parser reported almost nothing, so a file that failed to land in a
+row failed silently. Phase B fills those gaps with the schema below. Doing
+so will uncover non-compliance in the consumer corpus, which is fixed with
+minor corrections in that repository, not with exceptions in the parser.
 
-| Gap | Requirement | Owner | Where |
-|---|---|---|---|
-| Status, Created, Last Updated, Version are file-level, not per item | REQ-RAP-0002 | Raptor | B.1 contract, B.2 parse, B.4 load and render |
-| Test cases (`## TEST-` headings) and design documents (`**Document ID:**`) never reach SQLite | REQ-RAP-0002 | Raptor | B.1, B.2, B.4 |
-| `id_range`, `range_description` and `relationships.family` are stored on every item row | Operator rule: only item fields become columns | Raptor | B.1 drops them; B.2 stops producing them. Range headers in the source are a human search convenience; Raptor neither reads, stores nor validates them |
-| Extractor reports almost nothing: error count hard-coded to zero, dirty values silently defaulted, no duplicate check, text report truncated | REQ-RAP-0006 | Raptor | B.3 |
-| Explicit project root ignores `.raptor/raptor.toml` | REQ-RAP-0008 | Raptor | B.2 |
-| Raptor's own `docs/` has four documents with no header block and no id, and its test fixture lacks three header fields | REQ-RAP-0006 | Raptor (documents, operator-lead) | B.1 fixtures; B.5 own documents |
-| 39 of 43 design files, the schema reference and the HITL files carry no id; id-less documents are not allowed | REQ-RAP-0006 | Consumer repository's architect, task RAP-VAL-1, with the operator directly | Assign ids in the source; Raptor reports each id-less file and emits no row |
-| 30 ids repeated in the corpus | REQ-RAP-0006 | Consumer repository's architect, with the operator directly | Source correction; Raptor reports each repeat |
-| `hitl/**` excluded and `database/schema` omitted from the scan inventory | REQ-RAP-0008 | Consumer repository's architect, with the operator directly | `.raptor/sources.toml`, `.raptor/routing.toml` in that repository |
-| No import skill: the three scripts are run by hand | REQ-RAP-0006 | Raptor | Proposed Sprint B.6, pending the operator |
-| Database pointer (URL, or path / environment variable for test) not declared in `.raptor/` | REQ-RAP-0008 | Product | Not in Phase B |
-| Product, repository and module scoping | REQ-RAP-0004 | Product | Not in Phase B. Not columns on an item: one requirement may relate to every repository and module, or to one module in one repository. Schema additions beyond fields present in the consumer Markdown are discussed with the operator first. |
+A REQ, NFR, ADR, TEST or DESIGN item is information. That information maps
+to a schema, expressed once as SQL and once as JSON with the same field
+names. SQL to JSON is mechanical. JSON to Markdown is mechanical: an
+sc-compose template. Markdown to JSON is parsed, and is the only place with
+judgement in it; its output includes every problem it found.
+
+## The schema
+
+| field | source in Markdown | SQL |
+|---|---|---|
+| id | `## <ID>: <title>` heading, or `**Document ID:**` | TEXT PRIMARY KEY |
+| type | id prefix: REQ, NFR, ADR, TEST; DESIGN for a Document ID file | TEXT NOT NULL |
+| title | the heading, or the H1 of a Document ID file | TEXT NOT NULL |
+| status | item `**Status:**` line, else header `**Status:**` | TEXT NOT NULL |
+| created | header `**Created:**` | TEXT NOT NULL |
+| last_updated | header `**Last Updated:**` | TEXT NOT NULL |
+| version | header `**Version:**` | TEXT NOT NULL |
+| owner | header `**Owner:**` | TEXT NOT NULL |
+| body | the item's Markdown below its heading, verbatim | TEXT NOT NULL |
+| references | ids mentioned in the body | table `relationships(source_id, target_id, context)` |
+
+Nothing computed is stored. Dates are ISO 8601 as written (REQ-RAP-0009).
+Range headers in the source are a human search convenience: not read, not
+stored, not validated. Product, repository and module scoping (REQ-RAP-0004)
+is a Product decision and is not in Phase B. Any field beyond this table is
+discussed with the operator first.
+
+## Gaps closed elsewhere
+
+| Gap | Owner | Where |
+|---|---|---|
+| 39 of 43 design files, the schema reference and the HITL files carry no id; 30 ids repeated | Consumer repository's architect, task RAP-VAL-1, with the operator directly | Source correction; the parser reports every occurrence and emits no row for an id-less file |
+| `hitl/**` excluded and `database/schema` omitted from the scan | Consumer repository's architect, with the operator directly | That repository's `.raptor/` |
+| No import skill; scripts run by hand | Raptor | Proposed Sprint B.6, pending the operator |
+| Database pointer not declared in `.raptor/` | Product | Not in Phase B |
 
 ## Sprints
 
-| Sprint | Files | Depends on | Runs in parallel with |
+| Sprint | Files | Depends on | Parallel with |
 |---|---|---|---|
-| B.1 Schema contract and fixtures | `schema/record.py`, `schema/record.schema.json`, `schema/schema.sql`, `tests/test_record.py`, `tests/fixtures/**` | — | — |
-| B.2 Extractor: parse to the contract | `scripts/extract.py`, `tests/test_extract.py` | B.1 | B.4 |
-| B.3 Extractor: validate and report | `scripts/extract.py`, `tests/test_extract.py` | B.2 (same file) | B.4 |
-| B.4 Loader and templates | `scripts/load_sqlite.py`, `templates/*.md.j2`, `tests/test_scripts.py` | B.1 | B.2, B.3 |
-| B.5 Raptor's own documents comply; consumer run | `docs/*.md`, `.raptor/sources.toml` | B.2, B.3, B.4 | — |
+| B.1 Schema and the two mechanical mappings | `schema/record.py`, `schema/record.schema.json`, `schema/schema.sql`, `scripts/render.py`, `templates/*.md.j2`, `tests/fixtures/records.json`, `tests/test_record.py` | — | — |
+| B.2 Parser: Markdown to JSON | `scripts/extract.py`, `tests/test_extract.py` | B.1 | B.3 |
+| B.3 Loader: JSON to SQL and back | `scripts/load_sqlite.py`, `tests/test_load.py` | B.1 | B.2 |
+| B.4 Parser: diagnostics | `scripts/extract.py`, `tests/test_extract.py` | B.2 | — |
+| B.5 Raptor's own documents comply; consumer run | `docs/*.md`, `.raptor/` | B.2, B.3, B.4 | — |
 
-B.1 defines the contract: the model, the SQL, and Markdown fixtures that
-comply with it, with the exact JSON each fixture must produce. B.2 and B.4
-are built against those fixtures independently. B.3 follows B.2 because both
-edit `extract.py`. B.5 is document and configuration work plus the run over
-the consumer corpus; no script changes.
+The one hand-written fixture is `tests/fixtures/records.json`: six records in
+schema shape. B.1 proves render and SQL against it. B.2 proves the parser
+by round trip: render the records, parse the Markdown, compare for equality.
+B.3 proves the loader by round trip: load, read back, compare. B.4 proves
+diagnostics by mutating rendered files one defect at a time.
 
 ## Rules for every sprint
 
 - **Exactly the named deliverables.** A sprint changes the files and
-  functions it names and nothing else. Anything else found along the way is
-  written in the completion message for the operator; it is not done.
-- **Tight scripts.** Every line ceiling is a hard limit; a sprint that needs
-  more explains why in its completion message before exceeding it.
+  functions it names and nothing else. Anything else found is written in the
+  completion message for the operator; it is not done.
+- **Tight scripts.** Line ceilings are hard limits.
 - **Very good error reporting, in JSON.** Dirty source is expected. Every
-  problem the extractor finds is one object an agent can act on: file, line,
-  rule, id, message, fixed remedy. Every occurrence, nothing truncated, the
-  whole inventory in one pass. No text report: the readers are agents. A run
-  with errors exits non-zero and still writes its outputs.
-- **No exceptions for one repository.** The scripts know one document
-  format: a header block of `**Field:** value` lines, items as `## <ID>:
-  <title>` headings, or a `**Document ID:**` for a document without items.
-  A source that deviates is reported and corrected at the source.
-- **Parse options only when they are tool options.** An ingress setting in
-  `.raptor/` is acceptable when it would make sense for any repository. A
-  setting that exists to accept one repository's inconsistency is not. New
-  options are discussed with the operator first. Phase B adds none.
-- **Only fields present in the source Markdown become columns.** Any other
-  schema change is discussed with the operator first.
+  problem is one object an agent can act on: file, line, rule, id, message,
+  fixed remedy. Every occurrence, whole inventory, one pass, no text report.
+  A run with errors exits non-zero and still writes its output.
+- **No exceptions for one repository.** One document format: header block of
+  `**Field:** value` lines, items as `## <ID>: <title>`, or `**Document ID:**`
+  for a document without items. Deviations are reported and fixed at source.
+- **Parse options only when they are tool options.** Phase B adds none.
 
-Phase B does not wait on the consumer repository's corrections. Until the
-source is corrected, the extractor lists its problems and exits non-zero;
-when the source is corrected, the list is empty and nothing in Raptor changes.
+Phase B does not wait on the consumer repository's corrections.
