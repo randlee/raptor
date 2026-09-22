@@ -199,3 +199,59 @@ include = ["**/*.md"]
         )
     assert not (root / ".raptor/state/ingress.sqlite").exists()
     assert not (root / ".raptor/state/ingress-report.json").exists()
+
+
+def test_multi_document_reference_abort_preserves_each_document_identity(
+    tmp_path: Path,
+) -> None:
+    root = _repository(tmp_path)
+    for name, artifact_id, document_id in (
+        ("requirements.md", "DES-RAP-001", "DOC-RAP-001"),
+        ("second.md", "DES-RAP-002", "DOC-RAP-002"),
+    ):
+        (root / "specifications" / name).write_text(
+            f"""### {artifact_id} — {document_id}
+Overview: Prove per-path diagnostics.
+Component: Ingress | Reports one identity per path.
+Dependencies: urn:raptor:repo:sample/REQ-RAP-999
+Interface: Batch | Reports diagnostics. | Raptor, consumer
+"""
+        )
+    (root / ".raptor/routing.toml").write_text(
+        """schema_version = "1.0.0"
+
+[[routes]]
+source = "requirements"
+artifact_types = ["design_document"]
+
+[routes.profile]
+profile_id = "raptor"
+profile_version = "1.0.0"
+"""
+    )
+    (root / ".raptor/identity.json").write_text(
+        json.dumps(
+            {
+                "identity_version": "1.0.0",
+                "repository_id": "urn:raptor:repo:sample",
+                "documents": {
+                    "DOC-RAP-001": {"path": "specifications/requirements.md"},
+                    "DOC-RAP-002": {"path": "specifications/second.md"},
+                },
+            }
+        )
+    )
+
+    result = configured_markdown_to_sqlite(
+        root,
+        ".raptor/raptor.toml",
+        ".raptor/state/ingress.sqlite",
+        ".raptor/state/ingress-report.json",
+    )
+
+    report = IngressReport.model_validate(result["report_data"])
+    assert [(entry.repository_path, entry.document_id) for entry in report.entries] == [
+        ("specifications/requirements.md", "DOC-RAP-001"),
+        ("specifications/second.md", "DOC-RAP-002"),
+    ]
+    assert {entry.outcome for entry in report.entries} == {"diagnosed"}
