@@ -1,9 +1,0 @@
----
-name: raptor-test-plan
-version: 2.0.0
-format: markdown
-required_variables:
-  - document.segments
-  - artifacts
----
-{% for artifact in artifacts %}{{ artifact.content }}{% endfor %}

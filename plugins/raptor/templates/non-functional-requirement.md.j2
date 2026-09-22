@@ -1,9 +1,0 @@
----
-name: raptor-non-functional-requirement
-version: 2.0.0
-format: markdown
-required_variables:
-  - document.segments
-  - artifacts
----
-{% for segment in document.segments %}{{ segment.content if segment.kind == "text" else segment.markdown }}{% endfor %}
