@@ -52,11 +52,24 @@ Id-less documents are not allowed: Raptor never invents an id.
     validation error naming the file. No row is emitted; the source is
     corrected (REQ-RAP-0006).
   - every id that appears more than once, in one file or across files, is
-    reported as one diagnostic naming each file and line. No parsing rule
-    works around it.
+    reported as one diagnostic per occurrence naming file and line. No
+    parsing rule works around it.
+  - error reporting is rewritten to one format: `file:line: RULE id message`,
+    one line per occurrence, grouped by file, complete. Today the
+    `validation` block is hard-coded to zero errors, the only check is the
+    record model (a failure aborts the run without writing the index), and
+    the text report truncates to 10 files and 5 errors each. All of that
+    goes. The same entries are in the index's `validation` block.
+    Rules in this sprint: `MISSING_ID` (no item heading and no Document ID),
+    `DUPLICATE_ID`, `MISSING_HEADER_FIELD` (Status, Created, Last Updated,
+    Version, Owner), `RANGE_OVERLAP` (two files claim overlapping ID Range),
+    `ID_OUTSIDE_RANGE`.
   - exits non-zero when the validation summary has one or more errors. The
     index and the report are still written, so the fixture can be built and
     the caller still sees the failure. Today it returns 0 regardless.
+  - adds no ingress parse options. If one proves necessary it is proposed
+    as an option any repository could use and discussed with the operator
+    before it is added.
 - Templates print `**Status:**`, `**Created:**`, `**Last Updated:**`,
   `**Version:**` under each item's heading, from the item's own fields.
 
@@ -69,7 +82,9 @@ Id-less documents are not allowed: Raptor never invents an id.
 
 - `python -m pytest -q tests` passes; a fixture with one REQ file, one test
   plan with two `## TEST-` headings, one design file with `**Document ID:**`,
-  one file with no id at all, and one repeated id covers every deliverable.
+  one file with no id at all, one file missing a header field, and one
+  repeated id covers every deliverable. The test asserts the exact report
+  lines for each dirty file and the non-zero exit code.
 - Consumer run: `created`, `last_updated` and `version` non-null wherever
   the file header has them; one `TEST` row per `## TEST-` heading; one
   `DESIGN` row per design file that has `**Document ID:**` (4 today);
