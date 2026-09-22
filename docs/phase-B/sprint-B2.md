@@ -1,85 +1,108 @@
 ---
 id: B.2
-title: Parser reads the fields
+title: Python on the crate
 status: planned
-branch: feature/B-2-parse
-worktree: ../raptor-worktrees/feature/B-2-parse
+branch: feature/B-2-python-on-crate
+worktree: ../raptor-worktrees/feature/B-2-python-on-crate
 target: develop
 depends_on: [B.1]
-parallel_with: [B.3]
 ---
 
-# Sprint B.2 — Parser reads the fields
+# Sprint B.2 — Python on the crate
 
-`scripts/extract.py` reads `Created`, `Last Updated`, `Version` and the
-item-level `Status`, puts them on every record, emits a row for every id
-whatever its prefix, and stops producing the range fields. Proven by round trip against
-the B.1 templates. Line numbers refer to the file as of commit `315ddd6`.
+The three scripts are rewritten to import `raptor_schema` and own no field
+name. `extract.py` becomes a file walk, a splitter and a bind loop.
+`render.py` loops the field table through two templates. `load_sqlite.py`
+inserts by the field table. The Phase A model, SQL and JSON Schema files are
+deleted. Proven by round trip on the B.1 fixture. No crate change.
 
 ## Exact Targets
 
-- `scripts/extract.py`
-- `tests/test_extract.py` (new); delete `tests/test_scripts.py`
+- `scripts/extract.py`, `scripts/render.py`, `scripts/load_sqlite.py`
+- `templates/requirement.md.j2`, `templates/decision.md.j2` (new); delete
+  `nfr.md.j2`, `design.md.j2`, `test-plan.md.j2`
+- Delete `schema/record.py`, `schema/record.schema.json`, `schema/schema.sql`
+- `tests/test_extract.py`, `tests/test_load.py` (new); delete
+  `tests/test_scripts.py`, `tests/test_record.py`, `tests/fixtures/items.md`
 
 ## Deliverables
 
-### Change in `extract.py`
+### `extract.py`
 
-- `extract_document_metadata` 968: read `**Version:**`; stop reading
-  `**ID Range:**`; each field `None` when absent, no defaults.
-- `normalize_status` 1033: return `None` for an unknown value; remove the
-  default-to-Draft and its print (1051).
-- `extract_requirement_id_and_title` 1107: regex
-  `^##\s+([A-Z]+-[A-Z]+-\d{4}):\s*(.+)$` (was REQ/NFR/ADR only). This
-  heading is the only way an id is declared; it is what the templates emit.
-- `process_requirement` 1183: one record per heading. `type` is the id's
-  prefix. `status` from the record's own `**Status:**` line, else the
-  header; `created`, `last_updated`, `version` from the header;
-  `document_metadata` is `{"owner": ...}`; no `relationships.family`;
-  remove the print at 1194.
-- `parse_file_content` 1056: the file is a container. Which ids share a file
-  does not matter; a REQ and an NFR in one file or two files parse the same.
-  A file with no id heading yields nothing (B.4 reports it).
-- `main` 1563: honour `.raptor/raptor.toml` under the given root, not only
-  the current directory (1645). Remove the record-model abort (1756–1765)
-  and the hard-coded validation block (1766): validate every record, keep
-  going, write `validation: {"issues": [], "summary": {}}`; B.4 fills it.
-- `generate_json_output` 1432: keys `metadata`, `requirements`, `indexes`,
-  `statistics`, `validation`. Remove `test_plans`, `test_plan_discovery`.
+- `--project-root`, default the current directory. Reads
+  `.raptor/raptor.toml` for `repository_id` and `.raptor/sources.toml` for
+  the inventory, both under the root.
+- The splitter, one function, inverting the template grammar into the label
+  tree in the plan. Header block: bold lines between the H1 and the first
+  `---` or `## `; trailing double spaces stripped. Record: `## <ID>: <title>`
+  where the token matches `^[A-Z]+-[A-Z]{2,5}-\d{4}$`. Fields: bold lines
+  before the first `###`. Sections: `###`; groups: `####` inside a section;
+  labels: bold lines inside either; items: lines starting `- `, `* ` or
+  `N. `, checkbox prefix kept in the text; everything else non-empty is
+  prose. Lines inside a fenced code block and lines starting `|` are prose
+  verbatim. Line numbers are one-based. An H2 that is not an id heading ends
+  the current record; its content is file-level prose and outside the record
+  model. The splitter contains no label literal.
+- Per file: `raptor_schema.bind_file(tree, repository)`. After all files:
+  `check_inventory`, then `summarize`.
+- Output `{"metadata": {repository, generated, files, records},
+  "requirements": [...], "decisions": [...],
+  "diagnostics": {"issues": [...], "summary": {...}}}`. `generated` is UTC.
+  Issues ordered by file then line. Exit `1` when issues is non-empty, else
+  `0`; the file is written either way. Stdout exactly one line:
+  `{"index": "<path>", "files": N, "records": N, "issues": N}`. No other
+  `print`.
 
-### Delete from `extract.py`
+### `render.py`
 
-- The separate test-plan path, lines 192–914 (`is_test_plan` through
-  `parse_test_plan`), superseded by `TEST` headings through the item rule.
-- `extract_range_description` 928, `compute_family_members` 1296,
-  `compute_test_plan_metrics` 1407.
+- Table from the record's id prefix; template `requirement.md.j2` for REQ
+  and NFR, `decision.md.j2` for ADR. Output `<out>/<table>/<id>.md`.
+- Passes `record` and `fields` (`field_table(table)`) to sc-compose. The
+  template prints the H1 from the kind and title, then every `header` level
+  field as `**Label:** value` with two trailing spaces, `ID Range` computed
+  as `<id> through <id>`, then `---`, then `## <id>: <title>`, then every
+  `item` level field. Sections come in B.3; the template has the loop
+  already, over fields of level `section`, and prints nothing for them now.
+- No `TEMPLATES` map, no field name in the script.
 
-### `tests/test_extract.py`
+### `load_sqlite.py`
 
-- Render `records.json` into a temp project under `docs/` with a `.raptor/`
-  that ingests `docs`; run the parser; assert `requirements` equals the
-  fixture's six records, order-independent, paths made relative.
-- File layout is irrelevant: concatenate the rendered REQ and NFR files into
-  one (second header block removed), and split nothing else; parse; assert
-  all six records unchanged.
-- `--project-root <tmp>` and running from inside `<tmp>` give the same
-  records.
+- `connection.executescript(raptor_schema.sql_ddl())`, foreign keys on.
+- One insert per table with columns from `field_table`; a column whose
+  shape is not scalar is stored as JSON text.
+- `--dump` prints `{"requirements": [...], "decisions": [...]}` read back
+  from the database, JSON columns parsed, for equality tests.
+
+### Tests
+
+- `test_extract.py`: render the fixture into a temp project with a
+  `.raptor/` that ingests `docs`; extract; `requirements` and `decisions`
+  equal the fixture, order-independent; `issues` empty; exit `0`.
+  Concatenate the rendered REQ and NFR files into one file, second header
+  removed: same records. `--project-root <tmp>` and running from inside
+  `<tmp>` agree. One test per B.1 rule by mutating one rendered file:
+  delete `**Version:**` line, `**Created:** YYYY-MM-DD`, item
+  `**Status:** Whenever`, add `**Priority:** High` under a heading, add a
+  `### Notes` section, copy ADR-FIX-0001 into the REQ file, a file with H1
+  and header only. Each asserts the exact diagnostic object, the row effect
+  and exit `1`.
+- `test_load.py`: load the fixture index; `--dump` equals the index's
+  records; a second load is idempotent.
 
 ## Out of scope
 
-Anything not named above. No diagnostics beyond an empty `validation`
-block; no exit-code change; `generate_extraction_report` and the report
-write stay until B.4; no change to `DOMAIN_MAP`, `PATH_DOMAIN_MAP`,
-`find_cross_references`, `build_bidirectional_relationships`,
-`build_indexes`, `compute_statistics`, `markdown_to_html`, `parse_subsections`.
+Anything not named above. No new rule, no parse option, no crate change,
+no corpus run, no change to `.raptor/` or `docs/`.
 
 ## Ceilings
 
-`extract.py` 1,200 lines (from 1,926); `test_extract.py` 60.
+`extract.py` 200 lines; `render.py` 60; `load_sqlite.py` 50; each template
+40; `test_extract.py` 90; `test_load.py` 30.
 
 ## Acceptance
 
-- `python -m pytest -q tests/test_extract.py tests/test_record.py` passes.
-- `rg -n 'test_plan|id_range|range_description|family' scripts/extract.py`
-  prints nothing.
+- `pip install . && python -m pytest -q tests/` passes.
+- `rg -n '\*\*[A-Z][A-Za-z ]+:\*\*' scripts/` prints nothing.
+- `rg -n 'pydantic|record\.py|schema\.sql' scripts tests .github` prints nothing.
+- `rg -c 'print\(' scripts/extract.py` prints `1`.
 - `rg -ni --hidden --glob '!.git/**' --glob '!.sc/**' '[p]3' .` prints nothing.

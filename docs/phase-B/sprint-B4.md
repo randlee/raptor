@@ -1,87 +1,95 @@
 ---
 id: B.4
-title: Parser diagnostics
+title: ADR columns
 status: planned
-branch: feature/B-4-diagnostics
-worktree: ../raptor-worktrees/feature/B-4-diagnostics
+branch: feature/B-4-adr-columns
+worktree: ../raptor-worktrees/feature/B-4-adr-columns
 target: develop
-depends_on: [B.2]
+depends_on: [B.3]
 ---
 
-# Sprint B.4 — Parser diagnostics
+# Sprint B.4 — ADR columns
 
-The parser reports every problem in the source as one JSON object with a
-fixed remedy, processes the whole inventory in one pass, exits non-zero
-when anything was found, and still writes its output. Readers are agents.
-Defects for the tests are made by mutating rendered files, one defect each.
+The `decisions` table gains the columns the consumer's ADR template defines,
+the `group` shape for alternatives, `decision_date`, and the two supersession
+scalars on Lifecycle, which reach both tables and become foreign keys. Then
+the second corpus run and its report.
 
 ## Exact Targets
 
-- `scripts/extract.py`
-- `tests/test_extract.py`
+- `crates/raptor-schema/src/**`, `crates/raptor-schema/tests/**`
+- `templates/decision.md.j2`, `templates/requirement.md.j2` (header loop only)
+- `tests/fixtures/records.json`, `tests/test_extract.py`, `tests/test_load.py`
+- `docs/phase-B/corpus-run-B4.md` (new)
 
 ## Deliverables
 
-### Rules
+### Shape
 
-A diagnostic is `{"file", "line", "rule", "id", "message", "remedy"}`;
-`id` is `null` when none is involved. Each rule is one constant with its
-message template and fixed remedy. Every occurrence is reported; nothing is
-truncated; no rule stops the run.
+`group`: a section whose `####` headings each start a group; the group name
+is the heading text after the first `: ` (`#### Alternative 1: Name` gives
+`Name`); labels inside the group are its fields. A `####` in a section not
+declared as a group is `UNKNOWN_SECTION`.
 
-| Rule | Raised when | Effect on rows | Remedy |
-|---|---|---|---|
-| `MISSING_ID` | file has no `## <ID>: <title>` heading | none emitted | Add a `## <PREFIX>-<AREA>-<NNNN>: <title>` heading for each record in the file |
-| `DUPLICATE_ID` | an id occurs more than once in the inventory; raised at every occurrence, message names the others | all occurrences emitted | Give each item a unique id |
-| `MISSING_HEADER_FIELD` | any of Status, Created, Last Updated, Version, Owner absent; one per field | file's rows not emitted | Add `**<Field>:** <value>` to the header block |
-| `INVALID_DATE` | Created or Last Updated not ISO 8601 (`YYYY-MM-DD`, or full form with `Z` or offset) | file's rows not emitted | Write the date as `YYYY-MM-DD` |
-| `INVALID_STATUS` | header or item Status outside Draft, Proposed, Active, Approved, Accepted, Deprecated, Superseded (case-insensitive; Accepted stored as Approved, as today) | that row not emitted | Use one of: Draft, Proposed, Active, Approved, Deprecated, Superseded |
-| `INVALID_HEADING` | a `##` heading starts with an id-like token but is not `## <ID>: <title>` | that heading skipped | Write `## <PREFIX>-<AREA>-<NNNN>: <title>` |
-| `MODEL_REJECTED` | `Record` rejects a parsed record | that row not emitted | Report to the Raptor repository; extractor defect |
+### Lifecycle, both tables
 
-### Change in `extract.py`
+`supersedes` and `superseded_by`: header level, shape `id`, optional, one
+attribute line each on `Lifecycle`. SQL: nullable `TEXT REFERENCES
+<same table>(id)`. An id whose kind does not match the table is `BAD_VALUE`.
 
-- Delete `generate_extraction_report`, the `--report` handling, the
-  `reports/` write, and every remaining `print()` except the one stdout
-  line below.
+### Columns on `decisions`
 
-- Each `None` from `extract_document_metadata` raises
-  `MISSING_HEADER_FIELD`; each bad date `INVALID_DATE`; `normalize_status`
-  returning `None` raises `INVALID_STATUS`; the regex miss raises
-  `INVALID_HEADING`; the empty file case raises `MISSING_ID`.
-- `main`: after all files, one pass over ids raises `DUPLICATE_ID`; model
-  failures raise `MODEL_REJECTED`. `validation.issues` ordered by file then
-  line; `validation.summary` is `{rule: count}` for every rule, zeros
-  included. Exit `1` when issues is non-empty, else `0`; output written
-  either way. Stdout exactly one line:
-  `{"index": "<path>", "files": N, "records": N, "issues": N}`.
+| Column | Section | Labels and shapes |
+|---|---|---|
+| `decision_date` | header `Decision Date` | date, required |
+| `context` | Context | `background`: text; `problem_statement`: text |
+| `decision` | Decision | `chosen_approach`: text; `key_principles`: text_list |
+| `rationale` | Rationale | `benefits`: text_list; `trade_offs`: text_list |
+| `consequences` | Consequences | `positive`, `negative`, `neutral`: text_list |
+| `alternatives` | Alternatives Considered | group of `{name, description: text, pros: text_list, cons: text_list, why_rejected: text}` |
+| `implementation` | Implementation | `key_components`, `integration_points`: text_list; `code_examples`: text |
+| `impact_analysis` | Impact Analysis | `affected_components`, `performance_impact`, `security_impact`, `maintainability_impact`: text |
 
-### `tests/test_extract.py`
+`rationale` on `decisions` and `rationale` on `requirements` share a name
+and not a type; neither is in a group. Required sections, per the consumer's
+template: Context, Decision, Rationale, Consequences. A `**Date:**` line on
+an item is `UNKNOWN_LABEL` with `allowed` naming `Decision Date`.
 
-Starting from the rendered `records.json` project, one test per rule, each
-applying one mutation and asserting the exact diagnostic object and the
-exact row effect:
+### Fixture, templates, tests
 
-- delete the `**Version:**` line → `MISSING_HEADER_FIELD`, no row from that file
-- `**Created:** YYYY-MM-DD` → `INVALID_DATE`
-- item `**Status:** Whenever` → `INVALID_STATUS`, that row absent, others present
-- heading `## REQ-FIX-9 no colon` appended → `INVALID_HEADING`, other rows intact
-- copy the ADR item under the same id into the REQ file → `DUPLICATE_ID` at both lines
-- a file with header block and H1 only → `MISSING_ID`
-- clean project → issues empty, summary all zero, exit `0`; every mutated
-  run exits `1` and still writes the index and the one stdout line.
+- ADR-FIX-0001 gains every column with two alternatives; ADR-FIX-0002
+  supersedes ADR-FIX-0001 and ADR-FIX-0001 is `superseded_by` 0002 with
+  Status Superseded; both carry `decision_date`.
+- `decision.md.j2` header loop prints `Decision Date`, `Supersedes`,
+  `Superseded By` when present; the section loop prints groups as `####
+  Alternative N: <name>` followed by their labels. `requirement.md.j2` gains
+  the two optional header lines.
+- Rust: `group` shape; foreign key accepted and rejected; kind mismatch
+  `BAD_VALUE`; `Date` label diagnostic.
+- Python: round trip equality; mutations for a `#### Option A` under
+  Consequences (`UNKNOWN_SECTION`), `**Supersedes:** REQ-FIX-0001` on an
+  ADR (`BAD_VALUE`); `--dump` equality; `PRAGMA foreign_key_check` empty.
+
+### Corpus run
+
+As B.3, written to `docs/phase-B/corpus-run-B4.md`, with a second table
+showing each B.3 group's count then and now.
 
 ## Out of scope
 
-Anything not named above. No new rules; no parse options; no
-autocorrection; no schema change; no change to loader, render or templates.
+Anything not named above. No test or design tables, no change to
+`extract.py` or `load_sqlite.py`, no fix to any diagnostic by code, no
+change to `.raptor/` or product documents.
 
 ## Ceilings
 
-`extract.py` 1,100 lines (below B.2's 1,200; this sprint only deletes and replaces the report); `test_extract.py` 140.
+Crate `src/` 700 lines total; crate tests 420; `records.json` 360;
+`decision.md.j2` 70; `test_extract.py` 140; `corpus-run-B4.md` 70.
 
 ## Acceptance
 
-- `python -m pytest -q tests/` passes.
-- `rg -c 'print\(' scripts/extract.py` prints `1`.
+- `cargo test -p raptor-schema`, `cargo clippy --all-targets --all-features -- -D warnings`,
+  `pip install . && python -m pytest -q tests/` pass.
+- `rg -n '\*\*[A-Z][A-Za-z ]+:\*\*' scripts/` prints nothing.
+- The corpus run exits `1` and `corpus-run-B4.md` exists with both tables.
 - `rg -ni --hidden --glob '!.git/**' --glob '!.sc/**' '[p]3' .` prints nothing.
