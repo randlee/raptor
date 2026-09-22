@@ -17,6 +17,6 @@ through one Jinja2 template per table. Until Phase B lands, `schema/record.py`
 is the Phase A model the scripts still run on.
 
 The scripts are deliberately standalone: no package, configuration system,
-plugin, provenance model or transaction log is part of this bridge. Source
+plugin, audit trail or transaction log is part of this bridge. Source
 repositories are corrected by their owners from the importer's grouped
 diagnostics rather than by adding repository-specific parsing rules here.

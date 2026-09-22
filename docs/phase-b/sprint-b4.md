@@ -32,6 +32,16 @@ is the heading text after the first `: ` (`#### Alternative 1: Name` gives
 `Name`); labels inside the group are its fields. A `####` in a section not
 declared as a group is `UNKNOWN_SECTION`.
 
+### Signatures
+
+```rust
+pub struct Alternative { pub name: String, pub description: String,
+    pub pros: Vec<String>, pub cons: Vec<String>, pub why_rejected: String }
+pub struct Alternatives { pub text: String, pub groups: Vec<Alternative> }
+// Lifecycle gains: pub supersedes: Option<Id>, pub superseded_by: Option<Id>
+// Decision gains: pub decision_date: Date, plus one struct per section column
+```
+
 ### Lifecycle, both tables
 
 `supersedes` and `superseded_by`: header level, shape `id`, optional, one
@@ -85,7 +95,8 @@ change to `.raptor/` or product documents.
 ## Ceilings
 
 Crate `src/` 700 lines total; crate tests 420; `records.json` 360;
-`decision.md.j2` 70; `test_extract.py` 140; `corpus-run-b4.md` 70.
+`decision.md.j2` 70; `requirement.md.j2` 60 (unchanged from B.3);
+`test_extract.py` 140; `test_load.py` 40; `corpus-run-b4.md` 70.
 
 ## Acceptance
 

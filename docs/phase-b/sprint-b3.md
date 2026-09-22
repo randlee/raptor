@@ -43,6 +43,30 @@ run.
 Every section column carries `text` for prose written before its first
 label, plus its labels.
 
+### Signatures
+
+Item types of the new shapes, names fixed as in B.1:
+
+```rust
+pub struct Statement { pub modal: Modal, pub text: String }
+pub struct CheckItem { pub text: String, pub checked: Option<bool> }
+pub struct IdItem { pub id: Id, pub note: Option<String> }
+pub struct LinkItem { pub text: String, pub href: String, pub note: Option<String> }
+pub struct RelatedDocuments { pub text: String,
+    pub requirements: Vec<IdItem>, pub architecture_decisions: Vec<IdItem>,
+    pub design_documents: Vec<LinkItem>, pub work_items: Vec<LinkItem>,
+    pub external_references: Vec<LinkItem> }
+pub trait HasRelatedDocuments { fn related_documents(&self) -> &RelatedDocuments; }
+// one struct per section column, e.g.
+pub struct RequirementStatement { pub text: String, pub statements: Vec<Statement> }
+pub struct SuccessCriteria { pub text: String,
+    pub acceptance_criteria: Vec<CheckItem>, pub test_evidence: Vec<String> }
+```
+
+`Rule` gains `DanglingReference`. A `text_list` is `Vec<String>`; an absent
+optional label is the empty list; an absent section is the struct with
+every field empty.
+
 ### Columns on `requirements`
 
 | Column | Section | Labels and shapes |
@@ -108,7 +132,7 @@ foreign keys, no fix to any diagnostic by code, no change to `extract.py`,
 
 ## Ceilings
 
-Crate `src/` 570 lines total; crate tests 350; `records.json` 260; each
+Crate `src/` 600 lines total; crate tests 350; `records.json` 260; each
 template 60; `test_extract.py` 120; `test_load.py` 40;
 `corpus-run-b3.md` 60.
 

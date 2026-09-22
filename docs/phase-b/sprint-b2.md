@@ -90,6 +90,10 @@ deleted. Proven by round trip on the B.1 fixture. No crate change.
   and exit `1`.
 - `test_load.py`: load the fixture index; `--dump` equals the index's
   records; a second load is idempotent.
+- One test in `test_extract.py` asserts that no `label` from
+  `field_table("requirements")` or `field_table("decisions")` occurs as a
+  string anywhere in `scripts/extract.py`; the `rg` line below is the quick
+  form of the same check.
 
 ## Out of scope
 

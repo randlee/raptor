@@ -73,7 +73,8 @@ renderer need:
 file rather than from a column. Today there is one, `ID Range`, which the
 consumer's guideline requires on every multi-item file. The renderer
 computes it, the binder checks each record's id lies inside it and stores
-nothing. Every section column carries `text` for prose written before its
+nothing. It is the one branch in `render.py`; a second `derived` field is
+a plan amendment, not another branch. Every section column carries `text` for prose written before its
 first label, so nothing an author wrote is dropped.
 
 Outside the record model, and therefore neither stored nor reported: the
@@ -178,9 +179,10 @@ so that none can be added by habit.
 | B.4 ADR columns | `context`, `decision`, `rationale`, `consequences`, `alternatives`, `implementation`, `impact_analysis`, `decision_date`, `supersedes`, `superseded_by`; `group` shape; foreign keys; corpus run | B.3 |
 | B.5 Own inventory; consumer run | ingest set trimmed to Raptor's two record files, which already follow the schema; importer clean over Raptor; the grouped non-compliance report | B.4 |
 
-Every sprint is `must_follow` its predecessor; none is `parallel_safe`,
-because each one edits the crate, the fixture and the tests the previous
-one wrote. The five branches form one GitHub stack on `develop`
+Every sprint is `must_follow` its predecessor; none is `parallel_safe`.
+B.2 imports the crate B.1 builds; B.3 and B.4 each extend the crate, the
+fixture, the templates and the tests of the sprint before; B.5 runs the
+importer with every column in place. The five branches form one GitHub stack on `develop`
 (`/gh-stack`): `feature/b-1-schema-crate` is based on `develop`, and each
 later branch is based on the branch before it, as the `target` line of its
 sprint document says. The worktree is created with `/sc-git-worktree
@@ -226,7 +228,6 @@ ADR-RAP-0004 to ADR-RAP-0006 in `docs/adr/adr-rap-product.md`, with
 | Status values outside the enum, about a hundred lines across the corpus | same |
 | Which local read model the CLI uses against a remote Dolt server | CLI phase, its own ADR |
 | Test plans and design documents as tables | later phase |
-| `docs/project-plan.md` row for Phase B, now stale | operator |
 
 ## Rules for every sprint
 
