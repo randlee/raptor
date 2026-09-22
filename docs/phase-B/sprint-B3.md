@@ -1,6 +1,6 @@
 ---
 id: B.3
-title: Loader, JSON to SQL and back
+title: Loader writes the columns
 status: planned
 branch: feature/B-3-load
 worktree: ../raptor-worktrees/feature/B-3-load
@@ -9,10 +9,11 @@ depends_on: [B.1]
 parallel_with: [B.2]
 ---
 
-# Sprint B.3 — Loader, JSON to SQL and back
+# Sprint B.3 — Loader writes the columns
 
-`scripts/load_sqlite.py` maps `Record` to the two tables with the same
-field names, and back. Proven by round trip on `records.json`.
+`scripts/load_sqlite.py` writes the three new columns and reads the rows
+back into record shape, so the JSON to SQL mapping is proven by round trip
+on `records.json`.
 
 ## Exact Targets
 
@@ -23,23 +24,24 @@ field names, and back. Proven by round trip on `records.json`.
 
 ### `scripts/load_sqlite.py`
 
-- Reads `index["records"]`; drop the `requirements`/`artifacts` fallbacks.
-- Validates each record with `Record` before any write; a failure exits `1`
-  with the pydantic message on stderr and no database change.
-- `INSERT INTO artifacts` with the nine columns in schema order, taken by
-  name from the record. `INSERT INTO relationships` one row per entry in
-  `references`. No `json.dumps`.
-- Idempotent as today: execute `schema.sql`, delete both tables, insert.
-- New function `dump(database) -> {"records": [...]}` that reads both tables
-  back into `Record` shape, records ordered by id, references in insertion
-  order. Exposed as `--dump <database>` so the fixture can be inspected.
-- Stdout one line: `{"database": "<path>", "records": N, "references": N}`.
+- `INSERT INTO artifacts` with the twelve B.1 columns in schema order;
+  `status`, `created`, `last_updated`, `version` taken by key, not `.get`,
+  so a missing value fails.
+- Validate each record with `Record` before any write; a failure exits `1`
+  with the pydantic message on stderr and leaves the database unchanged.
+- `records()` reads `index["requirements"]` only.
+- New `dump(database) -> {"requirements": [...]}`: reads both tables back
+  into `Record` shape (JSON columns parsed, relationship rows regrouped into
+  `references` and `referenced_by`), records ordered by id. Exposed as
+  `--dump <database>`.
+- Stdout one line: `{"database": "<path>", "artifacts": N, "relationships": N}`.
 
 ### `tests/test_load.py`
 
-- Load `records.json` into a temp database; `dump` equals the fixture.
+- Load `records.json`; `dump` equals the fixture.
 - Load twice; row counts unchanged.
-- `PRAGMA table_info(artifacts)` lists the nine columns in schema order.
+- `PRAGMA table_info(artifacts)` lists the twelve columns in schema order,
+  `status`, `created`, `last_updated`, `version` marked NOT NULL.
 - A record with `status: null` makes the loader exit `1` and leave no
   `artifacts` rows.
 
@@ -50,11 +52,10 @@ or templates. No Dolt.
 
 ## Ceilings
 
-`load_sqlite.py` 60 lines; `test_load.py` 50.
+`load_sqlite.py` 70 lines; `test_load.py` 50.
 
 ## Acceptance
 
 - `python -m pytest -q tests/test_load.py tests/test_record.py` passes.
-- `rg -n 'json.dumps|document_metadata|requirements' scripts/load_sqlite.py`
-  prints nothing.
+- `rg -n '"artifacts"|\.get\("status"\)' scripts/load_sqlite.py` prints nothing.
 - `rg -ni --hidden --glob '!.git/**' --glob '!.sc/**' '[p]3' .` prints nothing.

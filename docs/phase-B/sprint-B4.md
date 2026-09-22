@@ -41,6 +41,10 @@ truncated; no rule stops the run.
 
 ### Change in `extract.py`
 
+- Delete `generate_extraction_report`, the `--report` handling, the
+  `reports/` write, and every remaining `print()` except the one stdout
+  line below.
+
 - Each `None` from `extract_document_metadata` raises
   `MISSING_HEADER_FIELD`; each bad date `INVALID_DATE`; `normalize_status`
   returning `None` raises `INVALID_STATUS`; the regex miss raises
@@ -74,7 +78,7 @@ autocorrection; no schema change; no change to loader, render or templates.
 
 ## Ceilings
 
-`extract.py` 350 lines (B.2 ceiling holds); `test_extract.py` 140.
+`extract.py` 1,100 lines (below B.2's 1,200; this sprint only deletes and replaces the report); `test_extract.py` 140.
 
 ## Acceptance
 
