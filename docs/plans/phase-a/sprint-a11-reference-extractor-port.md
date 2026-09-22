@@ -14,26 +14,28 @@ templates, and fixture values never enter Raptor; Raptor uses invented fixtures 
 
 ## Reference facts and parser contract
 
-The reference index has 783 records. Each has `id`, `title`, `type`, `status`,
+The reference index has 784 records. Each has `id`, `title`, `type`, `status`,
 `domain`, `document_metadata`, `source`, `content`, `relationships`, and `subsections`.
 Status spellings are Draft, Proposed, Active, Approved, Deprecated, and Superseded.
-The index population is REQ 555, ADR 178, and NFR 50. A design document maps to
-one generic record; a test plan maps to one generic record and preserves its
-level-four TEST headings in its source Markdown/subsections.
+The index population is REQ 555, ADR 179, and NFR 50. A routed design document
+or test plan maps to one generic record; their source Markdown is preserved
+verbatim and nested headings remain available as subsections.
 
 | Input | Parser behavior |
 |---|---|
 | `## REQ|NFR|ADR-<scope>-<four digits>: <title>` | Parse level-two artifacts in source order. |
-| `#### TEST...: <title>` | Preserve level-four test headings as ordered test-plan evidence. |
+| Routed `design_document` or `test_plan` | Emit one whole-document record: `content` is the complete Markdown, the envelope is empty, and `subsections`/`mentions` are derived from content. A test-plan ID is its declared bold `Test Plan ID` (the canonical start for a single ID or `A through B`/`A to B` range; preserve the full range as `document_metadata.id_range`); otherwise use the registered `document_id`. |
 | Bold preamble | Parse metadata before sections and preserve unknown keys. |
 | Nested sections | Preserve title, level, Markdown text, summary/HTML when emitted, source range, and order. |
 | Ranges and references | Preserve raw token/context and resolve target document/id only when unique in the repository. |
-| Invalid UTF-8, malformed heading/preamble, unsupported status, duplicate heading, bad nested heading, or no artifact | Emit one stable failure-class code and fail closed for that document; never silently skip it. |
+| Item-route invalid UTF-8, malformed heading/preamble, unsupported status, duplicate heading, bad nested heading, or no artifact | Emit one stable failure-class code and fail closed for that document; never silently skip it. Whole-document design/test-plan records fail closed only for invalid UTF-8; an off-list or absent preamble Status becomes null while its raw text remains in content. |
 
 The parser is the only built-in grammar. Delete the old native grammar and its
-fixtures. Design and test-plan routes use the existing configured family route:
-a level-one title, bold preamble with ID/status, and ordered sections; test
-plans additionally preserve zero or more level-four TEST headings.
+fixtures. Exactly one route exists per family: per-item `##` headings are
+REQ/NFR/ADR only, while the routed design/test-plan whole-document route has no
+layout attribute or fallback. Its status is the first preamble bold Status only
+when it uses one of the six listed spellings; otherwise it is null and the raw
+line remains in `content`.
 
 ## A1 reversals
 
@@ -104,7 +106,7 @@ consumer checkout.
 | A11-AC3 | Duplicate local IDs become separate `(repository_id, document_id, artifact_id)` rows; emitted relationships retain raw token/context and resolve uniquely when possible. |
 | A11-AC4 | SQLite uses replacement v2 0001 DDL; ingress regenerates the database from Markdown with no migration path. |
 | A11-AC5 | A9/A10 suites pass after `artifact_relationships` and `artifact_uri_relationships` are replaced by `relationships`, `RelationshipType` is removed, and `traceability_relationships()`/`reverse_typed_relationships()` query emitted relation types forward/reverse. |
-| A11-AC6 | Every file in `plugins/raptor/tests/fixtures/reference/` passes byte parity/reparse: REQ range (two items, one Status), ADR, NFR, design, test plan (two TEST headings), and second REQ reusing a local ID. |
+| A11-AC6 | Every file in `plugins/raptor/tests/fixtures/reference/` passes byte parity/reparse: REQ range (two items, one Status), ADR, NFR, free-form design (no ID, multiple level-one titles), test plan (declared ID range and two TEST headings), and second REQ reusing a local ID. |
 | A11-AC7 | No Rust, SQLx, Dolt, new framework, external source assets, or consumer automation is added. |
 
 ## Authoritative validation commands
