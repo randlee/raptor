@@ -1,7 +1,6 @@
 from __future__ import annotations
 
 import hashlib
-import json
 import os
 import tempfile
 import tomllib
@@ -10,8 +9,11 @@ from collections.abc import Iterator
 from pathlib import Path, PurePosixPath
 from typing import Any, Literal
 
+from pydantic import BaseModel
+
 from raptor_schema import (
     ArtifactKey,
+    DesignDocument,
     DocumentKey,
     Diagnostic,
     IdentityManifest,
@@ -26,6 +28,7 @@ from raptor_schema import (
     SQLiteArtifactStore,
     SourceDocument,
     SourceRoute,
+    TestPlan,
     dump_canonical_json,
     load_canonical_json,
     validate_repository_manifest_identity,
@@ -33,6 +36,7 @@ from raptor_schema import (
     validate_document,
     validate_documents,
 )
+from raptor_schema.canonical import dump_canonical_fragment
 from raptor_schema.profiles import ParsedDocument, SourceInput
 
 from .identity import document_identity
@@ -42,19 +46,12 @@ from .profiles import resolve_profile
 _MANIFEST_PATH = ".raptor/raptor.toml"
 
 
-def _digest(value: object) -> str:
-    return hashlib.sha256(
-        json.dumps(value, sort_keys=True, separators=(",", ":")).encode("utf-8")
-    ).hexdigest()
+def _digest(value: BaseModel) -> str:
+    return hashlib.sha256(dump_canonical_fragment(value).encode()).hexdigest()
 
 
 def _report_bytes(report: IngressReport) -> bytes:
-    return (
-        json.dumps(
-            report.model_dump(mode="json"), ensure_ascii=False, sort_keys=True, indent=2
-        )
-        + "\n"
-    ).encode("utf-8")
+    return (dump_canonical_fragment(report) + "\n").encode("utf-8")
 
 
 def _load_toml(repository_root: Path, relative: str) -> dict[str, object]:
@@ -407,16 +404,15 @@ def _field_count(value: object) -> int:
     return 1
 
 
-def _relationship_count(value: object) -> int:
-    if isinstance(value, dict):
-        return sum(
-            len(item) if key in {"relationships", "dependencies", "verifies"} and isinstance(item, list)
-            else _relationship_count(item)
-            for key, item in value.items()
-        )
-    if isinstance(value, list):
-        return sum(_relationship_count(item) for item in value)
-    return 0
+def _relationship_count(document: SourceDocument) -> int:
+    total = 0
+    for artifact in document.artifacts:
+        total += len(artifact.relationships)
+        if isinstance(artifact, DesignDocument):
+            total += sum(len(component.dependencies) for component in artifact.components)
+        elif isinstance(artifact, TestPlan):
+            total += sum(len(case.verifies) for case in artifact.test_cases)
+    return total
 
 
 def _ingress_diagnostic(error: Exception) -> IngressDiagnostic:
@@ -539,7 +535,7 @@ def configured_markdown_to_sqlite(
                         document_id=document.provenance.origin.document_id,
                     )
     if entries:
-        for relative, route, _ in staged:
+        for relative, route, document in staged:
             entries.setdefault(
                 relative,
                 _diagnosed_entry(
@@ -565,23 +561,20 @@ def configured_markdown_to_sqlite(
                 )
         else:
             for relative, route, document in staged:
-                payload = document.model_dump(mode="json", exclude_none=True)
                 entries[relative] = IngressReportEntry(
                     repository_path=relative,
                     outcome="imported",
                     document_id=document.provenance.origin.document_id,
                     route=route.source,
                     profile=route.profile,
-                    canonical_digest=_digest(payload),
+                    canonical_digest=_digest(document),
                     sqlite_outcome=sqlite_outcome,
-                    field_count=_field_count(payload),
-                    relationship_count=_relationship_count(payload),
-                    origin_digest=_digest(
-                        document.provenance.origin.model_dump(mode="json")
+                    field_count=_field_count(
+                        document.model_dump(mode="json", exclude_none=True)
                     ),
-                    materialization_digest=_digest(
-                        document.provenance.materialization.model_dump(mode="json")
-                    ),
+                    relationship_count=_relationship_count(document),
+                    origin_digest=_digest(document.provenance.origin),
+                    materialization_digest=_digest(document.provenance.materialization),
                 )
     report = IngressReport(
         report_version="1.0.0",

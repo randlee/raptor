@@ -1,5 +1,8 @@
 # Raptor plugin operations
 
+Run these commands with the interpreter where `raptor-schema` is editable-installed
+(CI installs it explicitly; use the project Python 3.11 environment locally).
+
 Sprint A5 provides eight routes: Markdown→JSON, JSON→SQLite, SQLite→JSON,
 JSON→Markdown, migration round-trip, and validation for Markdown, JSON, and
 SQLite. Every command validates by default; pass `--apply` to authorize its
