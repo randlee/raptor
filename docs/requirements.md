@@ -1,6 +1,6 @@
 # Raptor Requirements
 
-**ID Range:** REQ-RAP-0001 through REQ-RAP-0008  
+**ID Range:** REQ-RAP-0001 through REQ-RAP-0009  
 **Status:** Draft  
 **Created:** 2026-09-22  
 **Last Updated:** 2026-09-22  
@@ -213,3 +213,30 @@ Documents not under Raptor control are ignored.
 
 - [ ] A document outside the declared folders is not ingested.
 - [ ] The database pointer resolves on a second computer without editing.
+
+## REQ-RAP-0009: Date and time are stored and exchanged in UTC
+
+**Status:** Draft  
+
+### Requirement Statement
+
+**MUST statements:**
+
+- Every date or time Raptor stores (SQLite, Dolt) or passes in JSON MUST be
+  UTC, in ISO 8601 form.
+- Human-facing output (HTML, non-JSON reports) MUST show local time.
+- A value with no time component, such as `2026-09-22` from a Markdown
+  header, MUST be stored as that ISO 8601 date and MUST NOT be given a time
+  or zone.
+
+### Rationale
+
+One clock in storage and on the wire; the reader's clock only where a
+person reads.
+
+### Success Criteria
+
+**Acceptance Criteria:**
+
+- [ ] `generated` in an extract index parses as ISO 8601 UTC.
+- [ ] A `**Created:** 2026-09-22` header is stored as `2026-09-22` exactly.
