@@ -18,6 +18,7 @@ from raptor_schema import (
     IngressDiagnostic,
     IngressReport,
     IngressReportEntry,
+    ProfileSelection,
     ReferenceValidationMode,
     RepositoryConfigManifest,
     RepositoryRoutingConfig,
@@ -648,6 +649,107 @@ def export_sqlite(
     return {"applied": apply, "output": relative}
 
 
+def sqlite_export_proof(
+    repository_root: Path,
+    database: str,
+    repository_id: str,
+    document_id: str,
+    output_path: str,
+    report_path: str,
+    *,
+    profile_id: str = "raptor",
+    profile_version: str | None = None,
+    template_set: str = "raptor",
+    apply: bool = False,
+) -> dict[str, Any]:
+    """Prove SQLite recovery plus sc-compose rendering for one stored document."""
+    from .rendering import (
+        compare_semantics,
+        render_markdown,
+        resolve_sc_compose,
+        resolve_template_set,
+    )
+
+    root = repository_root.resolve()
+    _, database_relative = repository_path(root, database, must_exist=True)
+    _, output_relative = repository_path(root, output_path)
+    _, report_relative = repository_path(root, report_path)
+    with _read_only_store(root, database_relative) as store:
+        document = store.get_document(
+            DocumentKey(repository_id=repository_id, document_id=document_id)
+        )
+        typed_count = store._connection.execute(
+            "SELECT count(*) FROM artifact_relationships "
+            "WHERE source_repository_id = ?",
+            (repository_id,),
+        ).fetchone()[0]
+        uri_count = store._connection.execute(
+            "SELECT count(*) FROM artifact_uri_relationships "
+            "WHERE source_repository_id = ?",
+            (repository_id,),
+        ).fetchone()[0]
+    profile = resolve_profile(root, profile_id, profile_version)
+    rendered = render_markdown(
+        document,
+        profile=profile,
+        template_set=template_set,
+        output_path=output_relative,
+        repository_root=root,
+        executable=resolve_sc_compose(),
+    )
+    comparison = compare_semantics(
+        document,
+        rendered.document,
+        profile=profile,
+        content=rendered.content,
+        expected_output_path=output_relative,
+        template_set=template_set,
+        template_version=resolve_template_set(root, template_set).version,
+    )
+    if not comparison.equal:
+        raise ValueError("RAPTOR.ROUND_TRIP.SEMANTIC_LOSS: " + ",".join(comparison.differences))
+    canonical = dump_canonical_json(document)
+    entry = IngressReportEntry(
+        repository_path=document.provenance.origin.initial_repository_path,
+        outcome="imported",
+        document_id=document.provenance.origin.document_id,
+        route="sqlite-export",
+        profile=ProfileSelection(
+            profile_id=profile.profile_id, profile_version=profile.profile_version
+        ),
+        canonical_digest=hashlib.sha256(canonical.encode()).hexdigest(),
+        sqlite_outcome="validated",
+        field_count=_field_count(document.model_dump(mode="json", exclude_none=True)),
+        relationship_count=_relationship_count(document.model_dump(mode="json", exclude_none=True)),
+        origin_digest=_digest(document.provenance.origin.model_dump(mode="json")),
+        materialization_digest=_digest(document.provenance.materialization.model_dump(mode="json")),
+        zero_loss=True,
+        artifact_order_preserved=True,
+        typed_relationship_count=int(typed_count),
+        uri_relationship_count=int(uri_count),
+        identity_preserved=True,
+        origin_preserved=True,
+        materialization_preserved=True,
+    )
+    report = IngressReport(
+        report_version="1.0.0",
+        repository_id=repository_id,
+        config_path=".raptor/raptor.toml",
+        database_path=database_relative,
+        entries=(entry,),
+    )
+    if apply:
+        atomic_repository_bytes(root, output_relative, rendered.content)
+        atomic_repository_bytes(root, report_relative, _report_bytes(report))
+    return {
+        "applied": apply,
+        "output": output_relative,
+        "report": report_relative,
+        "document": rendered.document.model_dump(mode="json", exclude_none=True),
+        "report_data": report.model_dump(mode="json"),
+    }
+
+
 def validate_sqlite(repository_root: Path, database: str) -> dict[str, Any]:
     _, relative = repository_path(repository_root, database, must_exist=True)
     with _read_only_store(repository_root, database) as store:
@@ -657,6 +759,7 @@ def validate_sqlite(repository_root: Path, database: str) -> dict[str, Any]:
 
 __all__ = [
     "export_sqlite",
+    "sqlite_export_proof",
     "configured_markdown_to_sqlite",
     "import_sqlite",
     "markdown_to_json",

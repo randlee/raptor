@@ -26,6 +26,18 @@
     "IngressReportEntry": {
       "additionalProperties": false,
       "properties": {
+        "artifact_order_preserved": {
+          "anyOf": [
+            {
+              "type": "boolean"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Artifact Order Preserved"
+        },
         "canonical_digest": {
           "anyOf": [
             {
@@ -76,6 +88,18 @@
           "default": null,
           "title": "Field Count"
         },
+        "identity_preserved": {
+          "anyOf": [
+            {
+              "type": "boolean"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Identity Preserved"
+        },
         "materialization_digest": {
           "anyOf": [
             {
@@ -89,6 +113,18 @@
           "default": null,
           "title": "Materialization Digest"
         },
+        "materialization_preserved": {
+          "anyOf": [
+            {
+              "type": "boolean"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Materialization Preserved"
+        },
         "origin_digest": {
           "anyOf": [
             {
@@ -101,6 +137,18 @@
           ],
           "default": null,
           "title": "Origin Digest"
+        },
+        "origin_preserved": {
+          "anyOf": [
+            {
+              "type": "boolean"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Origin Preserved"
         },
         "outcome": {
           "enum": [
@@ -161,6 +209,44 @@
           ],
           "title": "Sqlite Outcome",
           "type": "string"
+        },
+        "typed_relationship_count": {
+          "anyOf": [
+            {
+              "minimum": 0,
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Typed Relationship Count"
+        },
+        "uri_relationship_count": {
+          "anyOf": [
+            {
+              "minimum": 0,
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Uri Relationship Count"
+        },
+        "zero_loss": {
+          "anyOf": [
+            {
+              "type": "boolean"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Zero Loss"
         }
       },
       "required": [
