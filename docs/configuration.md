@@ -22,6 +22,8 @@ globs. The extractor reads only Markdown files selected by an include glob and
 not selected by an exclude glob. Repeated glob matches are de-duplicated; paths
 under `.git/` and `.raptor/` are never read.
 
+A record's domain is the directory domain of its source root, not the source name.
+
 `routing.toml` accepts `schema_version` and contains one `[[routes]]` entry for
 every source. Each route sets `source` to that source name and provides an
 `artifact_types` allowlist. The optional `[routes.profile]` table is accepted

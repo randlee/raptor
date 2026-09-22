@@ -49,6 +49,17 @@ DOMAIN_MAP = {
     'ui': 'ui',
 }
 
+PATH_DOMAIN_MAP = {
+    "calibration": "calibration", "database": "database", "performance": "performance",
+    "mcp": "mcp", "camera": "camera", "regions": "regions", "sequencer": "sequencer",
+    "ui": "ui", "avalonia": "avalonia",
+}
+
+
+def domain_from_source_root(source_root: Path) -> str:
+    """Return the directory domain used by positional-root discovery."""
+    return next((domain for name, domain in PATH_DOMAIN_MAP.items() if name in source_root.parts), source_root.name)
+
 
 def derive_domain_from_path(file_path: str, project_root: str) -> str:
     """
@@ -230,18 +241,6 @@ def discover_markdown_files(base_dirs: List[str]) -> List[Tuple[str, str]]:
     """
     files = []
 
-    # Domain mapping for path to domain name
-    domain_map = {
-        "calibration": "calibration",
-        "database": "database",
-        "performance": "performance",
-        "mcp": "mcp",
-        "camera": "camera",
-        "regions": "regions",
-        "sequencer": "sequencer",
-        "ui": "ui",
-        "avalonia": "avalonia"
-    }
     for base_dir in base_dirs:
         if not os.path.exists(base_dir):
             print(f"Warning: Directory not found: {base_dir}")
@@ -250,14 +249,7 @@ def discover_markdown_files(base_dirs: List[str]) -> List[Tuple[str, str]]:
         # Determine domain from path by checking path segments (cross-platform)
         # Use Path.parts instead of string matching for Windows compatibility
         base_path = Path(base_dir)
-        domain = None
-        for domain_name in domain_map.keys():
-            if domain_name in base_path.parts:
-                domain = domain_map[domain_name]
-                break
-
-        if not domain:
-            domain = base_path.name
+        domain = domain_from_source_root(base_path)
 
         # Recursively find all .md files
         for root, dirs, filenames in os.walk(base_dir):
@@ -1672,13 +1664,14 @@ def main():
             routes[route['source']] = route_types
         for source in tomllib.loads(source_file.read_text(encoding='utf-8'))['sources']:
             source_root = project_root / source['root']
+            source_domain = domain_from_source_root(source_root)
             excluded = {path for pattern in source.get('exclude', []) for path in source_root.glob(pattern)}
             for pattern in source['include']:
                 for path in source_root.glob(pattern):
                     if path.is_file() and path.suffix == '.md' and path not in excluded and '.git' not in path.parts and '.raptor' not in path.parts:
-                        configured_files.append((str(path), source['name']))
+                        configured_files.append((str(path), source_domain, source['name']))
             allowed_types[source['name']] = routes[source['name']]
-        configured_files = sorted(set(configured_files))
+        configured_files = list(dict.fromkeys(configured_files))
     elif args.domain == 'all':
         # Process all domains
         domains = args.domains or ['calibration', 'database', 'performance', 'mcp', 'camera', 'regions', 'sequencer', 'ui', 'avalonia']
@@ -1708,13 +1701,15 @@ def main():
     all_requirements = []
     files_processed = 0
 
-    for file_path, domain in files:
+    for file_entry in files:
+        file_path, domain = file_entry[:2]
+        source_name = file_entry[2] if configured_files else None
         print(f"Processing: {file_path}")
         parsed = parse_file_content(file_path, domain)
 
         for raw_section in parsed['raw_sections']:
             req = process_requirement(raw_section, file_path, domain, parsed['metadata'], project_root_str)
-            if req and (not allowed_types or req['type'] in allowed_types[domain]):
+            if req and (not allowed_types or req['type'] in allowed_types[source_name]):
                 all_requirements.append(req)
 
         files_processed += 1
