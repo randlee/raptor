@@ -32,6 +32,30 @@ Directory Markdown import defaults to `batch` and writes one canonical JSON file
 per registered document ID. Empty directories and non-batch directory modes are
 rejected.
 
+## Configured batch ingress
+
+Configured batch ingress is hosted by the existing `markdown_to_json.py` thin
+wrapper. It reads only the explicit `.raptor/raptor.toml` manifest and the scan,
+routing, and identity artifacts selected by that manifest; it never falls back
+to a repository-wide scan. The database and report destinations are explicit.
+
+```sh
+python plugins/raptor/scripts/markdown_to_json.py \
+  --repo-root . \
+  --config .raptor/raptor.toml \
+  --database .raptor/state/ingress.sqlite \
+  --report .raptor/state/ingress-report.json \
+  --apply
+```
+
+Without `--apply`, the same invocation validates the selected inventory and
+returns the deterministic report in its JSON envelope without writing SQLite or
+the report file. With `--apply`, the report records exactly one `imported` or
+`diagnosed` terminal outcome per selected path. Any diagnosed path aborts the
+SQLite publish, so a batch never partially applies; the report is retained for
+operator review. The report is a versioned Raptor Pydantic contract and its
+generated JSON Schema is checked with the canonical schema/vendor drift gates.
+
 The native Markdown profile recognizes `REQ`, `NFR`, `ADR`, `DES`, and `TST`
 artifact headings. Design bodies use `Overview:`, a pipe-separated `Component:`
 (`name | responsibility`), optional comma-separated `Dependencies:`, and
