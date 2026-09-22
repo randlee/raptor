@@ -19,7 +19,8 @@ The reference index has 784 records. Each has `id`, `title`, `type`, `status`,
 Status spellings are Draft, Proposed, Active, Approved, Deprecated, and Superseded.
 The index population is REQ 555, ADR 179, and NFR 50. A routed design document
 or test plan maps to one generic record; their source Markdown is preserved
-verbatim and nested headings remain available as subsections.
+verbatim and nested headings remain available as subsections, with status per
+the parser-contract table.
 
 | Input | Parser behavior |
 |---|---|
@@ -28,14 +29,12 @@ verbatim and nested headings remain available as subsections.
 | Bold preamble | Parse metadata before sections and preserve unknown keys. |
 | Nested sections | Preserve title, level, Markdown text, summary/HTML when emitted, source range, and order. |
 | Ranges and references | Preserve raw token/context and resolve target document/id only when unique in the repository. |
-| Item-route invalid UTF-8, malformed heading/preamble, unsupported status, duplicate heading, bad nested heading, or no artifact | Emit one stable failure-class code and fail closed for that document; never silently skip it. Whole-document design/test-plan records fail closed only for invalid UTF-8; an off-list or absent preamble Status becomes null while its raw text remains in content. |
+| Item-route invalid UTF-8, malformed heading/preamble, unsupported status, duplicate heading, bad nested heading, or no artifact | Emit one stable failure-class code and fail closed for that document; never silently skip it. Whole-document design/test-plan records fail closed only for invalid UTF-8; an off-list or absent preamble Status becomes null while its raw text remains in content. Configured ingress is atomic: a failing document aborts the run with `RAPTOR.INGRESS.BATCH_ABORTED` per NFR-RAP-004. |
 
 The parser is the only built-in grammar. Delete the old native grammar and its
 fixtures. Exactly one route exists per family: per-item `##` headings are
 REQ/NFR/ADR only, while the routed design/test-plan whole-document route has no
-layout attribute or fallback. Its status is the first preamble bold Status only
-when it uses one of the six listed spellings; otherwise it is null and the raw
-line remains in `content`.
+layout attribute or fallback; status is per the parser-contract table.
 
 ## A1 reversals
 
@@ -66,11 +65,13 @@ and nullable resolved `(repository_id, document_id, artifact_id)`, emitted
 Replace v1 SQLite `0001` with v2 `0001`; the SQLite database is regenerated from
 Markdown and has no migration path.
 
+Rows describe the item route; the whole-document route differs only as noted.
+
 | Index field | SQLite column | Jinja usage | Markdown construct |
 |---|---|---|---|
-| SourceDocument envelope | `documents.non_item_segments_json` | `document.segments` | Title, preamble, overview, and text before/between item blocks. |
-| `id` | `artifacts.artifact_id` | `artifact.id` | `## ID: Title` item heading. |
-| `title` | `artifacts.title` | `artifact.title` | Item heading title. |
+| SourceDocument envelope | `documents.non_item_segments_json` | `document.segments` | Item route only; empty for whole-document records, whose title and preamble stay inside `content`. |
+| `id` | `artifacts.artifact_id` | `artifact.id` | Item heading ID; for whole-document records the declared bold Test Plan ID canonical start, else the registered `document_id`. |
+| `title` | `artifacts.title` | `artifact.title` | Item heading title; for whole-document records the first level-one heading text, else the registered `document_id`. |
 | `type` | `artifacts.artifact_type` | `artifact.type` | Selects the family layout. |
 | `status` | `artifacts.status` | `artifact.status` | Parsed from the item's bold Status line when present; stored for queries; not rendered separately. |
 | `domain` | `artifacts.domain` | `artifact.domain` | Derived from source path; not rendered. |
@@ -106,7 +107,7 @@ consumer checkout.
 | A11-AC3 | Duplicate local IDs become separate `(repository_id, document_id, artifact_id)` rows; emitted relationships retain raw token/context and resolve uniquely when possible. |
 | A11-AC4 | SQLite uses replacement v2 0001 DDL; ingress regenerates the database from Markdown with no migration path. |
 | A11-AC5 | A9/A10 suites pass after `artifact_relationships` and `artifact_uri_relationships` are replaced by `relationships`, `RelationshipType` is removed, and `traceability_relationships()`/`reverse_typed_relationships()` query emitted relation types forward/reverse. |
-| A11-AC6 | Every file in `plugins/raptor/tests/fixtures/reference/` passes byte parity/reparse: REQ range (two items, one Status), ADR, NFR, free-form design (no ID, multiple level-one titles), test plan (declared ID range and two TEST headings), and second REQ reusing a local ID. |
+| A11-AC6 | Every file in `plugins/raptor/tests/fixtures/reference/` passes byte parity/reparse: REQ range (two items, one Status), ADR, NFR, free-form design (no declared bold ID line, so its record id is the registered `document_id`; multiple level-one titles), test plan (declared ID range and two TEST headings), and second REQ reusing a local ID. |
 | A11-AC7 | No Rust, SQLx, Dolt, new framework, external source assets, or consumer automation is added. |
 
 ## Authoritative validation commands
