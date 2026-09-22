@@ -13,15 +13,8 @@ fn version(value: &str) -> bool {
         && p.iter()
             .all(|x| x.len() == 1 && x.bytes().all(|c| c.is_ascii_digit()))
 }
-fn date(value: &str) -> bool {
-    value.len() == 10
-        && value.as_bytes()[4] == b'-'
-        && value.as_bytes()[7] == b'-'
-        && value
-            .bytes()
-            .enumerate()
-            .all(|(i, c)| matches!(i, 4 | 7) || c.is_ascii_digit())
-}
+#[rustfmt::skip]
+fn date(value: &str) -> bool { let b = value.as_bytes(); if b.len() != 10 || b[4] != b'-' || b[7] != b'-' || !b.iter().enumerate().all(|(i, c)| matches!(i, 4 | 7) || c.is_ascii_digit()) { return false }; let n = |i| (b[i] - b'0') as u16 * 10 + (b[i + 1] - b'0') as u16; let (y, m, d) = (n(0), n(5), n(8)); let days = [31, 28 + u16::from(y % 4 == 0 && (y % 100 != 0 || y % 400 == 0)), 31, 30, 31, 30, 31, 31, 30, 31, 30, 31]; (1..=12).contains(&m) && (1..=days[(m - 1) as usize]).contains(&d) }
 fn identifier(value: &str) -> bool {
     let p: Vec<_> = value.split('-').collect();
     matches!(p.first(), Some(&"REQ" | &"NFR" | &"ADR"))
@@ -34,7 +27,6 @@ fn identifier(value: &str) -> bool {
 string_type!(Version, version);
 string_type!(Date, date);
 string_type!(Id, identifier);
-
 #[rustfmt::skip]
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize, JsonSchema)] #[serde(rename_all = "PascalCase")] pub enum Status { Draft, Proposed, Active, Approved, Deprecated, Superseded }
 #[rustfmt::skip]
@@ -66,32 +58,19 @@ pub struct FieldMeta {
     pub sql_type: &'static str,
 }
 
-#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
-pub struct Identity {
-    pub id: Id,
-    pub title: String,
-}
-#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
-pub struct Lifecycle {
-    pub status: Status,
-    pub version: Version,
-    pub created: Date,
-    pub last_updated: Date,
-    pub owner: String,
-}
-#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
-pub struct Requirement {
-    #[serde(flatten)]
-    pub identity: Identity,
-    #[serde(flatten)]
-    pub lifecycle: Lifecycle,
-}
-#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
-pub struct Decision {
-    #[serde(flatten)]
-    pub identity: Identity,
-    #[serde(flatten)]
-    pub lifecycle: Lifecycle,
+#[rustfmt::skip]
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize, JsonSchema)] pub struct Identity { pub id: Id, pub title: String }
+#[rustfmt::skip]
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize, JsonSchema)] pub struct Lifecycle { pub status: Status, pub version: Version, pub created: Date, pub last_updated: Date, pub owner: String }
+#[rustfmt::skip]
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize, JsonSchema)] pub struct Requirement { #[serde(flatten)] pub identity: Identity, #[serde(flatten)] pub lifecycle: Lifecycle }
+#[rustfmt::skip]
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize, JsonSchema)] pub struct Decision { #[serde(flatten)] pub identity: Identity, #[serde(flatten)] pub lifecycle: Lifecycle }
+#[allow(dead_code)]
+#[derive(JsonSchema)]
+struct Records {
+    requirements: Vec<Requirement>,
+    decisions: Vec<Decision>,
 }
 pub trait HasIdentity {
     fn identity(&self) -> &Identity;
@@ -99,99 +78,13 @@ pub trait HasIdentity {
 pub trait HasLifecycle {
     fn lifecycle(&self) -> &Lifecycle;
 }
-impl HasIdentity for Requirement {
-    fn identity(&self) -> &Identity {
-        &self.identity
-    }
-}
-impl HasIdentity for Decision {
-    fn identity(&self) -> &Identity {
-        &self.identity
-    }
-}
-impl HasLifecycle for Requirement {
-    fn lifecycle(&self) -> &Lifecycle {
-        &self.lifecycle
-    }
-}
-impl HasLifecycle for Decision {
-    fn lifecycle(&self) -> &Lifecycle {
-        &self.lifecycle
-    }
-}
+#[rustfmt::skip] impl HasIdentity for Requirement { fn identity(&self) -> &Identity { &self.identity } }
+#[rustfmt::skip] impl HasIdentity for Decision { fn identity(&self) -> &Identity { &self.identity } }
+#[rustfmt::skip] impl HasLifecycle for Requirement { fn lifecycle(&self) -> &Lifecycle { &self.lifecycle } }
+#[rustfmt::skip] impl HasLifecycle for Decision { fn lifecycle(&self) -> &Lifecycle { &self.lifecycle } }
+#[rustfmt::skip]
 const FIELDS: &[FieldMeta] = &[
-    FieldMeta {
-        name: "id",
-        label: "ID",
-        level: Level::Item,
-        shape: Shape::Id,
-        section: None,
-        required: true,
-        sql_type: "TEXT",
-    },
-    FieldMeta {
-        name: "title",
-        label: "Title",
-        level: Level::Item,
-        shape: Shape::Text,
-        section: None,
-        required: true,
-        sql_type: "TEXT",
-    },
-    FieldMeta {
-        name: "status",
-        label: "Status",
-        level: Level::Header,
-        shape: Shape::Status,
-        section: None,
-        required: true,
-        sql_type: "TEXT",
-    },
-    FieldMeta {
-        name: "version",
-        label: "Version",
-        level: Level::Header,
-        shape: Shape::Version,
-        section: None,
-        required: true,
-        sql_type: "TEXT",
-    },
-    FieldMeta {
-        name: "created",
-        label: "Created",
-        level: Level::Header,
-        shape: Shape::Date,
-        section: None,
-        required: true,
-        sql_type: "TEXT",
-    },
-    FieldMeta {
-        name: "last_updated",
-        label: "Last Updated",
-        level: Level::Header,
-        shape: Shape::Date,
-        section: None,
-        required: true,
-        sql_type: "TEXT",
-    },
-    FieldMeta {
-        name: "owner",
-        label: "Owner",
-        level: Level::Header,
-        shape: Shape::Text,
-        section: None,
-        required: true,
-        sql_type: "TEXT",
-    },
-    FieldMeta {
-        name: "id_range",
-        label: "ID Range",
-        level: Level::Header,
-        shape: Shape::Derived,
-        section: None,
-        required: false,
-        sql_type: "TEXT",
-    },
+    FieldMeta{name:"id",label:"ID",level:Level::Item,shape:Shape::Id,section:None,required:true,sql_type:"TEXT"}, FieldMeta{name:"title",label:"Title",level:Level::Item,shape:Shape::Text,section:None,required:true,sql_type:"TEXT"}, FieldMeta{name:"status",label:"Status",level:Level::Header,shape:Shape::Status,section:None,required:true,sql_type:"TEXT"}, FieldMeta{name:"version",label:"Version",level:Level::Header,shape:Shape::Version,section:None,required:true,sql_type:"TEXT"}, FieldMeta{name:"created",label:"Created",level:Level::Header,shape:Shape::Date,section:None,required:true,sql_type:"TEXT"}, FieldMeta{name:"last_updated",label:"Last Updated",level:Level::Header,shape:Shape::Date,section:None,required:true,sql_type:"TEXT"}, FieldMeta{name:"owner",label:"Owner",level:Level::Header,shape:Shape::Text,section:None,required:true,sql_type:"TEXT"}, FieldMeta{name:"id_range",label:"ID Range",level:Level::Header,shape:Shape::Derived,section:None,required:false,sql_type:"TEXT"},
 ];
 pub trait Table {
     const NAME: &'static str;
@@ -211,6 +104,7 @@ impl Table for Decision {
 }
 
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
+#[serde(rename_all = "SCREAMING_SNAKE_CASE")]
 pub enum Rule {
     MissingId,
     MissingField,
@@ -226,9 +120,9 @@ pub struct Diagnostic {
     pub rule: Rule,
     pub id: Option<Id>,
     pub label: Option<String>,
-    pub message: &'static str,
+    pub message: String,
     pub allowed: Option<Vec<String>>,
-    pub remedy: &'static str,
+    pub remedy: String,
 }
 #[derive(Clone, Debug, Serialize)]
 pub struct Bound {
@@ -238,6 +132,15 @@ pub struct Bound {
 }
 const MISSING: (&str, &str) = ("required field is missing", "Add the required field.");
 const BAD: (&str, &str) = ("field value is invalid", "Use the documented value format.");
+const UNKNOWN_SECTION: (&str, &str) = (
+    "section is not defined",
+    "Remove the section or use an allowed section.",
+);
+const UNKNOWN_LABEL: (&str, &str) = (
+    "label is not defined",
+    "Remove the label or use an allowed label.",
+);
+const DUPLICATE: (&str, &str) = ("duplicate identifier", "Make the identifier unique.");
 fn diagnostic(
     file: &str,
     line: u32,
@@ -252,16 +155,38 @@ fn diagnostic(
         rule,
         id,
         label,
-        message: pair.0,
+        message: pair.0.into(),
         allowed: None,
-        remedy: pair.1,
+        remedy: pair.1.into(),
     }
 }
-fn string(tree: &serde_json::Value, key: &str) -> Option<String> {
-    tree.get(key)?
-        .get("value")
-        .and_then(|v| v.as_str())
-        .map(str::to_owned)
+#[rustfmt::skip] fn string(tree: &serde_json::Value, key: &str) -> Option<String> { let value = tree.get(key)?; value.as_str().or_else(|| value.get("value").and_then(|v| v.as_str())).map(str::to_owned) }
+fn tree_line(tree: &serde_json::Value) -> u32 {
+    tree.get("line").and_then(|v| v.as_u64()).unwrap_or(0) as u32
+}
+fn allowed(level: Level) -> Vec<String> {
+    FIELDS
+        .iter()
+        .filter(|f| f.level == level || (level == Level::Item && f.name == "status"))
+        .map(|f| f.label.into())
+        .collect()
+}
+fn unknown(
+    file: &str,
+    line: u32,
+    rule: Rule,
+    id: Option<Id>,
+    label: String,
+    allowed: Vec<String>,
+) -> Diagnostic {
+    let pair = if rule == Rule::UnknownSection {
+        UNKNOWN_SECTION
+    } else {
+        UNKNOWN_LABEL
+    };
+    let mut out = diagnostic(file, line, rule, id, Some(label), pair);
+    out.allowed = Some(allowed);
+    out
 }
 pub fn bind_file(tree: &serde_json::Value) -> Bound {
     let file = tree
@@ -274,28 +199,110 @@ pub fn bind_file(tree: &serde_json::Value) -> Bound {
         decisions: vec![],
         diagnostics: vec![],
     };
-    for item in tree
-        .get("records")
-        .and_then(|v| v.as_array())
-        .into_iter()
-        .flatten()
-    {
-        let line = item.get("line").and_then(|v| v.as_u64()).unwrap_or(0) as u32;
-        let id = string(item, "id").and_then(|v| v.parse().ok());
+    let records = tree.get("records").and_then(|v| v.as_array());
+    if records.is_none_or(Vec::is_empty) {
+        out.diagnostics
+            .push(diagnostic(file, 0, Rule::MissingId, None, None, MISSING));
+    }
+    for (name, value) in header.as_object().into_iter().flatten() {
+        if !FIELDS
+            .iter()
+            .any(|f| f.level == Level::Header && f.label == name)
+        {
+            out.diagnostics.push(unknown(
+                file,
+                tree_line(value),
+                Rule::UnknownLabel,
+                None,
+                name.clone(),
+                allowed(Level::Header),
+            ));
+        }
+    }
+    for item in records.into_iter().flatten() {
+        let line = tree_line(item);
+        let raw_id = string(item, "id");
+        let id = raw_id.as_deref().map(str::parse::<Id>).transpose();
         let title = string(item, "title");
         let fields = item.get("fields").unwrap_or(&serde_json::Value::Null);
         let val = |key: &str| string(fields, key).or_else(|| string(header, key));
         let (status, version, created, last_updated, owner) = (
-            val("Status"),
-            val("Version"),
-            val("Created"),
-            val("Last Updated"),
-            val("Owner"),
+            val(FIELDS[2].label),
+            val(FIELDS[3].label),
+            val(FIELDS[4].label),
+            val(FIELDS[5].label),
+            val(FIELDS[6].label),
         );
-        if id.is_none() {
+        if raw_id.is_none() {
             out.diagnostics
                 .push(diagnostic(file, line, Rule::MissingId, None, None, MISSING));
             continue;
+        }
+        let id = match id {
+            Ok(Some(id)) => id,
+            _ => {
+                out.diagnostics.push(diagnostic(
+                    file,
+                    line,
+                    Rule::BadValue,
+                    None,
+                    Some("id".into()),
+                    BAD,
+                ));
+                continue;
+            }
+        };
+        for (name, value) in fields.as_object().into_iter().flatten() {
+            if name != FIELDS[2].label {
+                out.diagnostics.push(unknown(
+                    file,
+                    tree_line(value),
+                    Rule::UnknownLabel,
+                    Some(id.clone()),
+                    name.clone(),
+                    allowed(Level::Item),
+                ));
+            }
+        }
+        for section in item
+            .get("sections")
+            .and_then(|v| v.as_array())
+            .into_iter()
+            .flatten()
+        {
+            let name = section
+                .get("name")
+                .and_then(|v| v.as_str())
+                .unwrap_or_default()
+                .to_owned();
+            out.diagnostics.push(unknown(
+                file,
+                tree_line(section),
+                Rule::UnknownSection,
+                Some(id.clone()),
+                name,
+                vec![],
+            ));
+            for label in section
+                .get("labels")
+                .and_then(|v| v.as_array())
+                .into_iter()
+                .flatten()
+            {
+                let name = label
+                    .get("name")
+                    .and_then(|v| v.as_str())
+                    .unwrap_or_default()
+                    .to_owned();
+                out.diagnostics.push(unknown(
+                    file,
+                    tree_line(label),
+                    Rule::UnknownLabel,
+                    Some(id.clone()),
+                    name,
+                    vec![],
+                ));
+            }
         }
         if title.is_none()
             || status.is_none()
@@ -308,7 +315,7 @@ pub fn bind_file(tree: &serde_json::Value) -> Bound {
                 file,
                 line,
                 Rule::MissingField,
-                id,
+                Some(id),
                 None,
                 MISSING,
             ));
@@ -329,7 +336,7 @@ pub fn bind_file(tree: &serde_json::Value) -> Bound {
                 owner: owner.unwrap(),
             };
             let identity = Identity {
-                id: id.unwrap(),
+                id: id.clone(),
                 title: title.unwrap(),
             };
             if identity.id.kind() == RecordKind::Adr {
@@ -345,7 +352,7 @@ pub fn bind_file(tree: &serde_json::Value) -> Bound {
             }
         } else {
             out.diagnostics
-                .push(diagnostic(file, line, Rule::BadValue, id, None, BAD));
+                .push(diagnostic(file, line, Rule::BadValue, Some(id), None, BAD));
         }
     }
     out
@@ -364,16 +371,7 @@ pub fn check_inventory(requirements: &[Requirement], decisions: &[Decision]) -> 
         .map(|x| &x.identity.id)
         .chain(decisions.iter().map(|x| &x.identity.id))
         .filter(|x| seen[&x.0] > 1)
-        .map(|id| {
-            diagnostic(
-                "",
-                0,
-                Rule::DuplicateId,
-                Some(id.clone()),
-                None,
-                ("duplicate identifier", "Make the identifier unique."),
-            )
-        })
+        .map(|id| diagnostic("", 0, Rule::DuplicateId, Some(id.clone()), None, DUPLICATE))
         .collect()
 }
 pub fn field_table(table: &str) -> Vec<FieldMeta> {
@@ -396,14 +394,15 @@ pub fn sql_ddl() -> String {
     )
 }
 pub fn json_schema() -> serde_json::Value {
-    serde_json::json!({"$defs":{"identity":schemars::schema_for!(Identity),"lifecycle":schemars::schema_for!(Lifecycle)},"requirements":schemars::schema_for!(Requirement),"decisions":schemars::schema_for!(Decision)})
+    let mut schema = serde_json::to_value(schemars::schema_for!(Records)).unwrap();
+    schema["x-raptor-fields"] = serde_json::to_value(FIELDS).unwrap();
+    schema
 }
+#[rustfmt::skip]
 pub fn summarize(diagnostics: &[Diagnostic]) -> serde_json::Value {
-    let mut counts = BTreeMap::<String, usize>::new();
-    for d in diagnostics {
-        *counts.entry(format!("{:?}", d.rule)).or_default() += 1
-    }
-    serde_json::json!({"counts":counts,"groups":[]})
+    let mut counts = BTreeMap::<String, usize>::new(); let mut groups = BTreeMap::<(String, Option<String>, Option<Vec<String>>, String), BTreeMap<String, Vec<u32>>>::new();
+    for d in diagnostics { let rule = serde_json::to_value(&d.rule).unwrap().as_str().unwrap().to_owned(); *counts.entry(rule.clone()).or_default() += 1; groups.entry((rule, d.label.clone(), d.allowed.clone(), d.remedy.clone())).or_default().entry(d.file.clone()).or_default().push(d.line); }
+    serde_json::json!({"counts":counts,"groups":groups.into_iter().map(|((rule,label,allowed,remedy),files)| serde_json::json!({"rule":rule,"section":null,"label":label,"allowed":allowed,"count":files.values().map(Vec::len).sum::<usize>(),"files":files,"remedy":remedy})).collect::<Vec<_>>()})
 }
 #[cfg(feature = "python")]
 #[pyo3::pymodule]
@@ -439,8 +438,8 @@ fn raptor_schema(m: &pyo3::Bound<'_, pyo3::types::PyModule>) -> pyo3::PyResult<(
     }
     #[pyfn(m)]
     fn summarize(diagnostics: String) -> PyResult<String> {
-        let diagnostics: Vec<serde_json::Value> = parse(&diagnostics)?;
-        Ok(serde_json::json!({"counts": {}, "groups": diagnostics}).to_string())
+        let diagnostics: Vec<Diagnostic> = parse(&diagnostics)?;
+        text(&crate::summarize(&diagnostics))
     }
     Ok(())
 }
