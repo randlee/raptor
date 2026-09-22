@@ -4,6 +4,35 @@ Raptor repository configuration is owned and versioned by Raptor. A consuming
 repository stores committed configuration below `.raptor/`; consumer-specific
 conventions must not be added to the Raptor schema, examples, or tests.
 
+## Ingress configuration inventory
+
+Configured batch ingress starts at the repository root and reads
+`.raptor/raptor.toml`. An operation must not infer an omitted configuration file
+or scan an undeclared path.
+
+| Artifact | Format and model | Role |
+|---|---|---|
+| `.raptor/raptor.toml` | TOML `RepositoryConfigManifest` | Required entrypoint naming scan, routing, and identity artifacts. |
+| manifest-selected scan file | TOML `RepositoryScanConfig` | Authorizes the complete set of readable source paths. |
+| manifest-selected routing file | TOML `RepositoryRoutingConfig` | Selects the source profile and permitted artifact families for each scan source. |
+| manifest-selected identity file | JSON `IdentityManifest` | Supplies stable repository/document identity and the one-to-one document-path mapping. |
+
+Profiles and templates are committed repository data selected by operation
+inputs. Database destination, validate/apply mode, reference-resolution mode,
+and output paths are also explicit operation inputs; none are inferred from an
+undeclared repository file.
+
+## Generated runtime state
+
+Generated state is never source input and must be excluded from scans.
+
+| Namespace | Lifecycle |
+|---|---|
+| `.raptor/state/logs/` | Invocation audit output; retained or removed by the operator's evidence policy. |
+| `.raptor/identity.lock` | Ephemeral identity/render lock; never committed. |
+| `.raptor/transactions/` | Existing render-transaction state; never source input. |
+| path-scoped `*.raptor-*.stage` and `*.raptor-*.backup` | Existing render stages/backups; removed only after the render transaction completes or recovers. |
+
 ## Scan authorization
 
 `.raptor/sources.toml` is the authoritative allowlist of files that Raptor may

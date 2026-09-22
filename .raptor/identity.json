@@ -20,6 +20,9 @@
     },
     "DOC-RAP-007": {
       "path": "docs/adr/ADR-RAP-005-shared-plugin-runtime.md"
+    },
+    "DOC-RAP-008": {
+      "path": "docs/requirements-migration.md"
     }
   },
   "identity_version": "1.0.0",

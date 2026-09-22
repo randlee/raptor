@@ -27,7 +27,7 @@ def manifest() -> IdentityManifest:
 def test_identity_manifest_dogfood_and_canonical_shape() -> None:
     value = manifest()
     assert value.repository_id == "urn:raptor:repo:raptor"
-    assert len(value.documents) == 7
+    assert len(value.documents) == 8
     canonical = json.dumps(value.model_dump(mode="json"), sort_keys=True, separators=(",", ":"))
     assert canonical.index("DOC-RAP-001") < canonical.index("DOC-RAP-007")
 
