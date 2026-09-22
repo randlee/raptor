@@ -54,6 +54,9 @@ Id-less documents are not allowed: Raptor never invents an id.
   - every id that appears more than once, in one file or across files, is
     reported as one diagnostic naming each file and line. No parsing rule
     works around it.
+  - exits non-zero when the validation summary has one or more errors. The
+    index and the report are still written, so the fixture can be built and
+    the caller still sees the failure. Today it returns 0 regardless.
 - Templates print `**Status:**`, `**Created:**`, `**Last Updated:**`,
   `**Version:**` under each item's heading, from the item's own fields.
 
@@ -73,5 +76,5 @@ Id-less documents are not allowed: Raptor never invents an id.
   every remaining id-less file listed as a validation error (39 design files,
   the schema reference, the HITL files today, fewer as the source is
   corrected); repeated-id diagnostics match the RAP-VAL-1 list until the
-  source is corrected.
+  source is corrected; exit code is non-zero until it is.
 - `rg -ni --hidden --glob '!.git/**' --glob '!.sc/**' '[p]3' .` prints nothing.
