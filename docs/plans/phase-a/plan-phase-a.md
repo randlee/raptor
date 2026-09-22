@@ -2,7 +2,7 @@
 
 ## Status and authority
 
-- Status: A1–A8 merged; A9–A12 planned. A9–A12 implementation starts only after this plan gate passes and this PR merges.
+- Status: A1–A8, A9, and A10 merged; A11 and A12 planned. A11/A12 implementation starts only after this plan gate passes and this PR merges.
 - Source of truth: this file defines Phase A scope and ordering. Each linked sprint file is authoritative for that sprint's deliverables, acceptance criteria, and validation.
 - Branch model: one `gh-stack` PR per sprint in the order below, with the stack rooted at `develop`.
 - Product boundary: Raptor is a consumer-neutral system for requirements, non-functional requirements, architecture decisions, design documents, and test plans. The reference-extractor port is A11; consumer-owned corpus proof is A12; consumer migration/apply remains outside this repository.
@@ -29,7 +29,7 @@ This establishes the contract needed to migrate 30–50 repositories without put
 
 | ID | Requirement |
 |---|---|
-| PA-REQ-001 | Define canonical representations for Requirement, NonFunctionalRequirement, ArchitectureDecision, DesignDocument, and TestPlan. |
+| PA-REQ-001 | Define one canonical source-record representation for Requirement, NonFunctionalRequirement, ArchitectureDecision, DesignDocument, and TestPlan documents. |
 | PA-REQ-002 | Preserve stable repository/document/artifact composite identity, immutable origin, and current materialization provenance so artifacts remain traceable across repositories, storage, registered path changes, and rendering. |
 | PA-REQ-003 | Publish Pydantic models and generated JSON Schemas from one implementation contract under top-level `schema/`. |
 | PA-REQ-004 | Provide deterministic, structured source-profile validation findings before canonical conversion. |
@@ -84,13 +84,13 @@ All relations are `must_follow`. The public contract or generated artifact produ
 
 ### A1 contract supersession record
 
-A11 explicitly supersedes only the A1 parser/model assumptions contradicted by
-the working reference extractor: A1-D3, A1-D4, A1-D5, A1-D6, A1-D8 and the
-parser/model portions of A1-AC2, A1-AC4, A1-AC5, A1-AC8, A1-AC11, and A1-AC15.
-The replacement decisions, reference facts, and implementation evidence are
-normative in [A11](sprint-a11-reference-extractor-port.md). A1's provenance,
-schema-generation, plugin-boundary, neutrality, and Python-only decisions stay
-in force unless A11 names a specific replacement.
+A11 replaces A1-D3's five-family field matrix with the extractor grammar and
+generic record; retains A1-D4/D8's Raptor-only fixture-origin restriction while
+replacing their parser/compatibility evidence; retains A1-D5 provenance and
+envelope while dropping typed family payloads; and retains A1-D6 version/ID/
+unknown-field checks while dropping measurements, family checks, and four
+reference modes. Schema generation, plugin boundary, neutrality, and Python-only
+decisions remain in force. The normative replacement is [A11](sprint-a11-reference-extractor-port.md).
 
 ## Stack workflow
 
@@ -238,9 +238,10 @@ An external repository may supply Markdown adapters, profile rules, and its own 
 
 | Requirement | Owning sprint | Evidence at phase close |
 |---|---|---|
-| PA-REQ-001, PA-REQ-003 | A1 | Pydantic API, schema files, family tests |
-| PA-REQ-002 | A1, A2, A4, A5, A10 | identity manifest model and reference modes, persisted recovery/rendered-path-update tests, explicit registration, journaled render/identity/SQLite convergence proof, SQLite traceability-query fixtures |
-| PA-REQ-004 | A1, A4 | concrete source-profile contract and structured diagnostic route tests |
+| PA-REQ-001 | A1, A11 | Pydantic API, v2 schema files, generic-record tests |
+| PA-REQ-003 | A1 | Pydantic API and generated-schema publication |
+| PA-REQ-002 | A1, A2, A4, A5, A10, A11 | registered repository/document identity, persisted recovery/rendered-path-update tests, and repository-scoped SQLite traceability queries |
+| PA-REQ-004 | A1, A4, A11 | source-profile contract and extractor diagnostic tests |
 | PA-REQ-005 | A2 | SQL migration plus store/load tests |
 | PA-REQ-006 | A3, A4, A5 | shared discovery/vendor/runner foundation, importable runtime, thin CLI wrappers, and activated focused operation agents |
 | PA-REQ-007 | A5 | five sc-compose templates and render tests |

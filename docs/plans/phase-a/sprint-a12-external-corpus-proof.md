@@ -47,7 +47,8 @@ python3 plugins/raptor/scripts/json_to_markdown.py --input <json> --output <mark
 
 | Requirement | A12 evidence |
 |---|---|
-| REQ-RAP-013–REQ-RAP-016 | Direct extraction, field diff, SQLite round trip, template parity, and consumer gates. |
+| REQ-RAP-013, REQ-RAP-014 | Re-confirmed on the consumer corpus; owned by A9/A10. |
+| REQ-RAP-015, REQ-RAP-016 | Field diff, SQLite round trip, template parity, and consumer gates. |
 | NFR-RAP-008 | Explicit diagnostics and ATM count report. |
 
 ## Non-closure

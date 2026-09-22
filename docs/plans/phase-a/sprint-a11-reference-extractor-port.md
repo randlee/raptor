@@ -17,6 +17,9 @@ templates, and fixture values never enter Raptor; Raptor uses invented fixtures 
 The reference index has 783 records. Each has `id`, `title`, `type`, `status`,
 `domain`, `document_metadata`, `source`, `content`, `relationships`, and `subsections`.
 Status spellings are Draft, Proposed, Active, Approved, Deprecated, and Superseded.
+The index population is REQ 555, ADR 178, and NFR 50. A design document maps to
+one generic record; a test plan maps to one generic record and preserves its
+level-four TEST headings in its source Markdown/subsections.
 
 | Input | Parser behavior |
 |---|---|
@@ -34,17 +37,20 @@ plans additionally preserve zero or more level-four TEST headings.
 
 ## A1 reversals
 
-| Previous assumption | A11 replacement |
-|---|---|
-| Native level-three em-dash headings and inline fields. | Use the parser contract above. |
-| Three-digit IDs, `TST`, and lower-case lifecycle normalization. | Retain four-digit IDs, TEST headings, and the six source status spellings. |
-| Synthetic family fields and repository/artifact-only uniqueness. | The index record is the artifact; identity is document plus artifact ID. |
+| A1 deliverable | Kept | Dropped | Replaced by |
+|---|---|---|---|
+| A1-D3 | Provenance/diagnostic boundaries | Five-family field matrix | Extractor grammar and generic ten-field record. |
+| A1-D4 | Raptor-only fixture-origin rule | Old parser fixture shape | Reference fixture inventory below. |
+| A1-D5 | SourceDocument, origin/materialization | Typed family payloads | Generic records plus document envelope. |
+| A1-D6 | Version/ID/unknown-field checks | Measurement, family checks, four reference modes | Extractor diagnostics and unique emitted-reference resolution. |
+| A1-D8 | Raptor-only test-origin rule | Family compatibility evidence | Extractor, SQLite, render/reparse fixtures. |
 
 ## Scope boundary
 
 A11 is Python/Pydantic/parser/template work only. It changes `markdown_to_json.py`
 and runtime operations, not Rust, SQLx, Dolt, a framework, or consumer automation.
-Update registered agents/templates that reference the old grammar; A9/A10 use the new key.
+Update registered agents/templates that reference the old grammar; A9/A10 use
+`(repository_id, document_id, artifact_id)` from A9 registered identity.
 
 The artifact is the index record: ten source fields plus `artifact_type`,
 published at schema version `2.0.0` in `schema/json/v2`. No synthetic family
@@ -52,9 +58,11 @@ fields are added. `SourceDocument` also retains title, preamble, overview, and
 all non-item Markdown as ordered verbatim segments, including text before and
 between item blocks. SQLite stores those segments in
 `documents.non_item_segments_json`; the smaller one-column form preserves their
-order and placement. Relationships keep emitted raw token/context with nullable
-resolved document/id when unique. Replace v1 SQLite `0001` with v2 `0001`; the
-SQLite database is regenerated from Markdown and has no migration path.
+order and placement. Relationships use one `relationships` table with source
+and nullable resolved `(repository_id, document_id, artifact_id)`, emitted
+`relation_type`, target token, and context; `referenced_by` is the reverse query.
+Replace v1 SQLite `0001` with v2 `0001`; the SQLite database is regenerated from
+Markdown and has no migration path.
 
 | Index field | SQLite column | Jinja usage | Markdown construct |
 |---|---|---|---|
@@ -64,10 +72,10 @@ SQLite database is regenerated from Markdown and has no migration path.
 | `type` | `artifacts.artifact_type` | `artifact.type` | Selects the family layout. |
 | `status` | `artifacts.status` | `artifact.status` | Parsed from the item's bold Status line when present; stored for queries; not rendered separately. |
 | `domain` | `artifacts.domain` | `artifact.domain` | Derived from source path; not rendered. |
-| `document_metadata` | `documents.metadata_json` | `document.metadata` | Bold document preamble. |
+| `document_metadata` | `documents.metadata_json` | `document.metadata` | Parsed from the preamble segment in the envelope; stored for queries; not rendered separately. |
 | `source` | `artifacts.source_json` | `artifact.source` | Source order and item placement. |
 | `content` | `artifacts.content_markdown` (verbatim) | `artifact.content` | Item body rendered verbatim after the heading; summary/HTML re-derived on reparse. |
-| `relationships` | `relationships` | `artifact.relationships` | Item reference/range text. |
+| `relationships` | `relationships` | `artifact.relationships` | Emitted `mentions` reference/range text; reverse is queried. |
 | `subsections` | derived from `content_markdown` | re-derived on reparse | Not rendered. |
 
 Every template consumes all ten fields plus the envelope; `artifact.body` and `provenance_block` are removed from template inputs. The five templates are the
@@ -83,9 +91,9 @@ consumer checkout.
 | ID | Deliverable | Evidence |
 |---|---|---|
 | A11-D1 | Port the parser grammar into the existing profile/runtime path; remove the native grammar and fixtures. | Parser tests cover valid documents and every failure class. |
-| A11-D2 | Publish the 2.0.0 Pydantic/JSON schema and replacement SQLite 0001 with composite document/artifact identity and emitted relationships. | Model, schema, SQLite, duplicate-ID, and relationship tests. |
+| A11-D2 | Publish the 2.0.0 generic-record schema and replacement SQLite 0001 with repository/document/artifact identity and emitted relationships. | Model, schema, SQLite, duplicate-ID, and relationship tests. |
 | A11-D3 | Replace all five Jinja templates with the consumer layout and render from canonical JSON through sc-compose. | Invented fixture byte parity and Markdown-to-JSON equality. |
-| A11-D4 | Update A9/A10 callers, registered agents/templates, documentation, and tests for the replacement parser/model. | Existing ingress/export suites re-run without a wrapper or adapter. |
+| A11-D4 | Update A9/A10 callers, registered agents/templates, docs, ci.yml Verify generated schemas/Verify deterministic schema vendor gates to v2, delete `schema/json/v1`, and use replacement v2 DDL. | Existing ingress/export suites re-run after named contract changes; Enforce Phase A5 exclusions is unchanged because `markdown_to_json.py` is modified, not wrapped. |
 
 ## Acceptance criteria
 
@@ -93,10 +101,10 @@ consumer checkout.
 |---|---|
 | A11-AC1 | The parser is the only built-in grammar; selected documents import or receive a stable diagnostic. |
 | A11-AC2 | Every artifact preserves all ten index fields, source ordering, source status spelling, and missing-versus-empty values. |
-| A11-AC3 | Duplicate local IDs in different source documents become separate composite-key rows; emitted relationships retain raw token/context and resolve uniquely when possible. |
+| A11-AC3 | Duplicate local IDs become separate `(repository_id, document_id, artifact_id)` rows; emitted relationships retain raw token/context and resolve uniquely when possible. |
 | A11-AC4 | SQLite uses replacement v2 0001 DDL; ingress regenerates the database from Markdown with no migration path. |
-| A11-AC5 | A9/A10 use the replacement parser/model/key contract and their suites pass. |
-| A11-AC6 | `render(extract(document))` is byte-equal to the source after LF normalization and one trailing newline, then reparses to equal JSON. |
+| A11-AC5 | A9/A10 suites pass after `artifact_relationships` and `artifact_uri_relationships` are replaced by `relationships`, `RelationshipType` is removed, and `traceability_relationships()`/`reverse_typed_relationships()` query emitted relation types forward/reverse. |
+| A11-AC6 | Every file in `plugins/raptor/tests/fixtures/reference/` passes byte parity/reparse: REQ range (two items, one Status), ADR, NFR, design, test plan (two TEST headings), and second REQ reusing a local ID. |
 | A11-AC7 | No Rust, SQLx, Dolt, new framework, external source assets, or consumer automation is added. |
 
 ## Authoritative validation commands
@@ -120,7 +128,7 @@ python3 plugins/raptor/scripts/validate_plugin.py --check-inventory --check-vend
 
 | Requirement | A11 evidence |
 |---|---|
-| PA-REQ-001–PA-REQ-004 | A11-D1/D2 parser, model, identity, and diagnostics. |
+| PA-REQ-001, PA-REQ-002, PA-REQ-004 | A11-D1/D2 generic record, repository identity, and diagnostics. |
 | PA-REQ-005–PA-REQ-008 | A11-D2–D4 SQLite, agents, templates, and reparse tests. |
 | REQ-RAP-013–REQ-RAP-015 | A11-D1/D2/D4 configured ingress and SQLite round trip. |
 | REQ-RAP-016 | A11-D3 local parity; A12 owns consumer proof. |

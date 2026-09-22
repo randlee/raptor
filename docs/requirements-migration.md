@@ -37,9 +37,10 @@ Markdown → JSON → SQLite → JSON → sc-compose → Markdown → JSON
 
 Acceptance: the reparsed canonical document equals the imported canonical
 document after only the already-defined materialization transition; the loss
-report is zero for fields, artifact order, relationships, identity, immutable
-origin, and materialization provenance. SQLite must retain queryable typed and
-URI relationships plus document/artifact membership and provenance projections.
+report is zero for the ten record fields, source Markdown, artifact order,
+relationships, identity, immutable origin, and materialization provenance.
+SQLite must retain queryable emitted relationship types forward and reverse,
+plus document/artifact membership and provenance projections.
 
 Owner: A10, A11, A12.
 
