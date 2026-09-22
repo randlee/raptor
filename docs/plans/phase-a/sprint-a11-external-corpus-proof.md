@@ -29,7 +29,7 @@ configuration selects authorized Markdown and excludes generated/control state.
 |---|---|---|
 | A11-D1 | Consumer-owned `.raptor/` ingress configuration and registered document identities. | Configuration validation and identity-registration output retained in the consumer checkout. |
 | A11-D2 | Batch Markdown→JSON→SQLite→JSON→sc-compose→Markdown run using A9/A10 public operations. | Per-path and aggregate loss report plus before/after corpus-tree digests. |
-| A11-D3 | Versioned consumer-neutral evidence JSON. | Consumer repository ID, pinned consumer commit digest, per-path terminal outcome, loss fields, per-family counts, primary-gate result, and secondary-gate results. |
+| A11-D3 | Versioned consumer-neutral evidence JSON, authored as a Raptor-owned Pydantic evidence model under `schema/src/raptor_schema`, with generated JSON Schema under `schema/json/v1`. It composes the A9/A10 report-model family; the consumer produces an instance, but Raptor owns the schema and its schema-contract and deterministic-vendor drift gates. | Consumer repository ID, pinned consumer commit digest, per-path terminal outcome, loss fields, per-family counts, primary-gate result, secondary-gate results, and evidence-model/schema validation. |
 | A11-D4 | Explicit diagnostics for unsupported inputs and compatibility-gate execution on rendered output. | One diagnosed outcome per unsupported input; primary-gate report digest and secondary-gate results. |
 | A11-D5 | Compact evidence attachment on the A11 PR. | Evidence JSON only; no consumer source content. |
 
@@ -44,19 +44,38 @@ configuration selects authorized Markdown and excludes generated/control state.
 | A11-AC5 | The consumer's declared primary compatibility gate reports zero errors and zero warnings on rendered output; every declared secondary gate passes. |
 | A11-AC6 | All five canonical families appear in the run evidence. |
 | A11-AC7 | Only the evidence JSON is attached to the A11 PR; consumer Markdown, configuration, profiles, templates, fixtures, and runbook remain in the consumer repository. |
+| A11-AC8 | A11 is not assignable while any placeholder remains; before assignment this command block is replaced with the exact commands as merged in A9 and A10. |
+| A11-AC9 | The attached evidence validates against the Raptor-owned, consumer-neutral Pydantic evidence model and its generated JSON Schema, composed from the A9/A10 report-model family. |
 
-## Authoritative validation commands
+## Authoritative validation commands — template pending A9/A10 merge
 
 ```sh
 # A9 fixes this batch-ingress CLI contract; A11 invokes it without redefining it.
-<A9-batch-ingress-entry-point> --repo-root <consumer-root> \
+python3 plugins/raptor/scripts/markdown_to_json.py --repo-root <consumer-root> \
   --config <consumer-config> --report <consumer-loss-report> --apply
-# A10 fixes this SQLite-export/render proof CLI contract; A11 invokes it without redefining it.
-<A10-sqlite-export-proof-entry-point> --repo-root <consumer-root> \
-  --config <consumer-config> --database <consumer-sqlite> \
+# A10 fixes these SQLite-export/render proof CLI contracts; A11 invokes them without redefining them.
+python3 plugins/raptor/scripts/export_sqlite.py --repo-root <consumer-root> \
+  --database <consumer-sqlite> --repository-id <consumer-repository-id> \
+  --document-id <consumer-document-id> --output <consumer-canonical-json> \
   --report <consumer-loss-report> --apply
+python3 plugins/raptor/scripts/json_to_markdown.py --repo-root <consumer-root> \
+  --input <consumer-canonical-json> --output <consumer-rendered-markdown> \
+  --database <consumer-sqlite> --report <consumer-loss-report> --apply
 # Run the primary and secondary compatibility gates from the consumer-owned runbook.
-<consumer-runbook-primary-and-secondary-gates>
+```
+
+Before A11 assignment, A11-AC8 replaces the remaining consumer-owned flag
+values with the exact A9/A10 merged contracts. The consumer runbook executes
+its own compatibility commands without copying them into Raptor.
+
+Raptor-owned contract tests cover the evidence model and generated schema:
+
+```sh
+PYTHONDONTWRITEBYTECODE=1 PYTHONPATH="$PWD/schema/src" python3 -m pytest -q \
+  schema/tests/models/test_ingress_report.py \
+  schema/tests/models/test_external_evidence_report.py \
+  schema/tests/json_schema/test_generated_schemas.py
+python3 plugins/raptor/scripts/vendor_schema.py --check
 ```
 
 ## Traceability

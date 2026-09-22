@@ -2,7 +2,7 @@
 
 ## Status and authority
 
-- Status: planning; no implementation sprint may start until plan hardening passes.
+- Status: A1–A8 merged; A9–A11 planned. A9–A11 implementation starts only after this plan gate passes and this PR merges.
 - Source of truth: this file defines Phase A scope and ordering. Each linked sprint file is authoritative for that sprint's deliverables, acceptance criteria, and validation.
 - Branch model: one `gh-stack` PR per sprint in the order below, with the stack rooted at `develop`.
 - Product boundary: Raptor is a consumer-neutral system for requirements, non-functional requirements, architecture decisions, design documents, and test plans. Consumer-owned corpus proof is in scope for A11; consumer migration/apply remains outside this repository.
@@ -77,7 +77,7 @@ This establishes the contract needed to migrate 30–50 repositories without put
 | A8 | [Repository configuration manifest](sprint-a8-repository-manifest-config.md) | `phase-a/08-repository-manifest-config` | `must_follow` A7 | Publish the explicit root manifest and cross-file repository-identity invariant. |
 | A9 | [Configured ingress and batch loss report](sprint-a9-configured-ingress.md) | `phase-a/09-configured-ingress` | `must_follow` A8 | Use validated `.raptor/` configuration to batch existing ingress operations and report every selected result. |
 | A10 | [SQLite export proof](sprint-a10-sqlite-export-proof.md) | `phase-a/10-sqlite-export-proof` | `must_follow` A9 | Prove the durable SQLite→canonical JSON→sc-compose→Markdown path, including traceability projections. |
-| A11 | [External corpus proof](sprint-a11-external-corpus-proof.md) | `phase-a/11-external-corpus-proof` | `must_follow` A10 | Prove the complete loop and external compatibility on the authorized consumer corpus without copying consumer assets into Raptor. |
+| A11 | [External corpus proof](sprint-a11-external-corpus-proof.md) | `phase-a/11-external-corpus-proof` | `must_follow` A10; commands finalized at assignment | Prove the complete loop and external compatibility on the authorized consumer corpus without copying consumer assets into Raptor. |
 
 All relations are `must_follow`. The public contract or generated artifact produced by each parent is consumed by its child. Parent development must be merged forward before every child development or fix round, and parent PRs merge before child PRs.
 
@@ -228,7 +228,7 @@ An external repository may supply Markdown adapters, profile rules, and its own 
 | Requirement | Owning sprint | Evidence at phase close |
 |---|---|---|
 | PA-REQ-001, PA-REQ-003 | A1 | Pydantic API, schema files, family tests |
-| PA-REQ-002 | A1, A2, A4, A5 | identity manifest model and reference modes, persisted recovery/rendered-path-update tests, explicit registration, journaled render/identity/SQLite convergence proof |
+| PA-REQ-002 | A1, A2, A4, A5, A10 | identity manifest model and reference modes, persisted recovery/rendered-path-update tests, explicit registration, journaled render/identity/SQLite convergence proof, SQLite traceability-query fixtures |
 | PA-REQ-004 | A1, A4 | concrete source-profile contract and structured diagnostic route tests |
 | PA-REQ-005 | A2 | SQL migration plus store/load tests |
 | PA-REQ-006 | A3, A4, A5 | shared discovery/vendor/runner foundation, importable runtime, thin CLI wrappers, and activated focused operation agents |
@@ -268,6 +268,7 @@ The following are intentionally deferred:
 - migration/apply of external source repositories.
 - external-consumer adapters, legacy spelling handling, identifier ranges, or Markdown fixtures. A11's consumer-owned compatibility proof is in scope, but its assets do not enter Raptor.
 - byte-for-byte preservation of source Markdown formatting.
+- byte-unit ledgers, transformation or derivation proofs, trust policy, tool-bundle sandboxing, corpus split/combine lineage, certification engines, and multi-resource apply/recovery orchestration.
 - fleet orchestration, remote execution, registry service, web UI, authorization, and multi-tenant behavior.
 
 ## Phase risks
