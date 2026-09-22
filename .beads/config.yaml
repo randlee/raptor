@@ -1,3 +1,5 @@
 # Repository-local Beads configuration.
 # Runtime state and credentials remain outside version control.
 dolt.shared-server: true
+sync:
+    remote: "https://doltremoteapi.dolthub.com/synaptic-canvas/raptor"
