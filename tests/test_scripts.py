@@ -61,13 +61,13 @@ def test_extract_and_load_are_idempotent(tmp_path: Path) -> None:
 
 
 def test_render_one_record(tmp_path: Path) -> None:
-    pytest = __import__("pytest")
-    pytest.importorskip("jinja2")
     index = tmp_path / "index.json"
     run(str(SCRIPTS / "extract.py"), str(fixture_project(tmp_path)), "--output", str(index), cwd=ROOT)
     output = tmp_path / "rendered"
     run(str(SCRIPTS / "render.py"), str(index), "--id", "REQ-COR-0001", "--output-dir", str(output), cwd=ROOT)
-    assert output.joinpath("calibration", "REQ-COR-0001.md").read_text().startswith("# REQ-COR-0001: First item")
+    rendered = output.joinpath("calibration", "REQ-COR-0001.md").read_text()
+    assert rendered.startswith("# REQ-COR-0001: First item")
+    assert "## Rationale" in rendered
 
 
 def test_render_each_record_type(tmp_path: Path) -> None:
@@ -75,11 +75,16 @@ def test_render_each_record_type(tmp_path: Path) -> None:
     index = tmp_path / "index.json"
     run(str(SCRIPTS / "extract.py"), str(source), "--output", str(index), cwd=ROOT)
     payload = json.loads(index.read_text())
-    payload["requirements"].append({**payload["requirements"][0], "id": "NFR-COR-0001", "type": "NFR"})
+    payload["requirements"].extend([
+        {**payload["requirements"][0], "id": "NFR-COR-0001", "type": "NFR"},
+        {**payload["requirements"][0], "id": "DESIGN-COR-0001", "type": "DESIGN"},
+        {**payload["requirements"][0], "id": "TEST-COR-0001", "type": "TEST"},
+    ])
     index.write_text(json.dumps(payload))
     output = tmp_path / "rendered"
     run(str(SCRIPTS / "render.py"), str(index), "--output-dir", str(output), cwd=ROOT)
-    assert len(list(output.rglob("*.md"))) == 3
+    assert len(list(output.rglob("*.md"))) == 5
+    assert output.joinpath("calibration", "ADR-COR-0001.md").read_text().count("## Decision") == 1
 
 
 def test_extract_uses_repository_configuration(tmp_path: Path) -> None:

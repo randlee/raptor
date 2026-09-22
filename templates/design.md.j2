@@ -11,6 +11,12 @@ defaults: {summary: ""}
 **Status:** {{ record.status }}
 **Owner:** {{ record.document_metadata.owner }}
 
-## Design
+{% set body = record.content.markdown %}
+{% set sections = ["Executive Summary", "Requirements Traceability", "Architecture References", "Core Data Structures", "Algorithm Specification", "Cache Architecture", "Implementation Details", "Unit Test Design", "Benchmark Design", "Performance Characteristics", "Integration Points", "Cross-References", "Implementation Checklist", "Related Documents"] %}
+{% if "## " in body %}{{ body }}
 
-{{ record.content.markdown }}
+{% endif %}{% for section in sections %}{% if ("## " ~ section) not in body %}## {{ section }}
+
+{% if "## " not in body and section == "Executive Summary" %}{{ body }}
+
+{% endif %}{% endif %}{% endfor %}

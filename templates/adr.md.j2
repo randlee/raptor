@@ -12,6 +12,12 @@ defaults: {references: ""}
 **Owner:** {{ record.document_metadata.owner }}
 **ID Range:** {{ record.document_metadata.id_range }}
 
-## Decision
+{% set body = record.content.markdown %}
+{% set sections = ["Context", "Decision", "Rationale", "Consequences", "Alternatives Considered", "Implementation", "Impact Analysis", "Related Documents"] %}
+{% if "## " in body %}{{ body }}
 
-{{ record.content.markdown }}
+{% endif %}{% for section in sections %}{% if ("## " ~ section) not in body %}## {{ section }}
+
+{% if "## " not in body and section == "Decision" %}{{ body }}
+
+{% endif %}{% endif %}{% endfor %}
