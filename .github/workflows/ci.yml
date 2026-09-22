@@ -15,7 +15,7 @@ jobs:
       - uses: actions/setup-python@v5
         with:
           python-version: "3.11"
-      - run: pip install pytest Jinja2 markdown Pydantic
+      - run: pip install pytest markdown Pydantic sc-compose
       - run: python -m pytest -q tests
 
   neutrality:

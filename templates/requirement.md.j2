@@ -1,3 +1,23 @@
-## {{ record.id }}: {{ record.title }}
+---
+name: requirement
+version: 1.0.0
+description: Render a requirement record.
+required_variables: [record]
+optional_variables: [references]
+defaults: {references: ""}
+---
+# {{ record.id }}: {{ record.title }}
 
-{{ record.content.markdown }}
+**Status:** {{ record.status }}
+**Owner:** {{ record.document_metadata.owner }}
+**ID Range:** {{ record.document_metadata.id_range }}
+
+{% set body = record.content.markdown %}
+{% set sections = ["Overview", "Requirement Statement", "Rationale", "Success Criteria", "Dependencies", "Product Applicability", "Implementation Notes", "Test Strategy", "Validation Policy (Optional)", "Related Documents"] %}
+{% if "## " in body %}{{ body }}
+
+{% endif %}{% for section in sections %}{% if ("## " ~ section) not in body %}## {{ section }}
+
+{% if "## " not in body and section == "Requirement Statement" %}{{ body }}
+
+{% endif %}{% endif %}{% endfor %}

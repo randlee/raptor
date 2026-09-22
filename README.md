@@ -6,7 +6,7 @@ Requirements, architecture, plan, test, observability and reporting system for A
 Install the two Python dependencies before running the extractor:
 
 ```sh
-pip install markdown pydantic
+pip install markdown pydantic sc-compose
 ```
 
 Generate the committed record schema after changing its Pydantic model:
