@@ -1,10 +1,10 @@
 import json
 import sqlite3
-from raptor_schema import field_table, sql_ddl
+import raptor_schema
 
 def test_python_api():
-    sqlite3.connect(":memory:").executescript(sql_ddl())
-    fields = json.loads(field_table("requirements"))
+    sqlite3.connect(":memory:").executescript(raptor_schema.sql_ddl())
+    fields = json.loads(raptor_schema.field_table("requirements"))
     assert [field["label"] for field in fields[:6]] == ["ID", "Title", "Status", "Version", "Created", "Last Updated"]
     assert [field["level"] for field in fields if field["name"] == "status"] == ["Header", "Item"]
     diagnostics = [{"file": "one.md", "line": 4, "rule": "UNKNOWN_LABEL", "id": None, "label": "Extra", "message": "ignored", "allowed": ["Status"], "remedy": "ignored"}] * 2
