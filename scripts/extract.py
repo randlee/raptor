@@ -19,6 +19,7 @@ import markdown
 import sys
 import argparse
 import tomllib
+from fnmatch import fnmatch
 
 # Windows compatibility: Configure UTF-8 output encoding
 if sys.platform == 'win32':
@@ -1665,10 +1666,15 @@ def main():
         for source in tomllib.loads(source_file.read_text(encoding='utf-8'))['sources']:
             source_root = project_root / source['root']
             source_domain = domain_from_source_root(source_root)
-            excluded = {path for pattern in source.get('exclude', []) for path in source_root.glob(pattern)}
             for pattern in source['include']:
                 for path in source_root.glob(pattern):
-                    if path.is_file() and path.suffix == '.md' and path not in excluded and '.git' not in path.parts and '.raptor' not in path.parts:
+                    relative = path.relative_to(source_root).as_posix()
+                    excluded = any(
+                        fnmatch(relative, exclude) or
+                        (exclude.endswith('/**') and relative.startswith(exclude.removesuffix('**')))
+                        for exclude in source.get('exclude', [])
+                    )
+                    if path.is_file() and path.suffix == '.md' and not excluded and '.git' not in path.parts and '.raptor' not in path.parts:
                         configured_files.append((str(path), source_domain, source['name']))
             allowed_types[source['name']] = routes[source['name']]
         configured_files = list(dict.fromkeys(configured_files))
