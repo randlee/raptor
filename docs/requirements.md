@@ -7,12 +7,13 @@ stable Raptor-owned identifier and an observable acceptance statement.
 
 ### REQ-RAP-001 — Canonical artifact families
 
-Raptor shall define consumer-neutral canonical representations for requirements,
-non-functional requirements, architecture decisions, design documents, and test
-plans.
+Raptor shall define one consumer-neutral canonical source-record representation
+for requirements, non-functional requirements, architecture decisions, design
+documents, and test plans.
 
-Acceptance: one valid instance of every family validates in a single source
-document and retains its family-specific fields after canonical JSON round-trip.
+Acceptance: every source record retains its ten fields and source Markdown
+byte-for-byte through canonical JSON round-trip; family-specific content remains
+inside that source Markdown and derived subsections.
 
 ### REQ-RAP-002 — Stable composite identity and provenance
 
