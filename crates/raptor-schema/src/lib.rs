@@ -5,22 +5,8 @@ use std::{
     str::FromStr,
 };
 
-macro_rules! string_type {
-    ($name:ident, $check:expr) => {
-        #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
-        pub struct $name(pub String);
-        impl FromStr for $name {
-            type Err = String;
-            fn from_str(value: &str) -> Result<Self, Self::Err> {
-                if $check(value) {
-                    Ok(Self(value.into()))
-                } else {
-                    Err(value.into())
-                }
-            }
-        }
-    };
-}
+#[rustfmt::skip]
+macro_rules! string_type { ($name:ident, $check:expr) => { #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize, JsonSchema)] pub struct $name(pub String); impl FromStr for $name { type Err = String; fn from_str(value: &str) -> Result<Self, Self::Err> { if $check(value) { Ok(Self(value.into())) } else { Err(value.into()) } } } }; }
 fn version(value: &str) -> bool {
     let p: Vec<_> = value.split('.').collect();
     p.len() == 3
@@ -49,28 +35,12 @@ string_type!(Version, version);
 string_type!(Date, date);
 string_type!(Id, identifier);
 
-#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
-#[serde(rename_all = "PascalCase")]
-pub enum Status {
-    Draft,
-    Proposed,
-    Active,
-    Approved,
-    Deprecated,
-    Superseded,
-}
-#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
-pub enum RecordKind {
-    Req,
-    Nfr,
-    Adr,
-}
-#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
-pub enum Modal {
-    Must,
-    Should,
-    MustNot,
-}
+#[rustfmt::skip]
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize, JsonSchema)] #[serde(rename_all = "PascalCase")] pub enum Status { Draft, Proposed, Active, Approved, Deprecated, Superseded }
+#[rustfmt::skip]
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize, JsonSchema)] pub enum RecordKind { Req, Nfr, Adr }
+#[rustfmt::skip]
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize, JsonSchema)] pub enum Modal { Must, Should, MustNot }
 impl Id {
     pub fn kind(&self) -> RecordKind {
         match &self.0[..3] {
@@ -81,28 +51,10 @@ impl Id {
     }
 }
 
-#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
-pub enum Level {
-    Header,
-    Item,
-    Section,
-    Label,
-}
-#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
-pub enum Shape {
-    Text,
-    Date,
-    Version,
-    Status,
-    Id,
-    IdList,
-    TextList,
-    StatementList,
-    Checklist,
-    LinkList,
-    Group,
-    Derived,
-}
+#[rustfmt::skip]
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize, JsonSchema)] pub enum Level { Header, Item, Section, Label }
+#[rustfmt::skip]
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize, JsonSchema)] pub enum Shape { Text, Date, Version, Status, Id, IdList, TextList, StatementList, Checklist, LinkList, Group, Derived }
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
 pub struct FieldMeta {
     pub name: &'static str,
