@@ -32,8 +32,10 @@ Id-less documents are not allowed: Raptor never invents an id.
 
 ## Deliverables
 
-- `Record` gains top-level `created`, `last_updated`, `version` (strings;
-  null when the file header lacks them). `created` and `last_updated` are
+- `Record` gains top-level `created`, `last_updated`, `version`, all
+  required and never null, like `status`. A file whose header lacks any of
+  the five fields is a `MISSING_HEADER_FIELD` error and none of its items
+  is emitted; the source is corrected. `created` and `last_updated` are
   ISO 8601 (REQ-RAP-0009); the source headers are date-only `YYYY-MM-DD`
   and are stored as written, never given a time or zone. They move out of
   `document_metadata`, which keeps `owner` only. `id_range` and
@@ -44,8 +46,9 @@ Id-less documents are not allowed: Raptor never invents an id.
   two fields in `record.py` and `record.schema.json`, and the range parsing
   in `extract.py` all go.
   `type` becomes `REQ | NFR | ADR | TEST | DESIGN`.
-- `artifacts` table gains `created`, `last_updated`, `version` columns;
-  `load_sqlite.py` writes them. The separate test-plan path in the index and
+- `artifacts` table gains `created`, `last_updated`, `version` columns,
+  `TEXT NOT NULL`; `status` becomes `NOT NULL` too. `load_sqlite.py` writes
+  them. The separate test-plan path in the index and
   loader goes away: TEST items arrive through the same list as every other
   item.
 - `extract.py`:
@@ -98,8 +101,9 @@ Id-less documents are not allowed: Raptor never invents an id.
   one file with no id at all, one file missing a header field, and one
   repeated id covers every deliverable. The test asserts the exact report
   lines for each dirty file and the non-zero exit code.
-- Consumer run: `created`, `last_updated` and `version` non-null wherever
-  the file header has them; one `TEST` row per `## TEST-` heading; one
+- Consumer run: every row has `status`, `created`, `last_updated` and
+  `version` (all 157 inventory files carry them today); one `TEST` row per
+  `## TEST-` heading; one
   `DESIGN` row per design file that has `**Document ID:**` (4 today);
   every remaining id-less file listed as a validation error (39 design files,
   the schema reference, the HITL files today, fewer as the source is
