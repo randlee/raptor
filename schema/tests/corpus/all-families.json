@@ -5,14 +5,14 @@
       "repository_id": "urn:raptor:repo:raptor",
       "document_id": "DOC-RAP-001",
       "initial_repository_path": "docs/requirements.md",
-      "original_content_sha256": "92bd370656cf7165725505503c29cf26904b14c9d67a662d749dc7204517f486",
+      "original_content_sha256": "d5f6e944c7df070c6d8b23bbf4303b7390d08ea7a55c00c550e50bd346f1cab8",
       "source_format": "markdown",
       "parser_profile": "raptor_dogfood",
       "parser_profile_version": "1.0.0"
     },
     "materialization": {
       "repository_path": "docs/requirements.md",
-      "content_sha256": "92bd370656cf7165725505503c29cf26904b14c9d67a662d749dc7204517f486",
+      "content_sha256": "d5f6e944c7df070c6d8b23bbf4303b7390d08ea7a55c00c550e50bd346f1cab8",
       "operation": "imported",
       "parser_profile": "raptor_dogfood",
       "parser_profile_version": "1.0.0"
