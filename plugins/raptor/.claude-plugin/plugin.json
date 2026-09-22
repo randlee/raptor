@@ -1,6 +1,0 @@
-{
-  "name": "raptor",
-  "version": "1.0.0",
-  "description": "Validate, import, export, and round-trip Raptor artifacts.",
-  "skills": "./skills/"
-}
