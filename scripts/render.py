@@ -4,9 +4,9 @@ from __future__ import annotations
 
 import argparse
 import json
-import subprocess
-import tempfile
 from pathlib import Path
+
+import sc_compose as sc
 
 TEMPLATES = {
     "REQ": "requirement.md.j2",
@@ -32,20 +32,16 @@ def output_path(record: dict, output_dir: Path) -> Path:
 
 
 def render(record: dict, templates: Path, output_dir: Path) -> Path:
-    template = templates / TEMPLATES.get(record["type"], "requirement.md.j2")
+    template = TEMPLATES.get(record["type"], "requirement.md.j2")
     destination = output_path(record, output_dir)
     destination.parent.mkdir(parents=True, exist_ok=True)
-    with tempfile.NamedTemporaryFile("w", suffix=".json", delete=False) as variables:
-        json.dump({"record": record}, variables)
-        variable_path = Path(variables.name)
-    try:
-        subprocess.run(
-            ["sc-compose", "render", "--root", str(templates.parent), "--file", str(template),
-             "--var-file", str(variable_path), "--output", str(destination)],
-            check=True,
-        )
-    finally:
-        variable_path.unlink(missing_ok=True)
+    # PyPI's sc-compose wheel provides bindings but no console script.
+    result = sc.compose_file(sc.ComposeRequest(
+        root=templates.parent,
+        mode=sc.ComposeMode.file(f"{templates.name}/{template}"),
+        vars_input={"record": record},
+    ))
+    destination.write_text(result.rendered_text, encoding="utf-8")
     return destination
 
 
