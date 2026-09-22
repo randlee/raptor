@@ -75,6 +75,11 @@ Id-less documents are not allowed: Raptor never invents an id.
   - exits non-zero when the validation summary has one or more errors. The
     index and the report are still written, so the fixture can be built and
     the caller still sees the failure. Today it returns 0 regardless.
+  - honours `.raptor/raptor.toml` whenever it exists under the project
+    root, whether that root is auto-detected, `--project-root`, or the
+    positional argument. Today an explicit root silently ignores the config
+    and falls back to the built-in domain list, which scans nothing on a
+    repository laid out differently.
   - adds no ingress parse options. If one proves necessary it is proposed
     as an option any repository could use and discussed with the operator
     before it is added.
