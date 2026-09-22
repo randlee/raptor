@@ -1796,7 +1796,7 @@ def main():
     os.makedirs(outputs_dir, exist_ok=True)
 
     json_path = args.output or os.path.join(outputs_dir, 'requirements-index.json')
-    reports_dir = os.path.join(os.path.dirname(json_path) or '.', 'reports')
+    reports_dir = os.path.join(project_root_str, 'reports')
     os.makedirs(reports_dir, exist_ok=True)
 
     # Generate JSON output
