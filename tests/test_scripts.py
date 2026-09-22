@@ -27,6 +27,9 @@ def configured_fixture_project(tmp_path: Path) -> Path:
     project = fixture_project(tmp_path)
     documents = project / "docs"
     shutil.copytree(project / "calibration" / "requirements", documents)
+    excluded = documents / "excluded"
+    excluded.mkdir()
+    shutil.copy(ROOT / "tests" / "fixtures" / "items.md", excluded / "ignored.md")
     config = project / ".raptor"
     config.mkdir()
     (config / "raptor.toml").write_text(
@@ -34,7 +37,7 @@ def configured_fixture_project(tmp_path: Path) -> Path:
         '[files]\nscan = "sources.toml"\nrouting = "routing.toml"\nidentity = "identity.json"\n'
     )
     (config / "sources.toml").write_text(
-        'schema_version = "1.0.0"\n\n[[sources]]\nname = "documentation"\nroot = "docs"\ninclude = ["*.md", "**/*.md"]\nexclude = []\n'
+        'schema_version = "1.0.0"\n\n[[sources]]\nname = "documentation"\nroot = "docs"\ninclude = ["*.md", "**/*.md"]\nexclude = ["excluded/**"]\n'
     )
     (config / "routing.toml").write_text(
         'schema_version = "1.0.0"\n\n[[routes]]\nsource = "documentation"\n'
@@ -77,3 +80,4 @@ def test_extract_uses_repository_configuration(tmp_path: Path) -> None:
     payload = json.loads(index.read_text())
     assert len(payload["requirements"]) == 2
     assert {item["domain"] for item in payload["requirements"]} == {"docs"}
+    assert payload["metadata"]["total_files"] == 1
