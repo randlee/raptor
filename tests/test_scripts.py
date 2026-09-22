@@ -29,12 +29,17 @@ def configured_fixture_project(tmp_path: Path) -> Path:
     shutil.copytree(project / "calibration" / "requirements", documents)
     config = project / ".raptor"
     config.mkdir()
-    (config / "raptor.toml").write_text('[files]\nsources = "sources.toml"\nrouting = "routing.toml"\n')
+    (config / "raptor.toml").write_text(
+        'schema_version = "1.0.0"\nrepository_id = "urn:raptor:repo:test"\n\n'
+        '[files]\nscan = "sources.toml"\nrouting = "routing.toml"\nidentity = "identity.json"\n'
+    )
     (config / "sources.toml").write_text(
-        '[[sources]]\nname = "documentation"\nroot = "docs"\ninclude = ["*.md", "**/*.md"]\nexclude = []\n'
+        'schema_version = "1.0.0"\n\n[[sources]]\nname = "documentation"\nroot = "docs"\ninclude = ["*.md", "**/*.md"]\nexclude = []\n'
     )
     (config / "routing.toml").write_text(
-        '[[routes]]\nsource = "documentation"\nartifact_types = ["REQ", "NFR", "ADR"]\n'
+        'schema_version = "1.0.0"\n\n[[routes]]\nsource = "documentation"\n'
+        'artifact_types = ["requirement", "non_functional_requirement", "architecture_decision"]\n'
+        '[routes.profile]\nprofile_id = "raptor"\nprofile_version = "1.0.0"\n'
     )
     return project
 
@@ -44,13 +49,15 @@ def test_extract_and_load_are_idempotent(tmp_path: Path) -> None:
     index, database = tmp_path / "index.json", tmp_path / "artifacts.sqlite"
     run(str(SCRIPTS / "extract.py"), str(source), "--output", str(index), cwd=ROOT)
     payload = json.loads(index.read_text())
-    assert [item["id"] for item in payload["requirements"]] == ["REQ-CORE-0001", "ADR-CORE-0001"]
+    assert [item["id"] for item in payload["requirements"]] == ["REQ-COR-0001", "ADR-COR-0001"]
     assert payload["requirements"][0]["content"]["markdown"].startswith("Body mentions")
     run(str(SCRIPTS / "load_sqlite.py"), str(index), str(database), cwd=ROOT)
+    with sqlite3.connect(database) as connection:
+        first_counts = tuple(connection.execute(f"SELECT count(*) FROM {table}").fetchone()[0] for table in ("artifacts", "relationships"))
     run(str(SCRIPTS / "load_sqlite.py"), str(index), str(database), cwd=ROOT)
     with sqlite3.connect(database) as connection:
-        assert connection.execute("SELECT count(*) FROM artifacts").fetchone()[0] == 2
-        assert connection.execute("SELECT count(*) FROM relationships").fetchone()[0] == 0
+        second_counts = tuple(connection.execute(f"SELECT count(*) FROM {table}").fetchone()[0] for table in ("artifacts", "relationships"))
+    assert first_counts == second_counts == (2, 2)
 
 
 def test_render_one_record(tmp_path: Path) -> None:
@@ -59,8 +66,8 @@ def test_render_one_record(tmp_path: Path) -> None:
     index = tmp_path / "index.json"
     run(str(SCRIPTS / "extract.py"), str(fixture_project(tmp_path)), "--output", str(index), cwd=ROOT)
     output = tmp_path / "rendered"
-    run(str(SCRIPTS / "render.py"), str(index), "--id", "REQ-CORE-0001", "--output-dir", str(output), cwd=ROOT)
-    assert output.joinpath("REQ-CORE-0001.md").read_text().startswith("## REQ-CORE-0001: First item")
+    run(str(SCRIPTS / "render.py"), str(index), "--id", "REQ-COR-0001", "--output-dir", str(output), cwd=ROOT)
+    assert output.joinpath("REQ-COR-0001.md").read_text().startswith("## REQ-COR-0001: First item")
 
 
 def test_extract_uses_repository_configuration(tmp_path: Path) -> None:

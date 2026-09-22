@@ -1648,18 +1648,34 @@ def main():
 
     configured_files = []
     allowed_types = {}
+    configured_test_plans = False
     if config_path.exists() and not root_arg and args.domain == 'all' and not args.domains:
         manifest = tomllib.loads(config_path.read_text(encoding='utf-8'))
-        source_file = config_path.parent / manifest['files']['sources']
+        source_file = config_path.parent / manifest['files']['scan']
         routing_file = config_path.parent / manifest['files']['routing']
-        routes = {route['source']: set(route['artifact_types'])
-                  for route in tomllib.loads(routing_file.read_text(encoding='utf-8'))['routes']}
+        artifact_types = {
+            'requirement': 'REQ',
+            'non_functional_requirement': 'NFR',
+            'architecture_decision': 'ADR',
+        }
+        routes = {}
+        for route in tomllib.loads(routing_file.read_text(encoding='utf-8'))['routes']:
+            route_types = set()
+            for artifact_type in route['artifact_types']:
+                if artifact_type in artifact_types:
+                    route_types.add(artifact_types[artifact_type])
+                elif artifact_type == 'test_plan':
+                    configured_test_plans = True
+                elif artifact_type != 'design_document':
+                    print(f"ERROR: {routing_file}: unknown artifact type {artifact_type}", file=sys.stderr)
+                    return 1
+            routes[route['source']] = route_types
         for source in tomllib.loads(source_file.read_text(encoding='utf-8'))['sources']:
             source_root = project_root / source['root']
             excluded = {path for pattern in source.get('exclude', []) for path in source_root.glob(pattern)}
             for pattern in source['include']:
                 for path in source_root.glob(pattern):
-                    if path.is_file() and path.suffix == '.md' and path not in excluded:
+                    if path.is_file() and path.suffix == '.md' and path not in excluded and '.git' not in path.parts and '.raptor' not in path.parts:
                         configured_files.append((str(path), source['name']))
             allowed_types[source['name']] = routes[source['name']]
         configured_files = sorted(set(configured_files))
@@ -1709,7 +1725,7 @@ def main():
     # STEP 2A: Extract test plans
     print("STEP 2A: Extracting test plans...")
     print("-" * 80)
-    test_plan_files = extract_test_plans(project_root_str)
+    test_plan_files = extract_test_plans(project_root_str) if not configured_files or configured_test_plans else []
     all_test_plans = []
 
     for test_plan_file in test_plan_files:
@@ -1780,7 +1796,7 @@ def main():
     os.makedirs(outputs_dir, exist_ok=True)
 
     json_path = args.output or os.path.join(outputs_dir, 'requirements-index.json')
-    reports_dir = os.path.join(os.path.dirname(json_path) or '.', 'reports')
+    reports_dir = os.path.join(project_root_str, 'reports')
     os.makedirs(reports_dir, exist_ok=True)
 
     # Generate JSON output
