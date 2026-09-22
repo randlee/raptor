@@ -32,6 +32,13 @@ is the ordered envelope, and every artifact supplies `id`, `title`, `artifact_ty
 `status`, `domain`, `source`, `content`, `relationships`, and `subsections`.
 `document.metadata` supplies the tenth record field at document scope. The removed
 `provenance_block` and synthetic `body` inputs are not part of this contract.
+Requirement, NFR, and ADR templates render the ordered envelope segments. The
+design-document and test-plan templates render their one routed whole-document
+record's verbatim `content`; their envelope is empty. A design record uses its
+registered document ID. A test-plan record uses the declared bold `Test Plan ID`
+when it is a valid single TEST ID or range start; the full range is retained in
+`document.metadata.id_range`. Whole-document status is the first valid preamble
+bold Status, or null when absent or off-list.
 
 External sets use the same projection. Paths must be direct children of the set
 directory, regular files, and not symlinks. Every digest is verified before

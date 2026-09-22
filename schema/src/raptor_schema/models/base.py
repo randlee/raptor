@@ -33,7 +33,7 @@ CANONICAL_SCHEMA_VERSION_JSON_RE = _json_schema_pattern(
 )
 REPOSITORY_ID_RE = _python_pattern(_REPOSITORY_ID_BODY)
 DOCUMENT_ID_RE = r"^DOC-[A-Z0-9][A-Z0-9-]*-[0-9]{3,}$"
-ARTIFACT_ID_RE = r"^(REQ|NFR|ADR|DES|TST|TEST)-[A-Z0-9][A-Z0-9-]*-[0-9]{4,}$"
+ARTIFACT_ID_RE = r"^(?:(?:REQ|NFR|ADR)-[A-Z0-9][A-Z0-9-]*-[0-9]{4,}|TEST-[A-Z0-9][A-Z0-9-]*-[0-9]{4,}|DOC-[A-Z0-9][A-Z0-9-]*-[0-9]{3,})$"
 SHA256_RE = r"^[0-9a-f]{64}$"
 EXTENSION_KEY_RE = r"^[a-z][a-z0-9]*(\.[a-z][a-z0-9_-]*)+$"
 PROFILE_ID_RE = _python_pattern(_PROFILE_ID_BODY)

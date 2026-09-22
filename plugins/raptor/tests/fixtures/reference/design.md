@@ -1,6 +1,13 @@
-# Reference design
+# Free-form design
 
-## DES-CORE-0001: Envelope layout
+**Status:** Approved
+**Category:** Architecture
 
-### Components
-The envelope surrounds item blocks.
+This document preserves its complete Markdown as one record.
+
+# Boundary notes
+
+## Components
+
+### Interface
+Nested content remains available for inspection.

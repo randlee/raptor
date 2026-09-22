@@ -246,6 +246,7 @@ def render_markdown(
         document_id=origin.document_id,
         repository_path=PurePosixPath(relative),
         content=content,
+        routed_artifact_type=document.artifacts[0].artifact_type,
     )
     actual = profile.canonicalize(profile.parse(source))
     if [item.model_dump(mode="json", exclude={"source_location"}) for item in document.artifacts] != [item.model_dump(mode="json", exclude={"source_location"}) for item in actual.artifacts]:

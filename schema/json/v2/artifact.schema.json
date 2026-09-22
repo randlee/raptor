@@ -218,7 +218,7 @@
       "title": "Domain"
     },
     "id": {
-      "pattern": "^(REQ|NFR|ADR|DES|TST|TEST)-[A-Z0-9][A-Z0-9-]*-[0-9]{4,}$",
+      "pattern": "^(?:(?:REQ|NFR|ADR)-[A-Z0-9][A-Z0-9-]*-[0-9]{4,}|TEST-[A-Z0-9][A-Z0-9-]*-[0-9]{4,}|DOC-[A-Z0-9][A-Z0-9-]*-[0-9]{3,})$",
       "title": "Id",
       "type": "string"
     },

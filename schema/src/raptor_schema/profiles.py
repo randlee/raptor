@@ -10,6 +10,7 @@ from pydantic import JsonValue, TypeAdapter
 
 from .models import (
     Artifact,
+    ArtifactType,
     Diagnostic,
     DocumentId,
     JsonObject,
@@ -85,6 +86,7 @@ class SourceInput:
     document_id: DocumentId
     repository_path: PurePosixPath
     content: bytes
+    routed_artifact_type: ArtifactType | None = None
 
     def __post_init__(self) -> None:
         if not isinstance(self.repo_root, Path):
@@ -106,6 +108,10 @@ class SourceInput:
         _resolved_inside(root, relative)
         if not isinstance(self.content, bytes):
             raise TypeError("content must be bytes")
+        if self.routed_artifact_type is not None and not isinstance(
+            self.routed_artifact_type, ArtifactType
+        ):
+            raise TypeError("routed_artifact_type must be ArtifactType or None")
         object.__setattr__(self, "repo_root", root)
         object.__setattr__(self, "repository_id", repository_id)
         object.__setattr__(self, "document_id", document_id)

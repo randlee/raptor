@@ -466,6 +466,11 @@ def configured_markdown_to_sqlite(
                     document_id=document_id,
                     repository_path=PurePosixPath(relative),
                     content=read_repository_bytes(root, relative),
+                    routed_artifact_type=(
+                        route.artifact_types[0]
+                        if len(route.artifact_types) == 1
+                        else None
+                    ),
                 ),
             )
             if any(artifact.artifact_type not in route.artifact_types for artifact in document.artifacts):

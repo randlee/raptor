@@ -6,4 +6,4 @@ required_variables:
   - document.segments
   - artifacts
 ---
-{% for segment in document.segments %}{{ segment.content if segment.kind == "text" else segment.markdown }}{% endfor %}
+{% for artifact in artifacts %}{{ artifact.content }}{% endfor %}

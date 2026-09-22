@@ -140,7 +140,7 @@
       "storage/sqlite.py"
     ],
     "package_version": "1.0.0",
-    "tree_sha256": "88225dd4558996f17a58da6548c28c6ef15c6a0b2f8e652343b7b6eda3a8e7ec"
+    "tree_sha256": "9fdc720db565ababb604ca204cb93d03cf70b177a54a9ea0eb92590bed6d1ba9"
   },
   "version": "1.0.0"
 }

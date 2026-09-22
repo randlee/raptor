@@ -29,7 +29,7 @@ profiles still require `--allow-profile-code`, API version `1`, and no symlink o
 root escape. Raptor does not copy consumer profiles into the plugin.
 
 The built-in reference extractor is the only parser. It recognizes level-two
-`## REQ|NFR|ADR|DES|TST-<scope>-<four digits>: <title>` items and preserves their
+`## REQ|NFR|ADR-<scope>-<four digits>: <title>` items and preserves their
 verbatim content, nested sections, raw reference tokens, and source order.
 Malformed headings (including a non-colon separator) fail with
 `RAPTOR.REFERENCE.MALFORMED_HEADING`; invalid UTF-8, duplicate item headings,
@@ -37,10 +37,15 @@ bad nested headings, unsupported statuses, and ordinary selected files without
 an item fail closed with `RAPTOR.REFERENCE.INVALID_UTF8`,
 `RAPTOR.REFERENCE.DUPLICATE_HEADING`, `RAPTOR.REFERENCE.BAD_NESTED_HEADING`,
 `RAPTOR.REFERENCE.UNSUPPORTED_STATUS`, and `RAPTOR.REFERENCE.NO_ITEM`.
-Design and test-plan routes are the exception to the no-item inventory rule:
-each yields one generic record, with level-four TEST evidence retained in its
-source content/subsections. Relationships are emitted raw and SQLite resolves a
-target only when it is unique in the repository.
+Configured design-document and test-plan routes each yield one generic record:
+verbatim `content` is the complete Markdown, the envelope is empty, and nested
+headings and mentions are derived from content. Design uses its registered
+document ID. A test plan uses the start of a declared bold `Test Plan ID` single
+ID or `A through B`/`A to B` range, retaining the range in metadata; otherwise it
+uses the registered document ID. Their first preamble bold Status is stored only
+when it is one of the six supported spellings; otherwise status is null without
+a diagnostic. Relationships are emitted raw and SQLite resolves a target only
+when it is unique in the repository.
 
 ## Configured batch ingress
 
