@@ -27,8 +27,8 @@ round-trip.
 ### `schema/record.py`
 
 - `Record`: add `created: str`, `last_updated: str`, `version: str` after
-  `status`; `status: str` (was `str | None`);
-  `type: Literal["REQ","NFR","ADR","TEST","DESIGN"]`.
+  `status`; `status: str` (was `str | None`); `type: str`, the id's prefix
+  (was a Literal of three; the type is whatever the id says).
 - `DocumentMetadata`: `owner: str` only; remove `created`, `last_updated`,
   `id_range`, `range_description`.
 - `Relationships`: remove `family`; delete class `Family`.
@@ -61,9 +61,9 @@ Each template prints, after the H1, the header block
 then `---`. Item templates (requirement, nfr, adr, test-plan) follow with
 `## {{ record.id }}: {{ record.title }}`, a `**Status:**` line, and
 `{{ record.content.markdown }}`. `design.md.j2` puts
-`**Document ID:** {{ record.id }}` first in the header block and prints
-`{{ record.content.markdown }}` with no item heading. Every `**ID Range:**`
-line is removed. Nothing else in the templates changes.
+`**Document ID:** {{ record.id }}` first in the header block, `# {{ record.title }}`
+as the H1, and prints `{{ record.content.markdown }}` with no item heading.
+Every `**ID Range:**` line is removed. Nothing else in the templates changes.
 
 ### `tests/fixtures/records.json`
 

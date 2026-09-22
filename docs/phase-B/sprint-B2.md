@@ -31,15 +31,18 @@ the B.1 templates. Line numbers refer to the file as of commit `315ddd6`.
 - `normalize_status` 1033: return `None` for an unknown value; remove the
   default-to-Draft and its print (1051).
 - `extract_requirement_id_and_title` 1107: regex
-  `^##\s+((REQ|NFR|ADR|TEST)-[A-Z]+-\d{4}):\s*(.+)$`.
-- `process_requirement` 1183: `type` from the prefix; `status` from the
-  item's `**Status:**` line, else the header; `created`, `last_updated`,
-  `version` from the header onto the record; `document_metadata` is
-  `{"owner": ...}`; no `relationships.family`; remove the print at 1194.
-- `parse_file_content` 1056: a file with no item headings and a
-  `**Document ID:**` yields one `DESIGN` record (id from that line, title
-  from the H1, content the text after the header block, subsections from
-  its H2s). A file with neither yields nothing (B.4 reports it).
+  `^##\s+([A-Z]+-[A-Z]+-\d{4}):\s*(.+)$` (was REQ/NFR/ADR only). A
+  `**Document ID:** <ID>` line is the other way to declare an id.
+- `process_requirement` 1183: one record per id declaration, whichever
+  spelling. `type` is the id's prefix. `status` from the declaration's own
+  `**Status:**` line, else the header; `created`, `last_updated`, `version`
+  from the header; `document_metadata` is `{"owner": ...}`; no
+  `relationships.family`; remove the print at 1194. For a Document ID
+  declaration the title is the file's H1 and the body is the text after the
+  header block.
+- `parse_file_content` 1056: the file is a container. Which ids share a file
+  does not matter; a REQ and an NFR in one file or two files parse the same.
+  A file with no id declaration yields nothing (B.4 reports it).
 - `main` 1563: honour `.raptor/raptor.toml` under the given root, not only
   the current directory (1645). Remove the record-model abort (1756–1765)
   and the hard-coded validation block (1766): validate every record, keep
@@ -59,8 +62,9 @@ the B.1 templates. Line numbers refer to the file as of commit `315ddd6`.
 - Render `records.json` into a temp project under `docs/` with a `.raptor/`
   that ingests `docs`; run the parser; assert `requirements` equals the
   fixture's six records, order-independent, paths made relative.
-- Multi-item file: concatenate the two rendered TEST files into one (second
-  header block removed); parse; assert both records unchanged.
+- File layout is irrelevant: concatenate the rendered REQ and NFR files into
+  one (second header block removed), and split nothing else; parse; assert
+  all six records unchanged.
 - `--project-root <tmp>` and running from inside `<tmp>` give the same
   records.
 

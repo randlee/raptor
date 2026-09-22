@@ -19,11 +19,18 @@ repository, not with exceptions in the parser.
 
 Required, never null; ISO 8601 as written (REQ-RAP-0009). Also, because
 they follow from the same gap: `status` becomes required (item line, else
-header); `TEST` items and `**Document ID:**` documents become rows
-(REQ-RAP-0002); and the range fields (`id_range`, `range_description`,
-`relationships.family`) leave the record, since range is a source-side
-search convenience and not an item field. Nothing else in the record
-changes. Any further schema change is discussed with the operator first.
+header); every id declaration becomes a row whatever its prefix, so `TEST`
+and `DESIGN` ids land (REQ-RAP-0002); and the range fields (`id_range`,
+`range_description`, `relationships.family`) leave the record, since range
+is a source-side search convenience and not an item field. Nothing else in
+the record changes. Any further schema change is discussed with the
+operator first.
+
+A file is only where an id happens to land today. An id is declared by
+`## <ID>: <title>` or by `**Document ID:** <ID>`; its type is its prefix;
+the header block of whichever file it sits in supplies Status, Created,
+Last Updated, Version and Owner. Which ids share a file is irrelevant: a
+REQ and an NFR in one file or in two parse the same.
 
 ## Gaps closed elsewhere
 

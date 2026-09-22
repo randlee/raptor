@@ -31,7 +31,7 @@ truncated; no rule stops the run.
 
 | Rule | Raised when | Effect on rows | Remedy |
 |---|---|---|---|
-| `MISSING_ID` | file has no item heading and no `**Document ID:**` | none emitted | Add `**Document ID:** <PREFIX>-<AREA>-<NNNN>`, or `## <ID>: <title>` headings |
+| `MISSING_ID` | file declares no id, by heading or by `**Document ID:**` | none emitted | Add `**Document ID:** <PREFIX>-<AREA>-<NNNN>`, or `## <ID>: <title>` headings |
 | `DUPLICATE_ID` | an id occurs more than once in the inventory; raised at every occurrence, message names the others | all occurrences emitted | Give each item a unique id |
 | `MISSING_HEADER_FIELD` | any of Status, Created, Last Updated, Version, Owner absent; one per field | file's rows not emitted | Add `**<Field>:** <value>` to the header block |
 | `INVALID_DATE` | Created or Last Updated not ISO 8601 (`YYYY-MM-DD`, or full form with `Z` or offset) | file's rows not emitted | Write the date as `YYYY-MM-DD` |
