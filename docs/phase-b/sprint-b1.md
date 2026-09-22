@@ -2,8 +2,8 @@
 id: B.1
 title: The raptor-schema crate
 status: planned
-branch: feature/B-1-schema-crate
-worktree: ../raptor-worktrees/feature/B-1-schema-crate
+branch: feature/b-1-schema-crate
+worktree: ../raptor-worktrees/feature/b-1-schema-crate
 target: develop
 depends_on: []
 ---
@@ -16,7 +16,7 @@ field attributes for today's fields plus the three Phase A missed, emission
 of SQL, JSON Schema and field table, the binder and its diagnostics, and a
 Python module built by maturin. No Python script changes; B.2 moves the
 scripts onto the crate. The contracts (field attributes, label tree,
-diagnostics) are in `plan-phase-B.md` and the decisions in ADR-RAP-0004 to
+diagnostics) are in `plan-phase-b.md` and the decisions in ADR-RAP-0004 to
 0006; neither is restated here.
 
 ## Exact Targets

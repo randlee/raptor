@@ -2,8 +2,8 @@
 id: B.3
 title: REQ and NFR columns
 status: planned
-branch: feature/B-3-req-columns
-worktree: ../raptor-worktrees/feature/B-3-req-columns
+branch: feature/b-3-req-columns
+worktree: ../raptor-worktrees/feature/b-3-req-columns
 target: develop
 depends_on: [B.2]
 ---
@@ -22,7 +22,7 @@ run.
 - `crates/raptor-schema/src/**`, `crates/raptor-schema/tests/**`
 - `templates/requirement.md.j2`, `templates/decision.md.j2`
 - `tests/fixtures/records.json`, `tests/test_extract.py`, `tests/test_load.py`
-- `docs/phase-B/corpus-run-B3.md` (new)
+- `docs/phase-b/corpus-run-b3.md` (new)
 
 ## Deliverables
 
@@ -92,7 +92,7 @@ Statement, Rationale, Success Criteria. The others are optional.
 ### Corpus run
 
 Run `extract.py` over the consumer repository checkout, read-only. Write
-`docs/phase-B/corpus-run-B3.md`: the consumer commit, file and record
+`docs/phase-b/corpus-run-b3.md`: the consumer commit, file and record
 counts per table, exit code, and the summary groups as a table of rule,
 section, label, count, number of files, `allowed`. No file paths and no
 repository name appear in the file; the full JSON stays untracked and is
@@ -109,12 +109,12 @@ foreign keys, no fix to any diagnostic by code, no change to `extract.py`,
 
 Crate `src/` 570 lines total; crate tests 350; `records.json` 260; each
 template 60; `test_extract.py` 120; `test_load.py` 40;
-`corpus-run-B3.md` 60.
+`corpus-run-b3.md` 60.
 
 ## Acceptance
 
 - `cargo test -p raptor-schema`, `cargo clippy --all-targets --all-features -- -D warnings`,
   `pip install . && python -m pytest -q tests/` pass.
 - `rg -n '\*\*[A-Z][A-Za-z ]+:\*\*' scripts/` prints nothing.
-- The corpus run exits `1` and `corpus-run-B3.md` exists with its groups.
+- The corpus run exits `1` and `corpus-run-b3.md` exists with its groups.
 - `rg -ni --hidden --glob '!.git/**' --glob '!.sc/**' '[p]3' .` prints nothing.

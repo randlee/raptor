@@ -2,8 +2,8 @@
 id: B.2
 title: Python on the crate
 status: planned
-branch: feature/B-2-python-on-crate
-worktree: ../raptor-worktrees/feature/B-2-python-on-crate
+branch: feature/b-2-python-on-crate
+worktree: ../raptor-worktrees/feature/b-2-python-on-crate
 target: develop
 depends_on: [B.1]
 ---

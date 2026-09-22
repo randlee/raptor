@@ -2,8 +2,8 @@
 id: B.5
 title: Own inventory; consumer run
 status: planned
-branch: feature/B-5-own-inventory
-worktree: ../raptor-worktrees/feature/B-5-own-inventory
+branch: feature/b-5-own-inventory
+worktree: ../raptor-worktrees/feature/b-5-own-inventory
 target: develop
 depends_on: [B.4]
 ---
@@ -19,7 +19,7 @@ and `docs/adr/adr-rap-product.md` already follow the schema.
 ## Exact Targets
 
 - `.raptor/sources.toml`, `.raptor/identity.json`
-- `docs/phase-B/consumer-run.md` (new)
+- `docs/phase-b/consumer-run.md` (new)
 
 ## Deliverables
 
@@ -31,7 +31,7 @@ and `docs/adr/adr-rap-product.md` already follow the schema.
 ### Consumer run
 
 Run `extract.py` and `load_sqlite.py` over the consumer repository checkout,
-read-only. Write `docs/phase-B/consumer-run.md`: the consumer commit, files
+read-only. Write `docs/phase-b/consumer-run.md`: the consumer commit, files
 scanned, records per table, exit code, whether `load_sqlite.py --dump`
 equals the index's records, and the summary groups as a table of rule,
 section, label, count, number of files, `allowed`, ordered by count. A

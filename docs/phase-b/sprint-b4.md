@@ -2,8 +2,8 @@
 id: B.4
 title: ADR columns
 status: planned
-branch: feature/B-4-adr-columns
-worktree: ../raptor-worktrees/feature/B-4-adr-columns
+branch: feature/b-4-adr-columns
+worktree: ../raptor-worktrees/feature/b-4-adr-columns
 target: develop
 depends_on: [B.3]
 ---
@@ -20,7 +20,7 @@ the second corpus run and its report.
 - `crates/raptor-schema/src/**`, `crates/raptor-schema/tests/**`
 - `templates/decision.md.j2`, `templates/requirement.md.j2` (header loop only)
 - `tests/fixtures/records.json`, `tests/test_extract.py`, `tests/test_load.py`
-- `docs/phase-B/corpus-run-B4.md` (new)
+- `docs/phase-b/corpus-run-b4.md` (new)
 
 ## Deliverables
 
@@ -72,7 +72,7 @@ an item is `UNKNOWN_LABEL` with `allowed` naming `Decision Date`.
 
 ### Corpus run
 
-As B.3, written to `docs/phase-B/corpus-run-B4.md`, with a second table
+As B.3, written to `docs/phase-b/corpus-run-b4.md`, with a second table
 showing each B.3 group's count then and now.
 
 ## Out of scope
@@ -84,12 +84,12 @@ change to `.raptor/` or product documents.
 ## Ceilings
 
 Crate `src/` 700 lines total; crate tests 420; `records.json` 360;
-`decision.md.j2` 70; `test_extract.py` 140; `corpus-run-B4.md` 70.
+`decision.md.j2` 70; `test_extract.py` 140; `corpus-run-b4.md` 70.
 
 ## Acceptance
 
 - `cargo test -p raptor-schema`, `cargo clippy --all-targets --all-features -- -D warnings`,
   `pip install . && python -m pytest -q tests/` pass.
 - `rg -n '\*\*[A-Z][A-Za-z ]+:\*\*' scripts/` prints nothing.
-- The corpus run exits `1` and `corpus-run-B4.md` exists with both tables.
+- The corpus run exits `1` and `corpus-run-b4.md` exists with both tables.
 - `rg -ni --hidden --glob '!.git/**' --glob '!.sc/**' '[p]3' .` prints nothing.
