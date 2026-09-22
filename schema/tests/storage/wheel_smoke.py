@@ -20,35 +20,48 @@ store.close()
 content_hash = hashlib.sha256(b"wheel smoke").hexdigest()
 document = SourceDocument.model_validate(
     {
-        "schema_version": "1.0.0",
+        "schema_version": "2.0.0",
         "provenance": {
             "origin": {
                 "repository_id": "urn:raptor:repo:wheel",
-                "document_id": "DOC-WHL-001",
+                "document_id": "DOC-WHL-0001",
                 "initial_repository_path": "docs/wheel.md",
                 "original_content_sha256": content_hash,
                 "source_format": "markdown",
-                "parser_profile": "wheel_smoke",
-                "parser_profile_version": "1.0.0",
+                "parser_profile": "raptor",
+                "parser_profile_version": "2.0.0",
             },
             "materialization": {
                 "repository_path": "docs/wheel.md",
                 "content_sha256": content_hash,
                 "operation": "imported",
-                "parser_profile": "wheel_smoke",
-                "parser_profile_version": "1.0.0",
+                "parser_profile": "raptor",
+                "parser_profile_version": "2.0.0",
             },
         },
+        "title": "Wheel smoke",
+        "document_metadata": {"Owner": "Raptor"},
+        "non_item_segments": [
+            {"kind": "text", "content": "# Wheel smoke\n\n"},
+            {"kind": "artifact", "artifact_index": 0},
+        ],
         "artifacts": [
             {
                 "artifact_type": "requirement",
-                "id": "REQ-WHL-001",
+                "id": "REQ-WHL-0001",
                 "title": "Wheel smoke",
-                "status": "accepted",
+                "status": "Approved",
+                "domain": "schema",
+                "source": {"heading": "REQ-WHL-0001: Wheel smoke", "heading_level": 2},
+                "content": "\nPersist outside the source tree.\n",
                 "relationships": [],
-                "extensions": {},
-                "statement": "Persist outside the source tree.",
-                "acceptance_criteria": ["Reopen and recover."],
+                "subsections": [],
+                "source_location": {
+                    "start_line": 3,
+                    "start_column": 1,
+                    "end_line": 4,
+                    "end_column": 1,
+                },
             }
         ],
     }
@@ -62,7 +75,7 @@ with TemporaryDirectory() as directory:
     reopened = SQLiteArtifactStore(database)
     reopened.initialize()
     recovered = reopened.get_document(
-        DocumentKey(repository_id="urn:raptor:repo:wheel", document_id="DOC-WHL-001")
+        DocumentKey(repository_id="urn:raptor:repo:wheel", document_id="DOC-WHL-0001")
     )
     assert dump_canonical_json(recovered) == dump_canonical_json(document)
     reopened.close()
