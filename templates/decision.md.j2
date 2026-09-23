@@ -16,7 +16,7 @@ required_variables: [record, fields]
 {% for field in fields if field.level == "Item" and field.name not in ["id", "title"] %}**{{ field.label }}:** {{ record[field.name] }}{{ '  ' }}
 {% endfor %}{% for field in fields if field.level == "Section" %}### {{ field.label }}
 
-{% set value = record[field.name] %}{% if field.shape == "Group" and field.label == "Alternatives Considered" %}{{ value.text }}
+{% set value = record[field.name] %}{% if field.shape == "Group" and field.name == "alternatives" %}{{ value.text }}
 
 {% for group in value.groups %}#### Alternative {{ loop.index }}: {{ group.name }}
 

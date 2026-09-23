@@ -80,6 +80,7 @@ def test_duplicate_and_missing_id(tmp_path: Path):
     assert result.returncode == 1
     assert [issue["rule"] for issue in payload["diagnostics"]["issues"]].count("DUPLICATE_ID") == 2
     assert len(payload["requirements"]) + len(payload["decisions"]) == 5
+    assert next(row for row in payload["decisions"] if row["id"] == "ADR-FIX-0001")["status"] == "Superseded"
     (root / "docs/empty.md").write_text("# Empty\n")
     result = extract(root, index, check=False)
     assert result.returncode == 1

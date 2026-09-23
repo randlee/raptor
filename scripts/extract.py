@@ -30,7 +30,7 @@ def split(path: Path, text: str) -> dict:
         line = raw.rstrip()
         if line.startswith("```"):
             fenced = not fenced
-            add_text(label if label else group if group else section, raw, number)
+            add_text(label or group or section, raw, number)
             continue
         if not fenced and line.startswith("# "):
             record = section = group = label = None
@@ -69,13 +69,13 @@ def split(path: Path, text: str) -> dict:
             elif record and not section:
                 record["fields"][entry["name"]] = {"value": value, "line": number}
             elif section:
-                (group if group else section)["labels"].append(entry)
+                (group or section)["labels"].append(entry)
                 label = entry
                 add_text(label, value, number)
             continue
         if line:
             item = ITEM.match(line)
-            add_text(label if label else group if group else section, item.group(1) if item else raw, number, bool(item))
+            add_text(label or group or section, item.group(1) if item else raw, number, bool(item))
     return tree
 
 
