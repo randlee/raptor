@@ -41,3 +41,9 @@ mixed within each aggregate. Counts are ordered descending.
 Own inventory: 2 files, 15 records, exit 0, with no diagnostics. The consumer
 run still exits 1 with 2,243 diagnostics; its SQLite dump completes but does not
 equal the index records.
+
+The requirements index has 537 rows while its dump has 532: five duplicate
+identifiers collapse through replacement on the primary key, retaining the
+final occurrence. Decisions have 51 index rows and 51 dump rows with no
+duplicate identifiers. This is a corpus condition, not a loader round-trip
+defect.
