@@ -4,6 +4,7 @@ import sys
 from pathlib import Path
 
 import raptor_schema
+from scripts.extract import split
 
 ROOT = Path(__file__).parents[1]
 
@@ -79,8 +80,8 @@ def test_duplicate_and_missing_id(tmp_path: Path):
     payload = json.loads(index.read_text())
     assert result.returncode == 1
     assert [issue["rule"] for issue in payload["diagnostics"]["issues"]].count("DUPLICATE_ID") == 2
+    assert [record for record in split(requirement, requirement.read_text())["records"] if record["id"] == "ADR-FIX-0002"][-1]["fields"]["Decision Date"]["value"] == "2026-01-07"
     assert len(payload["requirements"]) + len(payload["decisions"]) == 5
-    assert next(row for row in payload["decisions"] if row["id"] == "ADR-FIX-0002")["status"] == "Approved"
     (root / "docs/empty.md").write_text("# Empty\n")
     result = extract(root, index, check=False)
     assert result.returncode == 1
