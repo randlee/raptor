@@ -1,9 +1,7 @@
 {
   "documents": {
     "DOC-RAP-001": {"path": "docs/requirements.md"},
-    "DOC-RAP-002": {"path": "docs/architecture.md"},
-    "DOC-RAP-003": {"path": "docs/adr/adr-rap-product.md"},
-    "DOC-RAP-004": {"path": "docs/project-plan.md"}
+    "DOC-RAP-003": {"path": "docs/adr/adr-rap-product.md"}
   },
   "identity_version": "1.0.0",
   "repository_id": "urn:raptor:repo:raptor"
