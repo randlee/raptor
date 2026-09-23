@@ -30,8 +30,8 @@ def test_round_trip_and_project_root(tmp_path: Path):
     root, index = project(tmp_path), tmp_path / "index.json"
     result = extract(root, index)
     payload, fixture = json.loads(index.read_text()), json.loads((ROOT / "tests/fixtures/records.json").read_text())
-    assert {item["id"] for item in payload["requirements"]} == {item["id"] for item in fixture["requirements"]}
-    assert {item["id"] for item in payload["decisions"]} == {item["id"] for item in fixture["decisions"]}
+    for table in ("requirements", "decisions"):
+        assert sorted(payload[table], key=lambda item: item["id"]) == sorted(fixture[table], key=lambda item: item["id"])
     assert payload["diagnostics"]["issues"] == []
     assert json.loads(result.stdout)["records"] == 4
     second = tmp_path / "second.json"
@@ -59,6 +59,16 @@ def test_binder_diagnostics_and_row_effects(tmp_path: Path):
         assert any(issue["rule"] == rule for issue in payload["diagnostics"]["issues"])
         assert len(payload["requirements"]) + len(payload["decisions"]) == records
         file.write_text(original)
+
+
+def test_document_level_label_after_record_does_not_crash(tmp_path: Path):
+    root, index = project(tmp_path), tmp_path / "index.json"
+    (root / "docs" / "history.md").write_text(
+        "# History\n## REQ-FIX-0009: Record\ntext\n## Document History\n**Requires:** old record\n"
+    )
+    result = extract(root, index, check=False)
+    assert result.returncode == 1
+    assert json.loads(index.read_text())["metadata"]["files"] == 5
 
 
 def test_duplicate_and_missing_id(tmp_path: Path):
@@ -101,9 +111,11 @@ def test_b3_section_diagnostics(tmp_path: Path):
         original = file.read_text()
         file.write_text(original.replace(needle, replacement, 1))
         result = extract(root, index, check=False)
-        issues = json.loads(index.read_text())["diagnostics"]["issues"]
+        diagnostics = json.loads(index.read_text())["diagnostics"]
+        issues = diagnostics["issues"]
         issue = next(issue for issue in issues if issue["rule"] == rule)
         assert result.returncode == 1
+        assert any(group["rule"] == rule and group["remedy"] for group in diagnostics["summary"]["groups"])
         if allowed:
             assert issue["allowed"] == allowed
         file.write_text(original)

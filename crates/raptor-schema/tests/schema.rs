@@ -41,10 +41,6 @@ fn fixture_and_emissions_are_valid() {
         serde_json::from_value(fixture["requirements"].clone()).unwrap();
     let decisions: Vec<Decision> = serde_json::from_value(fixture["decisions"].clone()).unwrap();
     assert_eq!(requirements.len() + decisions.len(), 4);
-    Connection::open_in_memory()
-        .unwrap()
-        .execute_batch(&sql_ddl())
-        .unwrap();
     assert!(field_table("requirements").len() > 9);
     assert_eq!(
         field_table("requirements")
@@ -54,85 +50,29 @@ fn fixture_and_emissions_are_valid() {
             .collect::<Vec<_>>(),
         [Level::Header, Level::Item]
     );
-    let fields = |table| {
-        field_table(table)
+    for (table, row) in [
+        (
+            "requirements",
+            serde_json::to_value(&requirements[0]).unwrap(),
+        ),
+        ("decisions", serde_json::to_value(&decisions[0]).unwrap()),
+    ] {
+        let fields: std::collections::HashSet<_> = field_table(table)
             .into_iter()
             .filter(|field| field.name != "id_range" && field.level != Level::Label)
-            .fold(Vec::new(), |mut names, field| {
-                if !names.contains(&field.name) {
-                    names.push(field.name)
-                };
-                names
-            })
-    };
-    let names = |value: serde_json::Value| {
-        value
-            .as_object()
-            .unwrap()
-            .keys()
-            .cloned()
-            .collect::<std::collections::HashSet<_>>()
-    };
-    assert_eq!(
-        fields("requirements")
-            .into_iter()
-            .map(String::from)
-            .collect::<std::collections::HashSet<_>>(),
-        names(serde_json::to_value(&requirements[0]).unwrap())
-    );
-    assert_eq!(
-        fields("decisions")
-            .into_iter()
-            .map(String::from)
-            .collect::<std::collections::HashSet<_>>(),
-        names(serde_json::to_value(&decisions[0]).unwrap())
-    );
+            .map(|field| field.name.to_owned())
+            .collect();
+        let names = row.as_object().unwrap().keys().cloned().collect();
+        assert_eq!(fields, names);
+    }
     let validator = jsonschema::validator_for(&json_schema()).unwrap();
     assert!(validator.validate(&fixture).is_ok());
 }
 
 #[test]
 fn inventory_reports_each_duplicate() {
-    let id: Id = "REQ-FIX-0001".parse().unwrap();
-    let lifecycle = Lifecycle {
-        status: Status::Draft,
-        version: "1.0.0".parse().unwrap(),
-        created: "2026-01-01".parse().unwrap(),
-        last_updated: "2026-01-01".parse().unwrap(),
-        owner: "Example".into(),
-    };
-    let rows = vec![
-        Requirement {
-            identity: Identity {
-                id: id.clone(),
-                title: "A".into(),
-            },
-            lifecycle: lifecycle.clone(),
-            requirement_statement: Default::default(),
-            rationale: String::new(),
-            success_criteria: Default::default(),
-            dependencies: Default::default(),
-            product_applicability: Default::default(),
-            implementation_notes: Default::default(),
-            test_strategy: Default::default(),
-            related_documents: Default::default(),
-        },
-        Requirement {
-            identity: Identity {
-                id,
-                title: "B".into(),
-            },
-            lifecycle,
-            requirement_statement: Default::default(),
-            rationale: String::new(),
-            success_criteria: Default::default(),
-            dependencies: Default::default(),
-            product_applicability: Default::default(),
-            implementation_notes: Default::default(),
-            test_strategy: Default::default(),
-            related_documents: Default::default(),
-        },
-    ];
+    let row = bind_file(&tree()).requirements.remove(0);
+    let rows = vec![row.clone(), row];
     let diagnostics = check_inventory(&rows, &[]);
     assert_eq!(diagnostics.len(), 2);
     assert!(diagnostics.iter().all(|diagnostic| {
@@ -156,14 +96,9 @@ fn missing_id_has_no_row() {
     value["records"][0].as_object_mut().unwrap().remove("id");
     let bound = bind_file(&value);
     let diagnostic = only(&bound, Rule::MissingId);
-    assert_eq!(
-        (
-            diagnostic.file.as_str(),
-            diagnostic.line,
-            diagnostic.label.as_deref()
-        ),
-        ("records.md", 9, None)
-    );
+    assert_eq!(diagnostic.file, "records.md");
+    assert_eq!(diagnostic.line, 9);
+    assert_eq!(diagnostic.label, None);
     assert!(bound.requirements.is_empty());
 }
 
@@ -215,10 +150,8 @@ fn unknown_label_keeps_row() {
     value["records"][0]["fields"]["Priority"] = json!({"value":"high","line":11});
     let bound = bind_file(&value);
     let diagnostic = only(&bound, Rule::UnknownLabel);
-    assert_eq!(
-        (diagnostic.line, diagnostic.label.as_deref()),
-        (11, Some("Priority"))
-    );
+    assert_eq!(diagnostic.line, 11);
+    assert_eq!(diagnostic.label.as_deref(), Some("Priority"));
     assert!(
         diagnostic
             .allowed
@@ -239,4 +172,179 @@ fn bad_value_has_no_row() {
     let bound = bind_file(&value);
     assert_eq!(only(&bound, Rule::BadValue).line, 9);
     assert!(bound.requirements.is_empty());
+}
+
+fn bind_labels(section: &str, labels: &[(&str, &[&str])]) -> Requirement {
+    let mut value = tree();
+    let sections = value["records"][0]["sections"].as_array_mut().unwrap();
+    sections.retain(|s| s["name"] != section);
+    let labels: Vec<_> = labels
+        .iter()
+        .map(|(name, items)| {
+            let items: Vec<_> = items
+                .iter()
+                .map(|text| json!({"text":text,"line":21}))
+                .collect();
+            json!({"name":name,"line":20,"items":items})
+        })
+        .collect();
+    sections.push(json!({"name":section,"line":19,"prose":[{"text":"Introduction","line":19}],"labels":labels}));
+    let mut bound = bind_file(&value);
+    assert!(bound.diagnostics.is_empty(), "{:?}", bound.diagnostics);
+    bound.requirements.remove(0)
+}
+
+#[test]
+fn text_list_preserves_items_and_empty_optional_labels() {
+    let row = bind_labels(
+        "Success Criteria",
+        &[("Test Evidence", &["unit", "integration"])],
+    );
+    assert_eq!(row.success_criteria.text, "Introduction");
+    assert_eq!(row.success_criteria.test_evidence, ["unit", "integration"]);
+    assert!(row.success_criteria.acceptance_criteria.is_empty());
+    assert_eq!(row.dependencies, Dependencies::default());
+}
+
+#[test]
+fn statement_list_collects_all_modals() {
+    let row = bind_labels(
+        "Requirement Statement",
+        &[
+            ("MUST Statements", &["persist"]),
+            ("SHOULD Statements", &["report"]),
+            ("MUST NOT Statements", &["lose"]),
+        ],
+    );
+    let statements = serde_json::to_value(row.requirement_statement.statements).unwrap();
+    assert_eq!(
+        statements,
+        json!([
+            {"modal":"Must","text":"persist"},
+            {"modal":"Should","text":"report"},
+            {"modal":"MustNot","text":"lose"}
+        ])
+    );
+}
+
+#[test]
+fn checklist_distinguishes_checked_unchecked_and_no_box() {
+    let row = bind_labels(
+        "Success Criteria",
+        &[(
+            "Acceptance Criteria",
+            &["[x] stored", "[ ] retrieved", "reviewed"],
+        )],
+    );
+    let items = serde_json::to_value(row.success_criteria.acceptance_criteria).unwrap();
+    assert_eq!(
+        items,
+        json!([
+            {"text":"stored","checked":true},
+            {"text":"retrieved","checked":false},
+            {"text":"reviewed","checked":null}
+        ])
+    );
+}
+
+#[test]
+fn id_list_discards_link_path_and_preserves_note() {
+    let row = bind_labels(
+        "Dependencies",
+        &[(
+            "Requires",
+            &["NFR-FIX-0001", "[ADR-FIX-0001](decision.md) — rationale"],
+        )],
+    );
+    assert_eq!(
+        serde_json::to_value(row.dependencies.requires).unwrap(),
+        json!([
+            {"id":"NFR-FIX-0001","note":null},
+            {"id":"ADR-FIX-0001","note":"rationale"}
+        ])
+    );
+}
+
+#[test]
+fn link_list_preserves_text_href_and_note() {
+    let row = bind_labels(
+        "Related Documents",
+        &[(
+            "Design Documents",
+            &["[guide](guide.md)", "[design](design.md) — detail"],
+        )],
+    );
+    assert_eq!(
+        serde_json::to_value(row.related_documents.design_documents).unwrap(),
+        json!([
+            {"text":"guide","href":"guide.md","note":null},
+            {"text":"design","href":"design.md","note":"detail"}
+        ])
+    );
+}
+
+#[test]
+fn inventory_reports_dangling_reference_with_label_and_remedy() {
+    let row = bind_labels(
+        "Dependencies",
+        &[("Requires", &["REQ-FIX-0001", "NFR-FIX-9999"])],
+    );
+    let diagnostics = check_inventory(&[row], &[]);
+    assert_eq!(diagnostics.len(), 1);
+    assert_eq!(diagnostics[0].rule, Rule::DanglingReference);
+    assert_eq!(diagnostics[0].label.as_deref(), Some("Requires"));
+    assert_eq!(diagnostics[0].id.as_ref().unwrap().0, "REQ-FIX-0001");
+    assert_eq!(
+        summarize(&diagnostics)["groups"][0]["remedy"],
+        "Declare the referenced identifier or remove the reference."
+    );
+}
+
+#[test]
+fn edges_view_returns_fixture_edges() {
+    let fixture: Value =
+        serde_json::from_str(include_str!("../../../tests/fixtures/records.json")).unwrap();
+    let connection = Connection::open_in_memory().unwrap();
+    connection.execute_batch(&sql_ddl()).unwrap();
+    for table in ["requirements", "decisions"] {
+        for record in fixture[table].as_array().unwrap() {
+            let fields = record.as_object().unwrap();
+            let columns = fields.keys().cloned().collect::<Vec<_>>().join(", ");
+            let marks = vec!["?"; fields.len()].join(", ");
+            let values = fields.values().map(|v| {
+                v.as_str()
+                    .map(str::to_owned)
+                    .unwrap_or_else(|| v.to_string())
+            });
+            connection
+                .execute(
+                    &format!("INSERT INTO {table} ({columns}) VALUES ({marks})"),
+                    rusqlite::params_from_iter(values),
+                )
+                .unwrap();
+        }
+    }
+    let mut query = connection
+        .prepare("SELECT source, path, target, position FROM edges ORDER BY source, path")
+        .unwrap();
+    let edges: Vec<(String, String, String, i64)> = query
+        .query_map([], |row| {
+            Ok((row.get(0)?, row.get(1)?, row.get(2)?, row.get(3)?))
+        })
+        .unwrap()
+        .map(Result::unwrap)
+        .collect();
+    assert_eq!(
+        serde_json::to_value(edges).unwrap(),
+        json!([
+            [
+                "ADR-FIX-0001",
+                "related_documents.requirements",
+                "REQ-FIX-0001",
+                0
+            ],
+            ["REQ-FIX-0001", "dependencies.related", "ADR-FIX-0001", 0],
+            ["REQ-FIX-0001", "dependencies.requires", "NFR-FIX-0001", 0]
+        ])
+    );
 }
