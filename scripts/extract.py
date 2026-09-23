@@ -62,7 +62,7 @@ def split(path: Path, text: str) -> dict:
                 tree["header"][entry["name"]] = {"value": value, "line": number}
             elif record and not section:
                 record["fields"][entry["name"]] = {"value": value, "line": number}
-            else:
+            elif group or section:
                 (group or section)["labels"].append(entry)
                 label = entry
                 add_text(label, value, number)

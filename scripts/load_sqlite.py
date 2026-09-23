@@ -7,18 +7,18 @@ import json
 import sqlite3
 from pathlib import Path
 
-from raptor_schema import field_table, sql_ddl
+import raptor_schema
 
 def fields(table: str) -> list[dict]:
     seen = set()
-    return [field for field in json.loads(field_table(table)) if field["name"] != "id_range" and not (field["name"] in seen or seen.add(field["name"]))]
+    return [field for field in json.loads(raptor_schema.field_table(table)) if field["name"] != "id_range" and not (field["name"] in seen or seen.add(field["name"]))]
 
 
 def load(index: dict, database: Path) -> None:
     with sqlite3.connect(database) as connection:
         connection.execute("PRAGMA foreign_keys = ON")
         if not connection.execute("SELECT 1 FROM sqlite_master WHERE type = 'table'").fetchone():
-            connection.executescript(sql_ddl())
+            connection.executescript(raptor_schema.sql_ddl())
         for table in ("requirements", "decisions"):
             names = [field["name"] for field in fields(table)]
             marks = ", ".join("?" for _ in names)
