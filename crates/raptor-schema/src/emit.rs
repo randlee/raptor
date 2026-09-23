@@ -101,6 +101,15 @@ pub fn json_schema() -> Result<BTreeMap<&'static str, RootSchema>, serde_json::E
             .schema
             .extensions
             .insert("x-raptor-fields".into(), serde_json::to_value(field_table(table))?);
+        let kinds = match table {
+            Table::Req => vec![RecordKind::Req, RecordKind::Nfr],
+            Table::Dec => vec![RecordKind::Adr],
+            Table::Both => Vec::new(),
+        };
+        schema
+            .schema
+            .extensions
+            .insert("x-raptor-kinds".into(), serde_json::to_value(kinds)?);
         schemas.insert(name, schema);
     }
     Ok(schemas)

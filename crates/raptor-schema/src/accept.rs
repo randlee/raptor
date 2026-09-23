@@ -269,11 +269,15 @@ pub fn accept(input: &str) -> Accepted {
         {
             let mut errors = walk(record, schema, &definitions, "", None);
             let fields = emit::field_table(kind);
+            let record_kind = record
+                .get("id")
+                .and_then(Value::as_str)
+                .and_then(RecordKind::from_id);
             for field in fields.iter().filter(|field| field.nullable) {
-                if let (Some(id), Some(target)) = (
-                    record.get("id").and_then(Value::as_str),
-                    record.get(field.name).and_then(Value::as_str),
-                ) && id.split('-').next() != target.split('-').next()
+                if let Some(target) = record.get(field.name).and_then(Value::as_str)
+                    && record_kind
+                        .zip(RecordKind::from_id(target))
+                        .is_some_and(|(left, right)| left != right)
                 {
                     errors.push(
                         Error::new(
