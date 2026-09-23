@@ -306,15 +306,18 @@ fn edges_view_returns_fixture_edges() {
         serde_json::from_str(include_str!("../../../tests/fixtures/records.json")).unwrap();
     let connection = Connection::open_in_memory().unwrap();
     connection.execute_batch(&sql_ddl()).unwrap();
+    connection.execute_batch("BEGIN DEFERRED").unwrap();
     for table in ["requirements", "decisions"] {
         for record in fixture[table].as_array().unwrap() {
             let fields = record.as_object().unwrap();
             let columns = fields.keys().cloned().collect::<Vec<_>>().join(", ");
             let marks = vec!["?"; fields.len()].join(", ");
             let values = fields.values().map(|v| {
-                v.as_str()
-                    .map(str::to_owned)
-                    .unwrap_or_else(|| v.to_string())
+                (!v.is_null()).then(|| {
+                    v.as_str()
+                        .map(str::to_owned)
+                        .unwrap_or_else(|| v.to_string())
+                })
             });
             connection
                 .execute(
@@ -324,6 +327,7 @@ fn edges_view_returns_fixture_edges() {
                 .unwrap();
         }
     }
+    connection.execute_batch("COMMIT").unwrap();
     let mut query = connection
         .prepare("SELECT source, path, target, position FROM edges ORDER BY source, path")
         .unwrap();

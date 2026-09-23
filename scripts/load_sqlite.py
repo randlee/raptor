@@ -34,7 +34,7 @@ def dump(database: Path) -> dict:
         def decode(table: str, row: sqlite3.Row) -> dict:
             item = dict(row)
             for field in fields(table):
-                if field["level"] == "Section" and field["shape"] != "Text":
+                if field["level"] == "Section" and isinstance(item[field["name"]], str) and item[field["name"]][:1] in "[{":
                     item[field["name"]] = json.loads(item[field["name"]])
             return item
         return {table: [decode(table, row) for row in connection.execute(f"SELECT * FROM {table} ORDER BY rowid")] for table in ("requirements", "decisions")}

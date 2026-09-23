@@ -58,7 +58,7 @@ pub struct FieldMeta {
 #[rustfmt::skip]
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize, JsonSchema)] pub struct Identity { pub id: Id, pub title: String }
 #[rustfmt::skip]
-#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize, JsonSchema)] pub struct Lifecycle { pub status: Status, pub version: Version, pub created: Date, pub last_updated: Date, pub owner: String }
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize, JsonSchema)] pub struct Lifecycle { pub status: Status, pub version: Version, pub created: Date, pub last_updated: Date, pub owner: String, #[serde(default)] pub supersedes: Option<Id>, #[serde(default)] pub superseded_by: Option<Id> }
 #[rustfmt::skip]
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize, JsonSchema)] pub struct Statement { pub modal: Modal, pub text: String }
 #[rustfmt::skip]
@@ -82,9 +82,25 @@ pub struct FieldMeta {
 #[rustfmt::skip]
 #[derive(Clone, Debug, Default, PartialEq, Eq, Serialize, Deserialize, JsonSchema)] pub struct TestStrategy { pub text: String, pub test_types: Vec<String> }
 #[rustfmt::skip]
+#[derive(Clone, Debug, Default, PartialEq, Eq, Serialize, Deserialize, JsonSchema)] pub struct Alternative { pub name: String, pub description: String, pub pros: Vec<String>, pub cons: Vec<String>, pub why_rejected: String }
+#[rustfmt::skip]
+#[derive(Clone, Debug, Default, PartialEq, Eq, Serialize, Deserialize, JsonSchema)] pub struct Alternatives { pub text: String, pub groups: Vec<Alternative> }
+#[rustfmt::skip]
+#[derive(Clone, Debug, Default, PartialEq, Eq, Serialize, Deserialize, JsonSchema)] pub struct Context { pub text: String, pub background: String, pub problem_statement: String }
+#[rustfmt::skip]
+#[derive(Clone, Debug, Default, PartialEq, Eq, Serialize, Deserialize, JsonSchema)] pub struct DecisionSection { pub text: String, pub chosen_approach: String, pub key_principles: Vec<String> }
+#[rustfmt::skip]
+#[derive(Clone, Debug, Default, PartialEq, Eq, Serialize, Deserialize, JsonSchema)] pub struct DecisionRationale { pub text: String, pub benefits: Vec<String>, pub trade_offs: Vec<String> }
+#[rustfmt::skip]
+#[derive(Clone, Debug, Default, PartialEq, Eq, Serialize, Deserialize, JsonSchema)] pub struct Consequences { pub text: String, pub positive: Vec<String>, pub negative: Vec<String>, pub neutral: Vec<String> }
+#[rustfmt::skip]
+#[derive(Clone, Debug, Default, PartialEq, Eq, Serialize, Deserialize, JsonSchema)] pub struct Implementation { pub text: String, pub key_components: Vec<String>, pub integration_points: Vec<String>, pub code_examples: String }
+#[rustfmt::skip]
+#[derive(Clone, Debug, Default, PartialEq, Eq, Serialize, Deserialize, JsonSchema)] pub struct ImpactAnalysis { pub text: String, pub affected_components: String, pub performance_impact: String, pub security_impact: String, pub maintainability_impact: String }
+#[rustfmt::skip]
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize, JsonSchema)] pub struct Requirement { #[serde(flatten)] pub identity: Identity, #[serde(flatten)] pub lifecycle: Lifecycle, #[serde(default)] pub requirement_statement: RequirementStatement, #[serde(default)] pub rationale: String, #[serde(default)] pub success_criteria: SuccessCriteria, #[serde(default)] pub dependencies: Dependencies, #[serde(default)] pub product_applicability: ProductApplicability, #[serde(default)] pub implementation_notes: ImplementationNotes, #[serde(default)] pub test_strategy: TestStrategy, #[serde(default)] pub related_documents: RelatedDocuments }
 #[rustfmt::skip]
-#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize, JsonSchema)] pub struct Decision { #[serde(flatten)] pub identity: Identity, #[serde(flatten)] pub lifecycle: Lifecycle, #[serde(default)] pub related_documents: RelatedDocuments }
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize, JsonSchema)] pub struct Decision { #[serde(flatten)] pub identity: Identity, #[serde(flatten)] pub lifecycle: Lifecycle, pub decision_date: Date, pub context: Context, pub decision: DecisionSection, pub rationale: DecisionRationale, pub consequences: Consequences, #[serde(default)] pub alternatives: Alternatives, #[serde(default)] pub implementation: Implementation, #[serde(default)] pub impact_analysis: ImpactAnalysis, #[serde(default)] pub related_documents: RelatedDocuments }
 #[allow(dead_code)]
 #[derive(JsonSchema)]
 struct Records {
@@ -108,9 +124,11 @@ pub trait HasRelatedDocuments {
 #[rustfmt::skip] impl HasRelatedDocuments for Decision { fn related_documents(&self) -> &RelatedDocuments { &self.related_documents } }
 #[rustfmt::skip]
 const FIELDS: &[FieldMeta] = &[
-    FieldMeta{name:"id",label:"ID",level:Level::Item,shape:Shape::Id,section:None,required:true,sql_type:"TEXT"}, FieldMeta{name:"title",label:"Title",level:Level::Item,shape:Shape::Text,section:None,required:true,sql_type:"TEXT"}, FieldMeta{name:"status",label:"Status",level:Level::Header,shape:Shape::Status,section:None,required:true,sql_type:"TEXT"}, FieldMeta{name:"version",label:"Version",level:Level::Header,shape:Shape::Version,section:None,required:true,sql_type:"TEXT"}, FieldMeta{name:"created",label:"Created",level:Level::Header,shape:Shape::Date,section:None,required:true,sql_type:"TEXT"}, FieldMeta{name:"last_updated",label:"Last Updated",level:Level::Header,shape:Shape::Date,section:None,required:true,sql_type:"TEXT"}, FieldMeta{name:"owner",label:"Owner",level:Level::Header,shape:Shape::Text,section:None,required:true,sql_type:"TEXT"}, FieldMeta{name:"id_range",label:"ID Range",level:Level::Header,shape:Shape::Derived,section:None,required:false,sql_type:"TEXT"}, FieldMeta{name:"status",label:"Status",level:Level::Item,shape:Shape::Status,section:None,required:true,sql_type:"TEXT"},
-    FieldMeta{name:"requirement_statement",label:"Requirement Statement",level:Level::Section,shape:Shape::StatementList,section:None,required:true,sql_type:"TEXT"}, FieldMeta{name:"rationale",label:"Rationale",level:Level::Section,shape:Shape::Text,section:None,required:true,sql_type:"TEXT"}, FieldMeta{name:"success_criteria",label:"Success Criteria",level:Level::Section,shape:Shape::Checklist,section:None,required:true,sql_type:"TEXT"}, FieldMeta{name:"dependencies",label:"Dependencies",level:Level::Section,shape:Shape::IdList,section:None,required:false,sql_type:"TEXT"}, FieldMeta{name:"product_applicability",label:"Product Applicability",level:Level::Section,shape:Shape::TextList,section:None,required:false,sql_type:"TEXT"}, FieldMeta{name:"implementation_notes",label:"Implementation Notes",level:Level::Section,shape:Shape::TextList,section:None,required:false,sql_type:"TEXT"}, FieldMeta{name:"test_strategy",label:"Test Strategy",level:Level::Section,shape:Shape::TextList,section:None,required:false,sql_type:"TEXT"}, FieldMeta{name:"related_documents",label:"Related Documents",level:Level::Section,shape:Shape::Group,section:None,required:false,sql_type:"TEXT"},
+    FieldMeta{name:"id",label:"ID",level:Level::Item,shape:Shape::Id,section:None,required:true,sql_type:"TEXT"}, FieldMeta{name:"title",label:"Title",level:Level::Item,shape:Shape::Text,section:None,required:true,sql_type:"TEXT"}, FieldMeta{name:"status",label:"Status",level:Level::Header,shape:Shape::Status,section:None,required:true,sql_type:"TEXT"}, FieldMeta{name:"version",label:"Version",level:Level::Header,shape:Shape::Version,section:None,required:true,sql_type:"TEXT"}, FieldMeta{name:"created",label:"Created",level:Level::Header,shape:Shape::Date,section:None,required:true,sql_type:"TEXT"}, FieldMeta{name:"last_updated",label:"Last Updated",level:Level::Header,shape:Shape::Date,section:None,required:true,sql_type:"TEXT"}, FieldMeta{name:"owner",label:"Owner",level:Level::Header,shape:Shape::Text,section:None,required:true,sql_type:"TEXT"}, FieldMeta{name:"supersedes",label:"Supersedes",level:Level::Header,shape:Shape::Id,section:None,required:false,sql_type:"TEXT"}, FieldMeta{name:"superseded_by",label:"Superseded By",level:Level::Header,shape:Shape::Id,section:None,required:false,sql_type:"TEXT"}, FieldMeta{name:"id_range",label:"ID Range",level:Level::Header,shape:Shape::Derived,section:None,required:false,sql_type:"TEXT"}, FieldMeta{name:"decision_date",label:"Decision Date",level:Level::Header,shape:Shape::Date,section:None,required:true,sql_type:"TEXT"}, FieldMeta{name:"status",label:"Status",level:Level::Item,shape:Shape::Status,section:None,required:true,sql_type:"TEXT"},
+    FieldMeta{name:"requirement_statement",label:"Requirement Statement",level:Level::Section,shape:Shape::StatementList,section:Some("__requirements"),required:true,sql_type:"TEXT"}, FieldMeta{name:"rationale",label:"Rationale",level:Level::Section,shape:Shape::Text,section:Some("__requirements"),required:true,sql_type:"TEXT"}, FieldMeta{name:"success_criteria",label:"Success Criteria",level:Level::Section,shape:Shape::Checklist,section:Some("__requirements"),required:true,sql_type:"TEXT"}, FieldMeta{name:"dependencies",label:"Dependencies",level:Level::Section,shape:Shape::IdList,section:Some("__requirements"),required:false,sql_type:"TEXT"}, FieldMeta{name:"product_applicability",label:"Product Applicability",level:Level::Section,shape:Shape::TextList,section:Some("__requirements"),required:false,sql_type:"TEXT"}, FieldMeta{name:"implementation_notes",label:"Implementation Notes",level:Level::Section,shape:Shape::TextList,section:Some("__requirements"),required:false,sql_type:"TEXT"}, FieldMeta{name:"test_strategy",label:"Test Strategy",level:Level::Section,shape:Shape::TextList,section:Some("__requirements"),required:false,sql_type:"TEXT"}, FieldMeta{name:"related_documents",label:"Related Documents",level:Level::Section,shape:Shape::Group,section:None,required:false,sql_type:"TEXT"},
     FieldMeta{name:"statements",label:"MUST Statements",level:Level::Label,shape:Shape::StatementList,section:Some("Requirement Statement"),required:false,sql_type:"TEXT"}, FieldMeta{name:"statements",label:"SHOULD Statements",level:Level::Label,shape:Shape::StatementList,section:Some("Requirement Statement"),required:false,sql_type:"TEXT"}, FieldMeta{name:"statements",label:"MUST NOT Statements",level:Level::Label,shape:Shape::StatementList,section:Some("Requirement Statement"),required:false,sql_type:"TEXT"}, FieldMeta{name:"acceptance_criteria",label:"Acceptance Criteria",level:Level::Label,shape:Shape::Checklist,section:Some("Success Criteria"),required:false,sql_type:"TEXT"}, FieldMeta{name:"test_evidence",label:"Test Evidence",level:Level::Label,shape:Shape::TextList,section:Some("Success Criteria"),required:false,sql_type:"TEXT"}, FieldMeta{name:"requires",label:"Requires",level:Level::Label,shape:Shape::IdList,section:Some("Dependencies"),required:false,sql_type:"TEXT"}, FieldMeta{name:"related",label:"Related",level:Level::Label,shape:Shape::IdList,section:Some("Dependencies"),required:false,sql_type:"TEXT"}, FieldMeta{name:"applies_to",label:"Applies To",level:Level::Label,shape:Shape::TextList,section:Some("Product Applicability"),required:false,sql_type:"TEXT"}, FieldMeta{name:"does_not_apply_to",label:"Does Not Apply To",level:Level::Label,shape:Shape::TextList,section:Some("Product Applicability"),required:false,sql_type:"TEXT"}, FieldMeta{name:"key_considerations",label:"Key Considerations",level:Level::Label,shape:Shape::TextList,section:Some("Implementation Notes"),required:false,sql_type:"TEXT"}, FieldMeta{name:"test_types",label:"Test Types",level:Level::Label,shape:Shape::TextList,section:Some("Test Strategy"),required:false,sql_type:"TEXT"}, FieldMeta{name:"requirements",label:"Requirements",level:Level::Label,shape:Shape::IdList,section:Some("Related Documents"),required:false,sql_type:"TEXT"}, FieldMeta{name:"architecture_decisions",label:"Architecture Decisions",level:Level::Label,shape:Shape::IdList,section:Some("Related Documents"),required:false,sql_type:"TEXT"}, FieldMeta{name:"design_documents",label:"Design Documents",level:Level::Label,shape:Shape::LinkList,section:Some("Related Documents"),required:false,sql_type:"TEXT"}, FieldMeta{name:"work_items",label:"Work Items",level:Level::Label,shape:Shape::LinkList,section:Some("Related Documents"),required:false,sql_type:"TEXT"}, FieldMeta{name:"external_references",label:"External References",level:Level::Label,shape:Shape::LinkList,section:Some("Related Documents"),required:false,sql_type:"TEXT"},
+    FieldMeta{name:"context",label:"Context",level:Level::Section,shape:Shape::Text,section:None,required:true,sql_type:"TEXT"}, FieldMeta{name:"decision",label:"Decision",level:Level::Section,shape:Shape::Text,section:None,required:true,sql_type:"TEXT"}, FieldMeta{name:"rationale",label:"Rationale",level:Level::Section,shape:Shape::Text,section:None,required:true,sql_type:"TEXT"}, FieldMeta{name:"consequences",label:"Consequences",level:Level::Section,shape:Shape::Text,section:None,required:true,sql_type:"TEXT"}, FieldMeta{name:"alternatives",label:"Alternatives Considered",level:Level::Section,shape:Shape::Group,section:None,required:false,sql_type:"TEXT"}, FieldMeta{name:"implementation",label:"Implementation",level:Level::Section,shape:Shape::Text,section:None,required:false,sql_type:"TEXT"}, FieldMeta{name:"impact_analysis",label:"Impact Analysis",level:Level::Section,shape:Shape::Text,section:None,required:false,sql_type:"TEXT"},
+    FieldMeta{name:"background",label:"Background",level:Level::Label,shape:Shape::Text,section:Some("Context"),required:false,sql_type:"TEXT"}, FieldMeta{name:"problem_statement",label:"Problem Statement",level:Level::Label,shape:Shape::Text,section:Some("Context"),required:false,sql_type:"TEXT"}, FieldMeta{name:"chosen_approach",label:"Chosen Approach",level:Level::Label,shape:Shape::Text,section:Some("Decision"),required:false,sql_type:"TEXT"}, FieldMeta{name:"key_principles",label:"Key Principles",level:Level::Label,shape:Shape::TextList,section:Some("Decision"),required:false,sql_type:"TEXT"}, FieldMeta{name:"benefits",label:"Benefits",level:Level::Label,shape:Shape::TextList,section:Some("Rationale"),required:false,sql_type:"TEXT"}, FieldMeta{name:"trade_offs",label:"Trade-offs",level:Level::Label,shape:Shape::TextList,section:Some("Rationale"),required:false,sql_type:"TEXT"}, FieldMeta{name:"positive",label:"Positive",level:Level::Label,shape:Shape::TextList,section:Some("Consequences"),required:false,sql_type:"TEXT"}, FieldMeta{name:"negative",label:"Negative",level:Level::Label,shape:Shape::TextList,section:Some("Consequences"),required:false,sql_type:"TEXT"}, FieldMeta{name:"neutral",label:"Neutral",level:Level::Label,shape:Shape::TextList,section:Some("Consequences"),required:false,sql_type:"TEXT"}, FieldMeta{name:"description",label:"Description",level:Level::Label,shape:Shape::Text,section:Some("Alternatives Considered"),required:false,sql_type:"TEXT"}, FieldMeta{name:"pros",label:"Pros",level:Level::Label,shape:Shape::TextList,section:Some("Alternatives Considered"),required:false,sql_type:"TEXT"}, FieldMeta{name:"cons",label:"Cons",level:Level::Label,shape:Shape::TextList,section:Some("Alternatives Considered"),required:false,sql_type:"TEXT"}, FieldMeta{name:"why_rejected",label:"Why Rejected",level:Level::Label,shape:Shape::Text,section:Some("Alternatives Considered"),required:false,sql_type:"TEXT"}, FieldMeta{name:"key_components",label:"Key Components",level:Level::Label,shape:Shape::TextList,section:Some("Implementation"),required:false,sql_type:"TEXT"}, FieldMeta{name:"integration_points",label:"Integration Points",level:Level::Label,shape:Shape::TextList,section:Some("Implementation"),required:false,sql_type:"TEXT"}, FieldMeta{name:"code_examples",label:"Code Examples",level:Level::Label,shape:Shape::Text,section:Some("Implementation"),required:false,sql_type:"TEXT"}, FieldMeta{name:"affected_components",label:"Affected Components",level:Level::Label,shape:Shape::Text,section:Some("Impact Analysis"),required:false,sql_type:"TEXT"}, FieldMeta{name:"performance_impact",label:"Performance Impact",level:Level::Label,shape:Shape::Text,section:Some("Impact Analysis"),required:false,sql_type:"TEXT"}, FieldMeta{name:"security_impact",label:"Security Impact",level:Level::Label,shape:Shape::Text,section:Some("Impact Analysis"),required:false,sql_type:"TEXT"}, FieldMeta{name:"maintainability_impact",label:"Maintainability Impact",level:Level::Label,shape:Shape::Text,section:Some("Impact Analysis"),required:false,sql_type:"TEXT"},
 ];
 pub trait Table {
     const NAME: &'static str;
@@ -194,16 +212,50 @@ fn table_fields(kind: RecordKind) -> Vec<FieldMeta> {
             RecordKind::Adr => {
                 f.section.is_none()
                     && f.name != "requirement_statement"
-                    && f.name != "rationale"
                     && f.name != "success_criteria"
                     && f.name != "dependencies"
                     && f.name != "product_applicability"
                     && f.name != "implementation_notes"
                     && f.name != "test_strategy"
-                    || f.section == Some("Related Documents")
+                    || matches!(
+                        f.section,
+                        Some(
+                            "Related Documents"
+                                | "Context"
+                                | "Decision"
+                                | "Rationale"
+                                | "Consequences"
+                                | "Alternatives Considered"
+                                | "Implementation"
+                                | "Impact Analysis"
+                        )
+                    )
                     || f.label == "Related Documents"
             }
-            _ => true,
+            _ => {
+                !(matches!(
+                    f.label,
+                    "Decision Date"
+                        | "Context"
+                        | "Decision"
+                        | "Consequences"
+                        | "Alternatives Considered"
+                        | "Implementation"
+                        | "Impact Analysis"
+                ) || f.name == "rationale" && f.section.is_none()
+                    || matches!(
+                        f.section,
+                        Some(
+                            "Context"
+                                | "Decision"
+                                | "Rationale"
+                                | "Consequences"
+                                | "Alternatives Considered"
+                                | "Implementation"
+                                | "Impact Analysis"
+                        )
+                    ))
+            }
         })
         .cloned()
         .collect()
@@ -212,8 +264,12 @@ fn allowed(fields: &[FieldMeta], level: Level, section: Option<&str>) -> Vec<Str
     fields
         .iter()
         .filter(|f| f.level == level && (level != Level::Label || f.section == section))
-        .map(|f| f.label.into())
-        .collect()
+        .fold(Vec::new(), |mut labels, f| {
+            if !labels.iter().any(|label| label == f.label) {
+                labels.push(f.label.into());
+            }
+            labels
+        })
 }
 fn unknown(
     file: &str,
@@ -379,6 +435,11 @@ pub fn bind_file(tree: &serde_json::Value) -> Bound {
             val(FIELDS[5].label),
             val(FIELDS[6].label),
         );
+        let (supersedes, superseded_by, decision_date) = (
+            val("Supersedes"),
+            val("Superseded By"),
+            val("Decision Date"),
+        );
         if raw_id.is_none() {
             out.diagnostics
                 .push(diagnostic(file, line, Rule::MissingId, None, None));
@@ -472,6 +533,57 @@ pub fn bind_file(tree: &serde_json::Value) -> Bound {
                     ));
                 }
             }
+            for group in section
+                .get("groups")
+                .and_then(|v| v.as_array())
+                .into_iter()
+                .flatten()
+            {
+                let group_allowed = fields_for.iter().any(|f| {
+                    f.level == Level::Section && f.label == name && f.shape == Shape::Group
+                });
+                if !group_allowed {
+                    out.diagnostics.push(unknown(
+                        file,
+                        tree_line(group),
+                        Rule::UnknownSection,
+                        Some(id.clone()),
+                        group
+                            .get("name")
+                            .and_then(|v| v.as_str())
+                            .unwrap_or_default()
+                            .into(),
+                        vec![],
+                    ));
+                }
+                for label in group
+                    .get("labels")
+                    .and_then(|v| v.as_array())
+                    .into_iter()
+                    .flatten()
+                {
+                    let label_name = label
+                        .get("name")
+                        .and_then(|v| v.as_str())
+                        .unwrap_or_default();
+                    if group_allowed
+                        && !fields_for.iter().any(|f| {
+                            f.level == Level::Label
+                                && f.section == Some(name.as_str())
+                                && f.label == label_name
+                        })
+                    {
+                        out.diagnostics.push(unknown(
+                            file,
+                            tree_line(label),
+                            Rule::UnknownLabel,
+                            Some(id.clone()),
+                            label_name.into(),
+                            allowed(&fields_for, Level::Label, Some(name.as_str())),
+                        ));
+                    }
+                }
+            }
         }
         if title.is_none()
             || status.is_none()
@@ -479,6 +591,7 @@ pub fn bind_file(tree: &serde_json::Value) -> Bound {
             || created.is_none()
             || last_updated.is_none()
             || owner.is_none()
+            || (id.kind() == RecordKind::Adr && decision_date.is_none())
         {
             out.diagnostics
                 .push(diagnostic(file, line, Rule::MissingField, Some(id), None));
@@ -491,12 +604,58 @@ pub fn bind_file(tree: &serde_json::Value) -> Bound {
             last_updated.unwrap().parse(),
         );
         if let (Some(status), Ok(version), Ok(created), Ok(last_updated)) = parsed {
+            let parse_link = |raw: Option<String>| raw.map(|value| value.parse::<Id>()).transpose();
+            let (supersedes, superseded_by) =
+                match (parse_link(supersedes), parse_link(superseded_by)) {
+                    (Ok(supersedes), Ok(superseded_by)) => (supersedes, superseded_by),
+                    _ => {
+                        out.diagnostics.push(diagnostic(
+                            file,
+                            line,
+                            Rule::BadValue,
+                            Some(id.clone()),
+                            None,
+                        ));
+                        continue;
+                    }
+                };
+            if supersedes
+                .as_ref()
+                .is_some_and(|target| target.kind() != id.kind())
+                || superseded_by
+                    .as_ref()
+                    .is_some_and(|target| target.kind() != id.kind())
+            {
+                out.diagnostics.push(diagnostic(
+                    file,
+                    line,
+                    Rule::BadValue,
+                    Some(id.clone()),
+                    None,
+                ));
+                continue;
+            }
+            let decision_date = match decision_date.map(|value| value.parse::<Date>()).transpose() {
+                Ok(value) => value,
+                Err(_) => {
+                    out.diagnostics.push(diagnostic(
+                        file,
+                        line,
+                        Rule::BadValue,
+                        Some(id.clone()),
+                        Some("Decision Date".into()),
+                    ));
+                    continue;
+                }
+            };
             let row = Lifecycle {
                 status,
                 version,
                 created,
                 last_updated,
                 owner: owner.unwrap(),
+                supersedes,
+                superseded_by,
             };
             let identity = Identity {
                 id: id.clone(),
@@ -524,9 +683,160 @@ pub fn bind_file(tree: &serde_json::Value) -> Bound {
                 external_references: links(related.and_then(|x| label(x, "External References"))),
             };
             if identity.id.kind() == RecordKind::Adr {
+                let (context, decision, rationale, consequences) = (
+                    section(item, "Context"),
+                    section(item, "Decision"),
+                    section(item, "Rationale"),
+                    section(item, "Consequences"),
+                );
+                if [context, decision, rationale, consequences]
+                    .iter()
+                    .any(Option::is_none)
+                {
+                    out.diagnostics.push(diagnostic(
+                        file,
+                        line,
+                        Rule::MissingField,
+                        Some(id.clone()),
+                        None,
+                    ));
+                    continue;
+                }
+                let alternatives = section(item, "Alternatives Considered");
+                let groups = alternatives
+                    .and_then(|s| s.get("groups"))
+                    .and_then(|v| v.as_array())
+                    .into_iter()
+                    .flatten()
+                    .map(|group| Alternative {
+                        name: group
+                            .get("name")
+                            .and_then(|v| v.as_str())
+                            .and_then(|n| n.split_once(": ").map(|(_, n)| n))
+                            .unwrap_or_default()
+                            .into(),
+                        description: label(group, "Description").map(prose).unwrap_or_default(),
+                        pros: text(
+                            label(group, "Pros").unwrap_or(&serde_json::Value::Null),
+                            "items",
+                        ),
+                        cons: text(
+                            label(group, "Cons").unwrap_or(&serde_json::Value::Null),
+                            "items",
+                        ),
+                        why_rejected: label(group, "Why Rejected").map(prose).unwrap_or_default(),
+                    })
+                    .collect();
                 out.decisions.push(Decision {
                     identity,
                     lifecycle: row,
+                    decision_date: decision_date.unwrap(),
+                    context: Context {
+                        text: context.map(prose).unwrap_or_default(),
+                        background: context
+                            .and_then(|s| label(s, "Background"))
+                            .map(prose)
+                            .unwrap_or_default(),
+                        problem_statement: context
+                            .and_then(|s| label(s, "Problem Statement"))
+                            .map(prose)
+                            .unwrap_or_default(),
+                    },
+                    decision: DecisionSection {
+                        text: decision.map(prose).unwrap_or_default(),
+                        chosen_approach: decision
+                            .and_then(|s| label(s, "Chosen Approach"))
+                            .map(prose)
+                            .unwrap_or_default(),
+                        key_principles: text(
+                            decision
+                                .and_then(|s| label(s, "Key Principles"))
+                                .unwrap_or(&serde_json::Value::Null),
+                            "items",
+                        ),
+                    },
+                    rationale: DecisionRationale {
+                        text: rationale.map(prose).unwrap_or_default(),
+                        benefits: text(
+                            rationale
+                                .and_then(|s| label(s, "Benefits"))
+                                .unwrap_or(&serde_json::Value::Null),
+                            "items",
+                        ),
+                        trade_offs: text(
+                            rationale
+                                .and_then(|s| label(s, "Trade-offs"))
+                                .unwrap_or(&serde_json::Value::Null),
+                            "items",
+                        ),
+                    },
+                    consequences: Consequences {
+                        text: consequences.map(prose).unwrap_or_default(),
+                        positive: text(
+                            consequences
+                                .and_then(|s| label(s, "Positive"))
+                                .unwrap_or(&serde_json::Value::Null),
+                            "items",
+                        ),
+                        negative: text(
+                            consequences
+                                .and_then(|s| label(s, "Negative"))
+                                .unwrap_or(&serde_json::Value::Null),
+                            "items",
+                        ),
+                        neutral: text(
+                            consequences
+                                .and_then(|s| label(s, "Neutral"))
+                                .unwrap_or(&serde_json::Value::Null),
+                            "items",
+                        ),
+                    },
+                    alternatives: Alternatives {
+                        text: alternatives.map(prose).unwrap_or_default(),
+                        groups,
+                    },
+                    implementation: {
+                        let s = section(item, "Implementation");
+                        Implementation {
+                            text: s.map(prose).unwrap_or_default(),
+                            key_components: text(
+                                s.and_then(|x| label(x, "Key Components"))
+                                    .unwrap_or(&serde_json::Value::Null),
+                                "items",
+                            ),
+                            integration_points: text(
+                                s.and_then(|x| label(x, "Integration Points"))
+                                    .unwrap_or(&serde_json::Value::Null),
+                                "items",
+                            ),
+                            code_examples: s
+                                .and_then(|x| label(x, "Code Examples"))
+                                .map(prose)
+                                .unwrap_or_default(),
+                        }
+                    },
+                    impact_analysis: {
+                        let s = section(item, "Impact Analysis");
+                        ImpactAnalysis {
+                            text: s.map(prose).unwrap_or_default(),
+                            affected_components: s
+                                .and_then(|x| label(x, "Affected Components"))
+                                .map(prose)
+                                .unwrap_or_default(),
+                            performance_impact: s
+                                .and_then(|x| label(x, "Performance Impact"))
+                                .map(prose)
+                                .unwrap_or_default(),
+                            security_impact: s
+                                .and_then(|x| label(x, "Security Impact"))
+                                .map(prose)
+                                .unwrap_or_default(),
+                            maintainability_impact: s
+                                .and_then(|x| label(x, "Maintainability Impact"))
+                                .map(prose)
+                                .unwrap_or_default(),
+                        }
+                    },
                     related_documents,
                 })
             } else {
@@ -719,7 +1029,21 @@ pub fn sql_ddl() -> String {
         field_table(table)
             .iter()
             .filter(|f| f.name != "id_range" && f.level != Level::Label && names.insert(f.name))
-            .map(|f| format!("{} {} NOT NULL", f.name, f.sql_type))
+            .map(|f| {
+                if matches!(f.name, "supersedes" | "superseded_by") {
+                    format!(
+                        "{} TEXT REFERENCES {table}(id) DEFERRABLE INITIALLY DEFERRED",
+                        f.name
+                    )
+                } else {
+                    format!(
+                        "{} {}{}",
+                        f.name,
+                        f.sql_type,
+                        if f.required { " NOT NULL" } else { "" }
+                    )
+                }
+            })
             .collect::<Vec<_>>()
             .join(", ")
     };

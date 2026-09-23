@@ -25,7 +25,7 @@ def add_text(target: dict | None, value: str, line: int, item: bool = False) -> 
 def split(path: Path, text: str) -> dict:
     """Invert the template grammar without knowing any schema field names."""
     tree, record, section, group, label = {"path": str(path), "header": {}, "records": []}, None, None, None, None
-    header, fenced = True, False
+    header, fenced, pending_header, pending = True, False, False, {}
     for number, raw in enumerate(text.splitlines(), 1):
         line = raw.rstrip()
         if line.startswith("```"):
@@ -33,15 +33,21 @@ def split(path: Path, text: str) -> dict:
             add_text(label if label else group if group else section, raw, number)
             continue
         if not fenced and line.startswith("# "):
+            record = section = group = label = None
+            header = True
+            pending_header = bool(tree["records"])
             continue
         if not fenced and (line == "---" or line.startswith("## ")):
             header = False
         if not fenced and (match := HEADING.match(line)):
             record = {"id": match.group(1), "title": match.group(2), "line": number, "fields": {}, "sections": []}
+            record["fields"].update(pending)
+            pending = {}
+            pending_header = False
             tree["records"].append(record)
             section = group = label = None
             continue
-        if not fenced and line.startswith("## "):
+        if not fenced and line.startswith("## ") and not HEADING.match(line):
             record = section = group = label = None
             continue
         if not fenced and record and line.startswith("### "):
@@ -59,7 +65,7 @@ def split(path: Path, text: str) -> dict:
             entry = {"name": match.group(1), "line": number, "prose": [], "items": []}
             value = (match.group(2) or "").rstrip()
             if header:
-                tree["header"][entry["name"]] = {"value": value, "line": number}
+                (pending if pending_header else tree["header"])[entry["name"]] = {"value": value, "line": number}
             elif record and not section:
                 record["fields"][entry["name"]] = {"value": value, "line": number}
             elif section:
