@@ -76,11 +76,14 @@ def test_duplicate_and_missing_id(tmp_path: Path):
     assert any(issue["rule"] == "MISSING_ID" for issue in json.loads(index.read_text())["diagnostics"]["issues"])
 
 
-def test_splitter_owns_no_schema_label(tmp_path: Path):
+def test_splitter_owns_no_schema_label():
     source = (ROOT / "scripts/extract.py").read_text()
     for table in ("requirements", "decisions"):
         for field in json.loads(raptor_schema.field_table(table)):
             assert field["label"] not in source
+
+
+def test_extractor_ignores_file_level_labels_outside_records(tmp_path: Path):
     root, index = project(tmp_path), tmp_path / "index.json"
     file = next((root / "docs" / "requirements").glob("REQ*.md"))
     file.write_text(file.read_text() + "\n## Appendix\n**Unmapped:** prose\n- item\n")
