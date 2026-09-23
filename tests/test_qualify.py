@@ -112,6 +112,13 @@ def test_empty_required_content_is_missing(document):
     assert not result.rows["requirements"]
 
 
+def test_section_level_nested_label_is_diagnostic(document):
+    root, _ = document; text = (root / "docs/decisions/ADR-FIX-0001.md").read_text().replace("### Alternatives Considered", "### Alternatives Considered\n**Description:** stray", 1)
+    result = qualify(root, text); issues = [i for i in result.issues if i["rule"] == "UNKNOWN_LABEL"]
+    assert len(issues) == 1 and (issues[0]["line"], issues[0]["column"], issues[0]["allowed"]) == (text.splitlines().index("**Description:** stray") + 1, 3, []) and "Alternatives Considered" in issues[0]["message"]
+    assert len(result.rows["decisions"]) == 1
+
+
 @pytest.mark.parametrize("old,new,rule", [("**Status:**", "**Unknown Label:**", "UNKNOWN_LABEL"),
     ("### Rationale", "### Unknown Section  ", "UNKNOWN_SECTION")])
 def test_unknown_names_preserve_source_token_and_column(document, old, new, rule):
