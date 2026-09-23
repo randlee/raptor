@@ -1,9 +1,11 @@
-# B.3 corpus run
+# B.3 corpus observation
 
-The read-only run against the consumer repository at commit `6be9d2d` exited
-`1`. It scanned 157 files and bound 675 records. The full JSON is untracked
-and retained for the operator; this bounded table aggregates groups with the
-same rule and allowed set. `multiple` preserves the number of distinct labels.
+The final B.3 corpus run is deferred until B.1 FIX-3 and B.2 FIX-2 merge
+forward. A read-only preflight observation at consumer commit `6be9d2d` exited
+`1`, scanned 157 files, bound 675 records, and found 2,408 diagnostics. Its
+full JSON remains untracked for the operator. This bounded table aggregates
+the observed groups with the same rule and allowed set; `multiple` preserves
+the number of distinct labels.
 
 | Rule | Section | Label | Count | Files | Allowed |
 | --- | --- | --- | ---: | ---: | --- |
