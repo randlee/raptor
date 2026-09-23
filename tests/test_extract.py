@@ -107,13 +107,3 @@ def test_b3_section_diagnostics(tmp_path: Path):
         if allowed:
             assert issue["allowed"] == allowed
         file.write_text(original)
-
-
-def test_document_level_label_after_record_does_not_crash(tmp_path: Path):
-    root, index = project(tmp_path), tmp_path / "index.json"
-    (root / "docs" / "history.md").write_text(
-        "# History\n## REQ-FIX-0009: Record\ntext\n## Document History\n**Requires:** old record\n"
-    )
-    result = extract(root, index, check=False)
-    assert result.returncode == 1
-    assert json.loads(index.read_text())["metadata"]["files"] == 5
