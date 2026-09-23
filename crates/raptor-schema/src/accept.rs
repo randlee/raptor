@@ -22,11 +22,15 @@ pub struct Error {
     pub table: Option<ErrorTable>,
     pub record_position: Option<usize>,
     pub field_path: Box<str>,
-    pub item_index: Option<usize>,
+    pub item_index: Option<Box<usize>>,
     pub offending_value: Box<Value>,
     pub cause: Box<str>,
     pub message: Box<str>,
-    pub recovery: Recovery,
+    pub recovery: &'static str,
+    /// Allowed values for `UnknownVariant`; otherwise `None`.
+    pub allowed_values: Option<Box<Vec<Value>>>,
+    /// First duplicate position for `DuplicateId`; otherwise `None`.
+    pub first_occurrence_record_position: Option<Box<usize>>,
 }
 #[derive(Clone)]
 pub struct ErrorTable(pub(crate) Table);
@@ -41,18 +45,6 @@ impl Serialize for ErrorTable {
             Table::Req => "requirements",
             Table::Dec | Table::Both => "decisions",
         })
-    }
-}
-#[derive(Clone, Copy, Debug)]
-pub struct Recovery(ErrorCategory);
-impl Recovery {
-    pub fn as_str(&self) -> &'static str {
-        recovery(&self.0)
-    }
-}
-impl Serialize for Recovery {
-    fn serialize<S: Serializer>(&self, serializer: S) -> Result<S::Ok, S::Error> {
-        serializer.serialize_str(self.as_str())
     }
 }
 fn recovery(category: &ErrorCategory) -> &'static str {
@@ -71,13 +63,15 @@ fn recovery(category: &ErrorCategory) -> &'static str {
     }
 }
 impl Error {
+    /// Creates an error for a scalar value using its expected format.
     pub fn scalar(category: ErrorCategory, text: &str, cause: &str) -> Self {
         Self::new(category, json!(text), cause)
     }
+    /// Creates an error with its category, offending value, and expectation.
     pub fn new(category: ErrorCategory, value: Value, cause: &str) -> Self {
         Self {
             message: format!("Found {value}; expected {cause}.").into(),
-            recovery: Recovery(category),
+            recovery: recovery(&category),
             category,
             offending_value: Box::new(value),
             cause: cause.into(),
@@ -85,11 +79,13 @@ impl Error {
             record_position: None,
             field_path: Box::default(),
             item_index: None,
+            allowed_values: None,
+            first_occurrence_record_position: None,
         }
     }
     pub fn at(mut self, path: &str, item: Option<usize>) -> Self {
         self.field_path = path.into();
-        self.item_index = item;
+        self.item_index = item.map(Box::new);
         self
     }
 }
@@ -207,12 +203,9 @@ fn walk(
     if let Some(choices) = schema.get("enum").and_then(Value::as_array)
         && !choices.contains(value)
     {
-        return vec![error(
-            UnknownVariant,
-            value,
-            &json!(choices).to_string(),
-            path,
-        )];
+        let mut error = error(UnknownVariant, value, &json!(choices).to_string(), path);
+        error.allowed_values = Some(Box::new(choices.clone()));
+        return vec![error];
     }
     let mut errors = Vec::new();
     if let (Some(object), Some(properties)) =

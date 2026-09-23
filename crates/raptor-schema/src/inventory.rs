@@ -70,8 +70,8 @@ pub fn check_inventory(batch: &Batch) -> Vec<Error> {
     }
     let mut errors = Vec::new();
     for (table, position, identity, targets) in rows {
-        let error = |category, text, cause, path, item| {
-            let mut error = Error::scalar(category, text, cause).at(path, item);
+        let error = |category, text, cause: String, path, item| {
+            let mut error = Error::scalar(category, text, &cause).at(path, item);
             error.table = Some(ErrorTable(table));
             error.record_position = Some(position);
             error
@@ -83,10 +83,8 @@ pub fn check_inventory(batch: &Batch) -> Vec<Error> {
                 "a unique identifier; first occurrence is record position {first_position}"
             );
             let mut duplicate =
-                Error::scalar(ErrorCategory::DuplicateId, identity.id.as_str(), &cause)
-                    .at("/id", None);
-            duplicate.table = Some(ErrorTable(table));
-            duplicate.record_position = Some(position);
+                error(ErrorCategory::DuplicateId, identity.id.as_str(), cause, "/id", None);
+            duplicate.first_occurrence_record_position = Some(Box::new(*first_position));
             errors.push(duplicate);
         }
         for (path, item, target) in targets {
@@ -94,7 +92,7 @@ pub fn check_inventory(batch: &Batch) -> Vec<Error> {
                 errors.push(error(
                     ErrorCategory::DanglingReference,
                     target.as_str(),
-                    "a referenced record in the batch",
+                    "a referenced record in the batch".into(),
                     path,
                     item,
                 ));
