@@ -51,19 +51,18 @@ fn fixture_and_emissions_are_valid() {
         [Level::Header, Level::Item]
     );
     let names = |json: String| {
-        json.split(',')
-            .map(|part| {
-                part.split(':')
-                    .next()
-                    .unwrap()
-                    .trim_matches('{')
-                    .trim_matches('"')
-                    .to_owned()
-            })
-            .collect::<Vec<_>>()
+        let mut names = serde_json::from_str::<Value>(&json)
+            .unwrap()
+            .as_object()
+            .unwrap()
+            .keys()
+            .cloned()
+            .collect::<Vec<_>>();
+        names.sort_unstable();
+        names
     };
     let fields = |table| {
-        field_table(table)
+        let mut names = field_table(table)
             .into_iter()
             .filter(|field| field.name != "id_range")
             .fold(Vec::new(), |mut names, field| {
@@ -71,7 +70,9 @@ fn fixture_and_emissions_are_valid() {
                     names.push(field.name)
                 };
                 names
-            })
+            });
+        names.sort_unstable();
+        names
     };
     assert_eq!(
         fields("requirements"),

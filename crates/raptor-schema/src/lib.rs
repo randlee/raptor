@@ -136,17 +136,17 @@ fn diagnostic(
     rule: Rule,
     id: Option<Id>,
     label: Option<String>,
-    pair: (&'static str, &'static str),
 ) -> Diagnostic {
+    let (message, remedy) = details(&rule);
     Diagnostic {
         file: file.into(),
         line,
         rule,
         id,
         label,
-        message: pair.0,
+        message,
         allowed: None,
-        remedy: pair.1,
+        remedy,
     }
 }
 #[rustfmt::skip] fn string(tree: &serde_json::Value, key: &str) -> Option<String> { let value = tree.get(key)?; value.as_str().or_else(|| value.get("value").and_then(|v| v.as_str())).map(str::to_owned) }
@@ -168,12 +168,7 @@ fn unknown(
     label: String,
     allowed: Vec<String>,
 ) -> Diagnostic {
-    let pair = if rule == Rule::UnknownSection {
-        UNKNOWN_SECTION
-    } else {
-        UNKNOWN_LABEL
-    };
-    let mut out = diagnostic(file, line, rule, id, Some(label), pair);
+    let mut out = diagnostic(file, line, rule, id, Some(label));
     out.allowed = Some(allowed);
     out
 }
@@ -191,7 +186,7 @@ pub fn bind_file(tree: &serde_json::Value) -> Bound {
     let records = tree.get("records").and_then(|v| v.as_array());
     if records.is_none_or(Vec::is_empty) {
         out.diagnostics
-            .push(diagnostic(file, 0, Rule::MissingId, None, None, MISSING));
+            .push(diagnostic(file, 0, Rule::MissingId, None, None));
     }
     for (name, value) in header.as_object().into_iter().flatten() {
         if !FIELDS
@@ -224,7 +219,7 @@ pub fn bind_file(tree: &serde_json::Value) -> Bound {
         );
         if raw_id.is_none() {
             out.diagnostics
-                .push(diagnostic(file, line, Rule::MissingId, None, None, MISSING));
+                .push(diagnostic(file, line, Rule::MissingId, None, None));
             continue;
         }
         let id = match id {
@@ -236,7 +231,6 @@ pub fn bind_file(tree: &serde_json::Value) -> Bound {
                     Rule::BadValue,
                     None,
                     Some("id".into()),
-                    BAD,
                 ));
                 continue;
             }
@@ -300,14 +294,8 @@ pub fn bind_file(tree: &serde_json::Value) -> Bound {
             || last_updated.is_none()
             || owner.is_none()
         {
-            out.diagnostics.push(diagnostic(
-                file,
-                line,
-                Rule::MissingField,
-                Some(id),
-                None,
-                MISSING,
-            ));
+            out.diagnostics
+                .push(diagnostic(file, line, Rule::MissingField, Some(id), None));
             continue;
         }
         let parsed = (
@@ -341,7 +329,7 @@ pub fn bind_file(tree: &serde_json::Value) -> Bound {
             }
         } else {
             out.diagnostics
-                .push(diagnostic(file, line, Rule::BadValue, Some(id), None, BAD));
+                .push(diagnostic(file, line, Rule::BadValue, Some(id), None));
         }
     }
     out
@@ -360,7 +348,7 @@ pub fn check_inventory(requirements: &[Requirement], decisions: &[Decision]) -> 
         .map(|x| &x.identity.id)
         .chain(decisions.iter().map(|x| &x.identity.id))
         .filter(|x| seen[&x.0] > 1)
-        .map(|id| diagnostic("", 0, Rule::DuplicateId, Some(id.clone()), None, DUPLICATE))
+        .map(|id| diagnostic("", 0, Rule::DuplicateId, Some(id.clone()), None))
         .collect()
 }
 pub fn field_table(table: &str) -> Vec<FieldMeta> {
