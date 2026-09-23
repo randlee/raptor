@@ -110,17 +110,8 @@ pub enum Rule {
     BadValue,
     DuplicateId,
 }
-#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
-pub struct Diagnostic {
-    pub file: String,
-    pub line: u32,
-    pub rule: Rule,
-    pub id: Option<Id>,
-    pub label: Option<String>,
-    pub message: &'static str,
-    pub allowed: Option<Vec<String>>,
-    pub remedy: &'static str,
-}
+#[rustfmt::skip]
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize, JsonSchema)] pub struct Diagnostic { pub file: String, pub line: u32, pub rule: Rule, pub id: Option<Id>, pub label: Option<String>, #[serde(skip_deserializing, default)] pub message: &'static str, pub allowed: Option<Vec<String>>, #[serde(skip_deserializing, default)] pub remedy: &'static str }
 #[derive(Clone, Debug, Serialize)]
 pub struct Bound {
     pub requirements: Vec<Requirement>,
@@ -138,6 +129,7 @@ const UNKNOWN_LABEL: (&str, &str) = (
     "Remove the label or use an allowed label.",
 );
 const DUPLICATE: (&str, &str) = ("duplicate identifier", "Make the identifier unique.");
+#[rustfmt::skip] fn details(rule: &Rule) -> (&'static str, &'static str) { match rule { Rule::MissingId | Rule::MissingField => MISSING, Rule::BadValue => BAD, Rule::UnknownSection => UNKNOWN_SECTION, Rule::UnknownLabel => UNKNOWN_LABEL, Rule::DuplicateId => DUPLICATE } }
 fn diagnostic(
     file: &str,
     line: u32,
@@ -399,7 +391,7 @@ pub fn json_schema() -> serde_json::Value {
 #[rustfmt::skip]
 pub fn summarize(diagnostics: &[Diagnostic]) -> serde_json::Value {
     let mut counts = BTreeMap::<String, usize>::new(); let mut groups = BTreeMap::<(String, Option<String>, Option<Vec<String>>, String), BTreeMap<String, Vec<u32>>>::new();
-    for d in diagnostics { let rule = serde_json::to_value(&d.rule).unwrap().as_str().unwrap().to_owned(); *counts.entry(rule.clone()).or_default() += 1; groups.entry((rule, d.label.clone(), d.allowed.clone(), d.remedy.into())).or_default().entry(d.file.clone()).or_default().push(d.line); }
+    for d in diagnostics { let rule = serde_json::to_value(&d.rule).unwrap().as_str().unwrap().to_owned(); *counts.entry(rule.clone()).or_default() += 1; groups.entry((rule, d.label.clone(), d.allowed.clone(), details(&d.rule).1.into())).or_default().entry(d.file.clone()).or_default().push(d.line); }
     serde_json::json!({"counts":counts,"groups":groups.into_iter().map(|((rule,label,allowed,remedy),files)| serde_json::json!({"rule":rule,"section":null,"label":label,"allowed":allowed,"count":files.values().map(Vec::len).sum::<usize>(),"files":files,"remedy":remedy})).collect::<Vec<_>>()})
 }
 #[cfg(feature = "python")]
@@ -436,14 +428,7 @@ fn raptor_schema(m: &pyo3::Bound<'_, pyo3::types::PyModule>) -> pyo3::PyResult<(
     }
     #[pyfn(m)]
     fn summarize(diagnostics: String) -> PyResult<String> {
-        let diagnostics: Vec<serde_json::Value> = parse(&diagnostics)?;
-        let mut counts = BTreeMap::<String, usize>::new();
-        for diagnostic in diagnostics {
-            if let Some(rule) = diagnostic["rule"].as_str() {
-                *counts.entry(rule.into()).or_default() += 1;
-            }
-        }
-        Ok(serde_json::json!({"counts": counts, "groups": []}).to_string())
+        text(&crate::summarize(&parse::<Vec<Diagnostic>>(&diagnostics)?))
     }
     Ok(())
 }
