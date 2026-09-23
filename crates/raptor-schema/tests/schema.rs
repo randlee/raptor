@@ -58,6 +58,9 @@ fn check_error(
     assert_eq!(error.offending_value.as_ref(), value);
     assert!(!error.cause.is_empty());
     assert!(!error.message.is_empty());
+    assert!(!error.recovery.as_str().is_empty());
+    assert_ne!(error.recovery.as_str(), error.cause.as_ref());
+    assert_ne!(error.recovery.as_str(), error.message.as_ref());
 }
 fn reject(path: &str, value: Value, category: &str, item: Option<usize>) {
     let mut input = fixture();
@@ -73,7 +76,20 @@ fn reject(path: &str, value: Value, category: &str, item: Option<usize>) {
             "Found \"ADR-FIX-0001\"; expected a Req identifier, not Adr."
         );
     }
-    let output = serde_json::to_value(result).unwrap();
+    if category == "UnknownVariant" && path == "/status" {
+        assert_eq!(
+            result.errors[0].cause.as_ref(),
+            "[\"Draft\",\"Proposed\",\"Active\",\"Approved\",\"Deprecated\",\"Superseded\"]"
+        );
+    }
+    if category == "InvalidId" {
+        assert_eq!(
+            result.errors[0].cause.as_ref(),
+            "an ID with REQ, NFR, or ADR prefix and four digits"
+        );
+    }
+    let output = serde_json::to_value(&result).unwrap();
+    assert_eq!(output["errors"][0]["recovery"], json!(result.errors[0].recovery.as_str()));
     assert_eq!(output["summary"]["counts"], json!({"BAD_VALUE": 1}));
 }
 #[test]
@@ -228,6 +244,10 @@ fn duplicates_report_every_occurrence_within_and_across_tables() {
             (destination, usize::from(source == destination)),
         ]) {
             check_error(error, "DuplicateId", Some(table), Some(position), "/id", None, &id);
+            assert_eq!(
+                error.cause.as_ref(),
+                "a unique identifier; first occurrence is record position 0"
+            );
         }
         assert_eq!(
             serde_json::to_value(result).unwrap()["summary"]["counts"],

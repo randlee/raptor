@@ -62,26 +62,42 @@ pub fn check_inventory(batch: &Batch) -> Vec<Error> {
     });
     let rows: Vec<_> = requirements.chain(decisions).collect();
     let mut counts = BTreeMap::new();
-    for (_, _, identity, _) in &rows {
-        *counts.entry(identity.id.as_str()).or_insert(0usize) += 1;
+    for (_, position, identity, _) in &rows {
+        let entry = counts
+            .entry(identity.id.as_str())
+            .or_insert((*position, 0usize));
+        entry.1 += 1;
     }
     let mut errors = Vec::new();
     for (table, position, identity, targets) in rows {
-        let error = |category, text, path, item| {
-            let mut error = Error::scalar(category, text).at(path, item);
+        let error = |category, text, cause, path, item| {
+            let mut error = Error::scalar(category, text, cause).at(path, item);
             error.table = Some(table.into());
             error.record_position = Some(position);
             error
         };
-        if counts
-            .get(identity.id.as_str())
-            .is_some_and(|count| *count > 1)
+        if let Some((first_position, count)) = counts.get(identity.id.as_str())
+            && *count > 1
         {
-            errors.push(error(ErrorCategory::DuplicateId, identity.id.as_str(), "/id", None));
+            let cause = format!(
+                "a unique identifier; first occurrence is record position {first_position}"
+            );
+            let mut duplicate =
+                Error::scalar(ErrorCategory::DuplicateId, identity.id.as_str(), &cause)
+                    .at("/id", None);
+            duplicate.table = Some(table.into());
+            duplicate.record_position = Some(position);
+            errors.push(duplicate);
         }
         for (path, item, target) in targets {
             if !counts.contains_key(target.as_str()) {
-                errors.push(error(ErrorCategory::DanglingReference, target.as_str(), path, item));
+                errors.push(error(
+                    ErrorCategory::DanglingReference,
+                    target.as_str(),
+                    "a referenced record in the batch",
+                    path,
+                    item,
+                ));
             }
         }
     }
