@@ -3,6 +3,8 @@ name: rust-best-practices-assignment
 version: 1.0.0
 description: Render a fenced-JSON assignment for rust-best-practices-agent.
 format: json
+# Workaround for sc-compose 1.6.1 auto-mode JSON escaping of hand-quoted placeholders; keep the three templates in this directory in sync.
+# Remove this mode when the template renders valid JSON without it.
 json_escape_mode: legacy
 required_variables:
   - review_mode
