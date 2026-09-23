@@ -100,8 +100,10 @@ def test_scripts_own_no_schema_literals():
     forbidden.update(value.casefold() for schema in schemas.values() for value in schema["x-raptor-kinds"])
     for path in (ROOT / "scripts").glob("*.py"):
         for node in ast.walk(ast.parse(path.read_text())):
-            if isinstance(node, ast.Constant) and isinstance(node.value, str) and node.value not in structural:
-                assert node.value.casefold() not in forbidden, (path, node.lineno, node.value)
+            if isinstance(node, ast.Constant) and isinstance(node.value, str):
+                if node.value not in structural:
+                    assert node.value.casefold() not in forbidden, (path, node.lineno, node.value)
+                if path.name == "load_sqlite.py": assert node.value not in schemas, (path, node.lineno, node.value)
 
 
 def test_extractor_ignores_file_level_labels_outside_records(tmp_path: Path):

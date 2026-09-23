@@ -41,7 +41,6 @@ fn fixture() -> Value {
     }"#;
     serde_json::from_str(records).unwrap()
 }
-
 fn check_error(
     error: &Error,
     category: &str,
@@ -60,7 +59,6 @@ fn check_error(
     assert!(!error.cause.is_empty());
     assert!(!error.message.is_empty());
 }
-
 fn reject(path: &str, value: Value, category: &str, item: Option<usize>) {
     let mut input = fixture();
     *input["requirements"][0].pointer_mut(path).unwrap() = value.clone();
@@ -69,10 +67,14 @@ fn reject(path: &str, value: Value, category: &str, item: Option<usize>) {
     assert_eq!(result.batch.decisions().count(), 1);
     assert_eq!(result.errors.len(), 1, "{:?}", result.errors);
     check_error(&result.errors[0], category, Some("requirements"), Some(0), path, item, &value);
+    if category == "CrossKindSupersession" {
+        assert!(
+            result.errors[0].message.contains("Req") && result.errors[0].message.contains("Adr")
+        );
+    }
     let output = serde_json::to_value(result).unwrap();
     assert_eq!(output["summary"]["counts"], json!({"BAD_VALUE": 1}));
 }
-
 #[test]
 fn valid_batch_preserves_records_and_checkbox_states() {
     for checked in [Value::Null, json!(false), json!(true)] {
@@ -85,7 +87,6 @@ fn valid_batch_preserves_records_and_checkbox_states() {
         assert_eq!(output["summary"], json!({"records": 2, "counts": {}}));
     }
 }
-
 #[test]
 fn strict_values_have_structured_errors() {
     for (path, value, category, item) in [
