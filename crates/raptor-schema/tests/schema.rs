@@ -1,413 +1,399 @@
 use raptor_schema::*;
-use rusqlite::Connection;
+use rusqlite::{Connection, params_from_iter};
 use serde_json::{Value, json};
+use std::collections::BTreeSet;
 
-fn tree() -> Value {
-    json!({"path":"records.md","header":{"Status":{"value":"Draft","line":2},"Version":{"value":"1.0.0","line":3},"Created":{"value":"2026-01-01","line":4},"Last Updated":{"value":"2026-01-02","line":5},"Owner":{"value":"Example","line":6}},"records":[{"id":"REQ-FIX-0001","title":"Requirement","line":9,"fields":{"Status":{"value":"Active","line":10}},"sections":[{"name":"Requirement Statement","line":11,"labels":[]},{"name":"Rationale","line":12,"labels":[]},{"name":"Success Criteria","line":13,"labels":[]}]}]})
+fn fixture() -> Value {
+    let records = r#"{
+      "requirements": [{
+        "id": "REQ-FIX-0001", "title": "Persist records", "status": "Active",
+        "version": "1.0.0", "created": "2000-02-29", "last_updated": "2026-01-01",
+        "owner": "Example", "supersedes": null, "superseded_by": null,
+        "requirement_statement": {"text": "Persist", "statements": [
+          {"modal": "Must", "text": "Keep records"}]},
+        "rationale": "Preserve information",
+        "success_criteria": {"text": "Verified", "acceptance_criteria": [
+          {"text": "Read back", "checked": null}], "test_evidence": []},
+        "dependencies": {"text": "", "requires": [], "related": []},
+        "product_applicability": {"text": "", "applies_to": [], "does_not_apply_to": []},
+        "implementation_notes": {"text": "", "key_considerations": []},
+        "test_strategy": {"text": "", "test_types": []},
+        "related_documents": {"text": "", "requirements": [], "architecture_decisions": [],
+          "design_documents": [], "work_items": [], "external_references": []}
+      }],
+      "decisions": [{
+        "id": "ADR-FIX-0001", "title": "Storage", "status": "Approved",
+        "version": "1.0.0", "created": "2000-02-29", "last_updated": "2026-01-01",
+        "owner": "Example", "supersedes": null, "superseded_by": null,
+        "decision_date": "2026-01-01",
+        "context": {"text": "Need storage", "background": "", "problem_statement": ""},
+        "decision": {"text": "Use a database", "chosen_approach": "", "key_principles": []},
+        "rationale": {"text": "Durability", "benefits": [], "trade_offs": []},
+        "consequences": {"text": "", "positive": [], "negative": [], "neutral": []},
+        "alternatives": {"text": "", "groups": []},
+        "implementation": {"text": "", "key_components": [], "integration_points": [],
+          "code_examples": ""},
+        "impact_analysis": {"text": "", "affected_components": "", "performance_impact": "",
+          "security_impact": "", "maintainability_impact": ""},
+        "related_documents": {"text": "", "requirements": [], "architecture_decisions": [],
+          "design_documents": [], "work_items": [], "external_references": []}
+      }]
+    }"#;
+    serde_json::from_str(records).unwrap()
 }
-fn only(bound: &Bound, rule: Rule) -> &Diagnostic {
-    assert_eq!(bound.diagnostics.len(), 1);
-    let diagnostic = &bound.diagnostics[0];
-    assert_eq!(diagnostic.rule, rule);
-    assert_eq!(
-        (diagnostic.message, diagnostic.remedy),
-        match rule {
-            Rule::MissingId | Rule::MissingField =>
-                ("required field is missing", "Add the required field."),
-            Rule::BadValue => ("field value is invalid", "Use the documented value format."),
-            Rule::UnknownSection => (
-                "section is not defined",
-                "Remove the section or use an allowed section."
-            ),
-            Rule::UnknownLabel => (
-                "label is not defined",
-                "Remove the label or use an allowed label."
-            ),
-            Rule::DuplicateId => ("duplicate identifier", "Make the identifier unique."),
-            Rule::DanglingReference => (
-                "reference does not declare a record",
-                "Declare the referenced identifier or remove the reference.",
-            ),
-        }
-    );
-    diagnostic
+
+fn check_error(
+    error: &Error,
+    category: &str,
+    table: Option<&str>,
+    position: Option<usize>,
+    path: &str,
+    item: Option<usize>,
+    value: &Value,
+) {
+    assert_eq!(json!(error.category), category);
+    assert_eq!(error.table.as_deref(), table);
+    assert_eq!(error.record_position, position);
+    assert_eq!(error.field_path.as_ref(), path);
+    assert_eq!(error.item_index, item);
+    assert_eq!(error.offending_value.as_ref(), value);
+    assert!(!error.cause.is_empty());
+    assert!(!error.message.is_empty());
+}
+
+fn reject(path: &str, value: Value, category: &str, item: Option<usize>) {
+    let mut input = fixture();
+    *input["requirements"][0].pointer_mut(path).unwrap() = value.clone();
+    let result = accept(&input.to_string());
+    assert_eq!(result.batch.requirements().count(), 0);
+    assert_eq!(result.batch.decisions().count(), 1);
+    assert_eq!(result.errors.len(), 1, "{:?}", result.errors);
+    check_error(&result.errors[0], category, Some("requirements"), Some(0), path, item, &value);
+    let output = serde_json::to_value(result).unwrap();
+    assert_eq!(output["summary"]["counts"], json!({"BAD_VALUE": 1}));
 }
 
 #[test]
-fn fixture_and_emissions_are_valid() {
-    let fixture: serde_json::Value =
-        serde_json::from_str(include_str!("../../../tests/fixtures/records.json")).unwrap();
-    let requirements: Vec<Requirement> =
-        serde_json::from_value(fixture["requirements"].clone()).unwrap();
-    let decisions: Vec<Decision> = serde_json::from_value(fixture["decisions"].clone()).unwrap();
-    assert_eq!(requirements.len() + decisions.len(), 4);
-    assert!(field_table("requirements").len() > 9);
-    assert_eq!(
-        field_table("requirements")
-            .into_iter()
-            .filter(|field| field.name == "status")
-            .map(|field| field.level)
-            .collect::<Vec<_>>(),
-        [Level::Header, Level::Item]
-    );
-    for (table, row) in [
-        (
-            "requirements",
-            serde_json::to_value(&requirements[0]).unwrap(),
-        ),
-        ("decisions", serde_json::to_value(&decisions[0]).unwrap()),
+fn valid_batch_preserves_records_and_checkbox_states() {
+    for checked in [Value::Null, json!(false), json!(true)] {
+        let mut input = fixture();
+        input["requirements"][0]["success_criteria"]["acceptance_criteria"][0]["checked"] = checked;
+        let result = accept(&input.to_string());
+        assert!(result.errors.is_empty(), "{:?}", result.errors);
+        let output = serde_json::to_value(result).unwrap();
+        assert_eq!(output["batch"], input);
+        assert_eq!(output["summary"], json!({"records": 2, "counts": {}}));
+    }
+}
+
+#[test]
+fn strict_values_have_structured_errors() {
+    for (path, value, category, item) in [
+        ("/title", json!([]), "TypeMismatch", None),
+        ("/title", Value::Null, "NullNotAllowed", None),
+        ("/status", json!("active"), "UnknownVariant", None),
+        ("/status", json!("Actve"), "UnknownVariant", None),
+        ("/id", json!("REQ-X-1"), "InvalidId", None),
+        ("/version", json!("1.10.0"), "InvalidVersion", None),
+        ("/created", json!("2026-13-01"), "InvalidDate", None),
+        ("/created", json!("2025-02-29"), "InvalidDate", None),
+        ("/created", json!("1900-02-29"), "InvalidDate", None),
+        ("/supersedes", json!("ADR-FIX-0001"), "CrossKindSupersession", None),
+        ("/requirement_statement/statements/0/modal", json!("must"), "UnknownVariant", Some(0)),
     ] {
-        let fields: std::collections::HashSet<_> = field_table(table)
-            .into_iter()
-            .filter(|field| field.name != "id_range" && field.level != Level::Label)
-            .map(|field| field.name.to_owned())
-            .collect();
-        let names = row.as_object().unwrap().keys().cloned().collect();
-        assert_eq!(fields, names);
+        reject(path, value, category, item);
     }
-    let validator = jsonschema::validator_for(&json_schema()).unwrap();
-    assert!(validator.validate(&fixture).is_ok());
+    for date in ["2000-02-29", "2024-02-29"] {
+        let mut input = fixture();
+        input["decisions"][0]["decision_date"] = json!(date);
+        assert!(accept(&input.to_string()).errors.is_empty());
+    }
 }
 
 #[test]
-fn inventory_reports_each_duplicate() {
-    let row = bind_file(&tree()).requirements.remove(0);
-    let rows = vec![row.clone(), row];
-    let diagnostics = check_inventory(&rows, &[]);
-    assert_eq!(diagnostics.len(), 2);
-    assert!(diagnostics.iter().all(|diagnostic| {
-        diagnostic.rule == Rule::DuplicateId
-            && (diagnostic.message, diagnostic.remedy)
-                == ("duplicate identifier", "Make the identifier unique.")
-    }));
-}
-
-#[test]
-fn bind_inherits_headers_and_item_status_wins() {
-    let bound = bind_file(&tree());
-    assert!(bound.diagnostics.is_empty());
-    assert_eq!(bound.requirements[0].identity.id.as_str(), "REQ-FIX-0001");
-    assert_eq!(bound.requirements[0].lifecycle.status, Status::Active);
-}
-
-#[test]
-fn missing_id_has_no_row() {
-    let mut value = tree();
-    value["records"][0].as_object_mut().unwrap().remove("id");
-    let bound = bind_file(&value);
-    let diagnostic = only(&bound, Rule::MissingId);
-    assert_eq!(diagnostic.file, "records.md");
-    assert_eq!(diagnostic.line, 9);
-    assert_eq!(diagnostic.label, None);
-    assert!(bound.requirements.is_empty());
-}
-
-#[test]
-fn missing_field_has_no_row() {
-    let mut value = tree();
-    value["header"].as_object_mut().unwrap().remove("Owner");
-    let bound = bind_file(&value);
-    assert_eq!(
-        only(&bound, Rule::MissingField)
-            .id
-            .as_ref()
+fn unknown_and_missing_keys_are_rejected_at_every_depth() {
+    for (parent, key, item, missing) in [
+        ("", "extra", None, false),
+        ("/requirement_statement/statements/0", "extra", Some(0), false),
+        ("", "owner", None, true),
+        ("", "supersedes", None, true),
+        ("", "superseded_by", None, true),
+        ("/success_criteria/acceptance_criteria/0", "checked", Some(0), true),
+    ] {
+        let mut input = fixture();
+        let object = input["requirements"][0]
+            .pointer_mut(parent)
             .unwrap()
-            .as_str(),
-        "REQ-FIX-0001"
-    );
-    assert!(bound.requirements.is_empty());
+            .as_object_mut()
+            .unwrap();
+        let (category, value) = if missing {
+            object.remove(key);
+            ("MissingKey", Value::Null)
+        } else {
+            object.insert(key.into(), json!(42));
+            ("UnknownKey", json!(42))
+        };
+        let result = accept(&input.to_string());
+        assert_eq!(result.errors.len(), 1);
+        assert_eq!(result.batch.requirements().count(), 0);
+        let path = format!("{parent}/{key}");
+        check_error(
+            &result.errors[0],
+            category,
+            Some("requirements"),
+            Some(0),
+            &path,
+            item,
+            &value,
+        );
+        assert_eq!(
+            serde_json::to_value(result).unwrap()["summary"]["counts"],
+            json!({"BAD_VALUE": 1})
+        );
+    }
 }
 
 #[test]
-fn unknown_section_keeps_row() {
-    let mut value = tree();
-    value["records"][0]["sections"] = json!([{"name":"Requirement Statement","line":11,"labels":[]},{"name":"Rationale","line":12,"labels":[]},{"name":"Success Criteria","line":13,"labels":[]},{"name":"Extra","line":14,"labels":[]}]);
-    let bound = bind_file(&value);
-    let diagnostic = only(&bound, Rule::UnknownSection);
-    assert_eq!(
-        (
-            diagnostic.line,
-            diagnostic.label.as_deref(),
-            diagnostic.allowed.as_ref().unwrap()
-        ),
-        (
-            14,
-            Some("Extra"),
-            &vec![
-                "Requirement Statement".into(),
-                "Rationale".into(),
-                "Success Criteria".into(),
-                "Dependencies".into(),
-                "Product Applicability".into(),
-                "Implementation Notes".into(),
-                "Test Strategy".into(),
-                "Related Documents".into()
-            ]
-        )
-    );
-    assert_eq!(bound.requirements.len(), 1);
+fn malformed_batch_has_one_root_error() {
+    for input in [
+        json!(null),
+        json!([]),
+        json!({}),
+        json!({"requirements": {}, "decisions": []}),
+        json!({"requirements": [], "decisions": [], "extra": 1}),
+    ] {
+        let category = if input.get("extra").is_some() {
+            "UnknownKey"
+        } else {
+            "TypeMismatch"
+        };
+        let result = accept(&input.to_string());
+        assert_eq!(result.batch.requirements().count() + result.batch.decisions().count(), 0);
+        assert_eq!(result.errors.len(), 1);
+        check_error(&result.errors[0], category, None, None, "", None, &input);
+    }
+    let result = accept("{");
+    assert_eq!(result.errors.len(), 1);
+    check_error(&result.errors[0], "TypeMismatch", None, None, "", None, &json!("{"));
 }
 
 #[test]
-fn unknown_label_keeps_row() {
-    let mut value = tree();
-    value["records"][0]["fields"]["Priority"] = json!({"value":"high","line":11});
-    let bound = bind_file(&value);
-    let diagnostic = only(&bound, Rule::UnknownLabel);
-    assert_eq!(diagnostic.line, 11);
-    assert_eq!(diagnostic.label.as_deref(), Some("Priority"));
-    assert!(
-        diagnostic
-            .allowed
-            .as_ref()
-            .unwrap()
-            .contains(&"Status".into())
+fn mixed_batch_keeps_original_positions_and_collects_all_errors() {
+    let mut input = fixture();
+    let mut next = input["requirements"][0].clone();
+    next["id"] = json!("REQ-FIX-0002");
+    input["requirements"].as_array_mut().unwrap().push(next);
+    input["requirements"][0]["title"] = Value::Null;
+    let result = accept(&input.to_string());
+    let positions = result.batch.requirements().map(|(position, _)| position);
+    assert!(positions.eq([1]));
+    assert_eq!(result.batch.decisions().count(), 1);
+    assert_eq!(result.errors.len(), 1);
+    check_error(
+        &result.errors[0],
+        "NullNotAllowed",
+        Some("requirements"),
+        Some(0),
+        "/title",
+        None,
+        &Value::Null,
     );
-    let summary = summarize(&bound.diagnostics);
-    assert_eq!(summary["counts"]["UNKNOWN_LABEL"], 1);
-    assert_eq!(summary["groups"][0]["files"]["records.md"], json!([11]));
-    assert_eq!(bound.requirements.len(), 1);
+    input["requirements"][0]["owner"] = json!(7);
+    input["requirements"][0]["status"] = json!("active");
+    let result = accept(&input.to_string());
+    assert_eq!(result.errors.len(), 3);
+    assert_eq!(serde_json::to_value(result).unwrap()["summary"]["counts"], json!({"BAD_VALUE": 3}));
 }
 
 #[test]
-fn bad_value_has_no_row() {
-    let mut value = tree();
-    value["header"]["Created"]["value"] = json!("2026-02-30");
-    let bound = bind_file(&value);
-    assert_eq!(only(&bound, Rule::BadValue).line, 9);
-    assert!(bound.requirements.is_empty());
-}
-
-fn bind_labels(section: &str, labels: &[(&str, &[&str])]) -> Requirement {
-    let mut value = tree();
-    let sections = value["records"][0]["sections"].as_array_mut().unwrap();
-    sections.retain(|s| s["name"] != section);
-    let labels: Vec<_> = labels
-        .iter()
-        .map(|(name, items)| {
-            let items: Vec<_> = items
-                .iter()
-                .map(|text| json!({"text":text,"line":21}))
-                .collect();
-            json!({"name":name,"line":20,"items":items})
-        })
-        .collect();
-    sections.push(json!({"name":section,"line":19,"prose":[{"text":"Introduction","line":19}],"labels":labels}));
-    let mut bound = bind_file(&value);
-    assert!(bound.diagnostics.is_empty(), "{:?}", bound.diagnostics);
-    bound.requirements.remove(0)
-}
-
-#[test]
-fn text_list_preserves_items_and_empty_optional_labels() {
-    let row = bind_labels(
-        "Success Criteria",
-        &[("Test Evidence", &["unit", "integration"])],
-    );
-    assert_eq!(row.success_criteria.text, "Introduction");
-    assert_eq!(row.success_criteria.test_evidence, ["unit", "integration"]);
-    assert!(row.success_criteria.acceptance_criteria.is_empty());
-    assert_eq!(row.dependencies, Dependencies::default());
+fn duplicates_report_every_occurrence_within_and_across_tables() {
+    for (source, destination) in [
+        ("requirements", "requirements"),
+        ("decisions", "decisions"),
+        ("requirements", "decisions"),
+    ] {
+        let mut input = fixture();
+        let id = input[source][0]["id"].clone();
+        if source == destination {
+            let row = input[source][0].clone();
+            input[destination].as_array_mut().unwrap().push(row);
+        } else {
+            input[destination][0]["id"] = id.clone();
+        }
+        let result = accept(&input.to_string());
+        assert_eq!(result.errors.len(), 2);
+        for (error, (table, position)) in result.errors.iter().zip([
+            (source, 0),
+            (destination, usize::from(source == destination)),
+        ]) {
+            check_error(error, "DuplicateId", Some(table), Some(position), "/id", None, &id);
+        }
+        assert_eq!(
+            serde_json::to_value(result).unwrap()["summary"]["counts"],
+            json!({"DUPLICATE_ID": 2})
+        );
+    }
 }
 
 #[test]
-fn statement_list_collects_all_modals() {
-    let row = bind_labels(
-        "Requirement Statement",
-        &[
-            ("MUST statements", &["persist"]),
-            ("SHOULD statements", &["report"]),
-            ("MUST NOT statements", &["lose"]),
-        ],
-    );
-    let statements = serde_json::to_value(row.requirement_statement.statements).unwrap();
-    assert_eq!(
-        statements,
-        json!([
-            {"modal":"Must","text":"persist"},
-            {"modal":"Should","text":"report"},
-            {"modal":"MustNot","text":"lose"}
-        ])
-    );
-}
-
-#[test]
-fn labels_and_headers_match_case_insensitively() {
-    let row = bind_labels(
-        "Requirement Statement",
-        &[("must statements", &["persist"])],
-    );
-    assert_eq!(row.requirement_statement.statements[0].text, "persist");
-    let mut value = tree();
-    let version = value["header"]
-        .as_object_mut()
-        .unwrap()
-        .remove("Version")
-        .unwrap();
-    value["header"]["version"] = version;
-    assert!(bind_file(&value).diagnostics.is_empty());
-}
-
-#[test]
-fn statement_modal_is_exported_with_the_canonical_label() {
-    let fields = field_table("requirements");
-    let statements: Vec<_> = fields
-        .iter()
-        .filter(|field| field.name == "statements")
-        .map(|field| (field.label, field.modal.clone()))
-        .collect();
-    assert_eq!(
-        statements,
-        [
-            ("MUST statements", Some(Modal::Must)),
-            ("SHOULD statements", Some(Modal::Should)),
-            ("MUST NOT statements", Some(Modal::MustNot)),
-        ]
-    );
-}
-
-#[test]
-fn supersession_diagnostics_name_the_invalid_field() {
-    let mut invalid = tree();
-    invalid["header"]["Supersedes"] = json!({"value":"not-an-id","line":7});
-    assert_eq!(
-        only(&bind_file(&invalid), Rule::BadValue).label.as_deref(),
-        Some("Supersedes")
-    );
-    let mut mismatch = tree();
-    mismatch["header"]["Supersedes"] = json!({"value":"ADR-FIX-0001","line":7});
-    let bound = bind_file(&mismatch);
-    assert_eq!(bound.diagnostics.len(), 1);
-    let diagnostic = &bound.diagnostics[0];
-    assert_eq!(diagnostic.label.as_deref(), Some("Supersedes"));
-    assert_eq!(
-        diagnostic.message,
-        "supersession target has a different record kind"
-    );
-}
-
-#[test]
-fn checklist_distinguishes_checked_unchecked_and_no_box() {
-    let row = bind_labels(
-        "Success Criteria",
-        &[(
-            "Acceptance Criteria",
-            &["[x] stored", "[ ] retrieved", "reviewed"],
-        )],
-    );
-    let items = serde_json::to_value(row.success_criteria.acceptance_criteria).unwrap();
-    assert_eq!(
-        items,
-        json!([
-            {"text":"stored","checked":true},
-            {"text":"retrieved","checked":false},
-            {"text":"reviewed","checked":null}
-        ])
-    );
-}
-
-#[test]
-fn id_list_discards_link_path_and_preserves_note() {
-    let row = bind_labels(
-        "Dependencies",
-        &[(
-            "Requires",
-            &["NFR-FIX-0001", "[ADR-FIX-0001](decision.md) — rationale"],
-        )],
-    );
-    assert_eq!(
-        serde_json::to_value(row.dependencies.requires).unwrap(),
-        json!([
-            {"id":"NFR-FIX-0001","note":null},
-            {"id":"ADR-FIX-0001","note":"rationale"}
-        ])
-    );
-}
-
-#[test]
-fn link_list_preserves_text_href_and_note() {
-    let row = bind_labels(
-        "Related Documents",
-        &[(
-            "Design Documents",
-            &["[guide](guide.md)", "[design](design.md) — detail"],
-        )],
-    );
-    assert_eq!(
-        serde_json::to_value(row.related_documents.design_documents).unwrap(),
-        json!([
-            {"text":"guide","href":"guide.md","note":null},
-            {"text":"design","href":"design.md","note":"detail"}
-        ])
-    );
-}
-
-#[test]
-fn inventory_reports_dangling_reference_with_label_and_remedy() {
-    let row = bind_labels(
-        "Dependencies",
-        &[("Requires", &["REQ-FIX-0001", "NFR-FIX-9999"])],
-    );
-    let diagnostics = check_inventory(&[row], &[]);
-    assert_eq!(diagnostics.len(), 1);
-    assert_eq!(diagnostics[0].rule, Rule::DanglingReference);
-    assert_eq!(diagnostics[0].label.as_deref(), Some("Requires"));
-    assert_eq!(diagnostics[0].id.as_ref().unwrap().as_str(), "REQ-FIX-0001");
-    assert_eq!(
-        summarize(&diagnostics)["groups"][0]["remedy"],
-        "Declare the referenced identifier or remove the reference."
-    );
-}
-
-#[test]
-fn edges_view_returns_fixture_edges() {
-    let fixture: Value =
-        serde_json::from_str(include_str!("../../../tests/fixtures/records.json")).unwrap();
-    let connection = Connection::open_in_memory().unwrap();
-    connection.execute_batch(&sql_ddl()).unwrap();
-    connection.execute_batch("BEGIN DEFERRED").unwrap();
+fn every_reference_group_and_supersession_reports_dangling_targets() {
     for table in ["requirements", "decisions"] {
-        for record in fixture[table].as_array().unwrap() {
-            let fields = record.as_object().unwrap();
-            let columns = fields.keys().cloned().collect::<Vec<_>>().join(", ");
-            let marks = vec!["?"; fields.len()].join(", ");
-            let values = fields.values().map(|v| {
-                (!v.is_null()).then(|| {
-                    v.as_str()
-                        .map(str::to_owned)
-                        .unwrap_or_else(|| v.to_string())
-                })
-            });
-            connection
-                .execute(
-                    &format!("INSERT INTO {table} ({columns}) VALUES ({marks})"),
-                    rusqlite::params_from_iter(values),
-                )
-                .unwrap();
+        let mut paths = vec![
+            "/related_documents/requirements",
+            "/related_documents/architecture_decisions",
+            "/supersedes",
+            "/superseded_by",
+        ];
+        if table == "requirements" {
+            paths.extend(["/dependencies/requires", "/dependencies/related"]);
+        }
+        for path in paths {
+            let mut input = fixture();
+            let target = if table == "requirements" {
+                "REQ-FIX-9999"
+            } else {
+                "ADR-FIX-9999"
+            };
+            let slot = input[table][0].pointer_mut(path).unwrap();
+            let item = slot.is_array().then_some(0);
+            *slot = if item.is_some() {
+                json!([{"id": target, "note": null}])
+            } else {
+                json!(target)
+            };
+            let result = accept(&input.to_string());
+            assert_eq!(result.errors.len(), 1, "{table}{path}: {:?}", result.errors);
+            check_error(
+                &result.errors[0],
+                "DanglingReference",
+                Some(table),
+                Some(0),
+                path,
+                item,
+                &json!(target),
+            );
+            assert!(result.errors[0].message.contains(target));
+            assert_eq!(
+                serde_json::to_value(result).unwrap()["summary"]["counts"],
+                json!({"DANGLING_REFERENCE": 1})
+            );
         }
     }
-    connection.execute_batch("COMMIT").unwrap();
-    let mut query = connection
-        .prepare("SELECT source, path, target, position FROM edges ORDER BY source, path")
-        .unwrap();
-    let edges: Vec<(String, String, String, i64)> = query
-        .query_map([], |row| {
-            Ok((row.get(0)?, row.get(1)?, row.get(2)?, row.get(3)?))
-        })
-        .unwrap()
-        .map(Result::unwrap)
-        .collect();
-    assert_eq!(
-        serde_json::to_value(edges).unwrap(),
-        json!([
-            [
-                "ADR-FIX-0001",
-                "related_documents.requirements",
-                "REQ-FIX-0001",
-                0
-            ],
-            ["REQ-FIX-0001", "dependencies.related", "ADR-FIX-0001", 0],
-            ["REQ-FIX-0001", "dependencies.requires", "NFR-FIX-0001", 0]
-        ])
+}
+
+#[test]
+fn references_to_rejected_records_are_dangling() {
+    let mut input = fixture();
+    input["requirements"][0]["dependencies"]["related"] =
+        json!([{"id": "ADR-FIX-0001", "note": null}]);
+    input["decisions"][0]["title"] = Value::Null;
+    let result = accept(&input.to_string());
+    assert_eq!(result.batch.decisions().count(), 0);
+    assert_eq!(result.errors.len(), 2);
+    check_error(
+        &result.errors[1],
+        "DanglingReference",
+        Some("requirements"),
+        Some(0),
+        "/dependencies/related",
+        Some(0),
+        &json!("ADR-FIX-0001"),
     );
+    assert!(result.errors[1].message.contains("ADR-FIX-0001"));
+    assert_eq!(
+        serde_json::to_value(result).unwrap()["summary"]["counts"],
+        json!({"BAD_VALUE": 1, "DANGLING_REFERENCE": 1})
+    );
+}
+
+#[test]
+fn field_exports_cover_all_63_entries_with_derived_attributes() {
+    let mut exported = BTreeSet::new();
+    for table in [Table::Req, Table::Dec] {
+        let fields = field_table(table);
+        let stored: Vec<_> = FIELDS
+            .iter()
+            .filter(|entry| entry.2 == table || entry.2 == Table::Both)
+            .collect();
+        assert_eq!(fields.len(), stored.len());
+        for (field, stored) in fields.iter().zip(stored) {
+            assert_eq!((field.name, field.label), (stored.0, stored.1));
+            assert_eq!(field.required, stored.5 == Presence::Required);
+            assert_eq!(field.nullable, matches!(field.name, "supersedes" | "superseded_by"));
+            assert_eq!(field.sql_type, "TEXT");
+            let scope = match stored.2 {
+                Table::Req => "Req",
+                Table::Dec => "Dec",
+                Table::Both => "Both",
+            };
+            assert_eq!(field.table, scope);
+            assert_eq!(field.section.is_some(), field.level == "Label");
+            exported.insert(serde_json::to_string(field).unwrap());
+        }
+    }
+    assert_eq!(exported.len(), 63);
+    let modals: BTreeSet<_> = field_table(Table::Req)
+        .iter()
+        .filter_map(|field| field.modal)
+        .map(|modal| format!("{modal:?}"))
+        .collect();
+    let expected = ["Must", "Should", "MustNot"].map(String::from).into();
+    assert_eq!(modals, expected);
+}
+
+#[test]
+fn emitted_json_schema_accepts_good_rows_and_rejects_wrong_types_and_enums() {
+    let schemas = json_schema().unwrap();
+    for (table, kind) in [("requirements", Table::Req), ("decisions", Table::Dec)] {
+        let schema = serde_json::to_value(&schemas[table]).unwrap();
+        assert_eq!(schema["x-raptor-fields"], serde_json::to_value(field_table(kind)).unwrap());
+        let validator = jsonschema::validator_for(&schema).unwrap();
+        let mut row = fixture()[table][0].clone();
+        assert!(validator.is_valid(&row));
+        row["status"] = json!("active");
+        assert!(!validator.is_valid(&row));
+        row = fixture()[table][0].clone();
+        row["title"] = json!(123);
+        assert!(!validator.is_valid(&row));
+    }
+}
+
+#[test]
+fn emitted_sql_loads_records_and_keeps_only_supersession_nullable() {
+    let db = Connection::open_in_memory().unwrap();
+    db.execute_batch(&sql_ddl()).unwrap();
+    db.execute_batch("PRAGMA foreign_keys = ON; BEGIN DEFERRED")
+        .unwrap();
+    for table in ["requirements", "decisions"] {
+        let row = fixture()[table][0].as_object().unwrap().clone();
+        let mut info = db.prepare(&format!("PRAGMA table_info({table})")).unwrap();
+        let columns: Vec<(String, String, bool)> = info
+            .query_map([], |row| Ok((row.get(1)?, row.get(2)?, row.get(3)?)))
+            .unwrap()
+            .map(Result::unwrap)
+            .collect();
+        assert_eq!(columns.len(), row.len());
+        for (name, kind, not_null) in columns {
+            assert!(row.contains_key(&name));
+            assert_eq!(kind, "TEXT");
+            assert_eq!(not_null, !matches!(name.as_str(), "supersedes" | "superseded_by"));
+        }
+        let names = row.keys().cloned().collect::<Vec<_>>().join(", ");
+        let marks = vec!["?"; row.len()].join(", ");
+        let values = row.values().map(|value| match value {
+            Value::Null => None,
+            Value::String(text) => Some(text.clone()),
+            other => Some(other.to_string()),
+        });
+        db.execute(
+            &format!("INSERT INTO {table} ({names}) VALUES ({marks})"),
+            params_from_iter(values),
+        )
+        .unwrap();
+        let count: usize = db
+            .query_row(&format!("SELECT COUNT(*) FROM {table}"), [], |row| row.get(0))
+            .unwrap();
+        assert_eq!(count, 1);
+    }
+    db.execute_batch("COMMIT").unwrap();
 }
