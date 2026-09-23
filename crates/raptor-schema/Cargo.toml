@@ -1,0 +1,21 @@
+[package]
+name = "raptor-schema"
+version.workspace = true
+edition.workspace = true
+
+[lib]
+name = "raptor_schema"
+crate-type = ["rlib", "cdylib"]
+
+[features]
+python = ["dep:pyo3"]
+
+[dependencies]
+serde.workspace = true
+serde_json.workspace = true
+schemars.workspace = true
+pyo3 = { version = "0.23", features = ["abi3-py311"], optional = true }
+
+[dev-dependencies]
+rusqlite = { version = "0.32", features = ["bundled"] }
+jsonschema = { version = "0.23", default-features = false }

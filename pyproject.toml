@@ -1,0 +1,11 @@
+[build-system]
+requires = ["maturin>=1.7"]
+build-backend = "maturin"
+
+[project]
+name = "raptor-schema"
+version = "0.1.0"
+
+[tool.maturin]
+manifest-path = "crates/raptor-schema/Cargo.toml"
+features = ["python"]

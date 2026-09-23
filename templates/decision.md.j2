@@ -1,10 +1,10 @@
 ---
-name: requirement
+name: decision
 version: 1.0.0
 description: Render a schema record.
 required_variables: [record, fields]
 ---
-# Requirement: {{ record.title }}
+# Decision: {{ record.title }}
 
 {% for field in fields if field.level == "Header" %}{% if field.required or record[field.name] %}{% if field.shape == "Derived" %}**{{ field.label }}:** {{ record.id }} through {{ record.id }}{{ '  ' }}
 {% else %}**{{ field.label }}:** {{ record[field.name] }}{{ '  ' }}
@@ -16,7 +16,14 @@ required_variables: [record, fields]
 {% for field in fields if field.level == "Item" and field.name not in ["id", "title"] %}**{{ field.label }}:** {{ record[field.name] }}{{ '  ' }}
 {% endfor %}{% for field in fields if field.level == "Section" %}### {{ field.label }}
 
-{% set value = record[field.name] %}{% if value is string %}{{ value }}
+{% set value = record[field.name] %}{% if field.shape == "Group" and field.name == "alternatives" %}{{ value.text }}
+
+{% for group in value.groups %}#### Alternative {{ loop.index }}: {{ group.name }}
+
+{% for label in fields if label.level == "Label" and label.section == field.label %}**{{ label.label }}:**
+{% if label.shape == "Text" %}{{ group[label.name] }}
+{% else %}{% for item in group[label.name] %}- {{ item }}
+{% endfor %}{% endif %}{{ '\n' }}{% endfor %}{% endfor %}{% elif value is string %}{{ value }}
 
 {% else %}{{ value.text }}
 
