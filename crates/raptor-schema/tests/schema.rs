@@ -228,6 +228,23 @@ fn statement_list_collects_all_modals() {
 }
 
 #[test]
+fn labels_and_headers_match_case_insensitively() {
+    let row = bind_labels(
+        "Requirement Statement",
+        &[("must statements", &["persist"])],
+    );
+    assert_eq!(row.requirement_statement.statements[0].text, "persist");
+    let mut value = tree();
+    let version = value["header"]
+        .as_object_mut()
+        .unwrap()
+        .remove("Version")
+        .unwrap();
+    value["header"]["version"] = version;
+    assert!(bind_file(&value).diagnostics.is_empty());
+}
+
+#[test]
 fn checklist_distinguishes_checked_unchecked_and_no_box() {
     let row = bind_labels(
         "Success Criteria",
