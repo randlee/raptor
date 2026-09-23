@@ -81,7 +81,7 @@ class Qualifier:
             remedy=REMEDIES[rule]))
         self.bad |= rule in ("BAD_VALUE", "MISSING_FIELD", "MISSING_ID")
 
-    def match(self, group, value, choices, node, rule):
+    def match(self, group, value, choices, node, rule, message=None):
         token = normal(value)
         if token in self.aliases.get(group, {}):
             source, target = self.aliases[group][token]
@@ -99,7 +99,7 @@ class Qualifier:
                                 return field["label"]
         if found is None:
             source = dict(node, column=self.lines[node["line"] - 1].find(value) + 1) if group != "values" else node
-            self.issue(rule, source, value, value if group != "values" else node.get("name"), list(choices))
+            self.issue(rule, source, value, value if group != "values" else node.get("name"), list(choices), message=message)
         return found
 
     def scalar(self, value, specification, node):
@@ -163,7 +163,7 @@ class Qualifier:
             return text
         result = empty(specification, self.schema)
         result["text"] = text
-        labels = {f["label"]: f for f in self.fields[self.table] if f["section"] == field["label"]}
+        labels = {f["label"]: f for f in self.fields[self.table] if f["section"] == field["label"] and f["name"] in shape["properties"]}
         if "groups" in shape["properties"]:
             for index, group in enumerate(node.get("groups", [])):
                 target = self.content(group, field, shape["properties"]["groups"]["items"], f"{path}/groups/{index}")
@@ -174,7 +174,7 @@ class Qualifier:
             for group in node.get("groups", []):
                 self.issue("UNKNOWN_SECTION", group, group["name"], field["label"], [])
         for label in node.get("labels", []):
-            canonical = self.match("labels", label["name"], labels, label, "UNKNOWN_LABEL")
+            canonical = self.match("labels", label["name"], labels, label, "UNKNOWN_LABEL", f"Found {label['name']!r} under {field['label']!r}; expected a label defined at this level.")
             if canonical is None:
                 continue
             member = labels[canonical]
