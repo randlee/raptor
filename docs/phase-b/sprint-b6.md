@@ -73,24 +73,30 @@ The field table is a plain `const` array of tuples, one entry per line,
 each entry carrying, in this order: name, label, table (`Req`, `Dec`,
 `Both`), level, shape, presence (`Required`, `Optional`, `Nullable`).
 Nothing derivable is stored. The section a label belongs to is part of
-its level, `Label(RELATED)`, where the section name is a `const` string
-named by the first word of the section, upper case (`STATEMENT`,
-`RATIONALE`, `SUCCESS`, `DEPENDENCIES`, `PRODUCT`, `IMPL_NOTES`, `TEST`,
-`RELATED`, `CONTEXT`, `DECISION`, `CONSEQUENCES`, `ALTERNATIVES`,
-`IMPLEMENTATION`, `IMPACT`). The modal is part of the shape,
-`Statements(MustNot)`. The SQL type is `TEXT` for every one of today's 63
-entries and is emitted from the shape. What the qualifier needs to know
-about a field (heading id, heading title, header label, section prose,
-section label, group) is one exhaustive `match` on level and shape with
-no fallback arm, so a new variant fails to compile until it is placed.
+its level, `Label(Related)`, where the payload is a closed `Section` enum
+of fourteen variants named by the first word of the section heading
+(`Statement`, `Rationale`, `Success`, `Dependencies`, `Product`,
+`ImplNotes`, `Test`, `Related`, `Context`, `Decision`, `Consequences`,
+`Alternatives`, `Implementation`, `Impact`); the heading text is one
+exhaustive `match` on that enum. `Rationale` is one variant used by both
+tables; the entry's table attribute says which. The fold is safe because
+a label has exactly one section and a header, item or section has none,
+so the type cannot express a label without a section or a section with
+one. The modal is part of the shape the same way, `Statements(MustNot)`,
+with the closed `Modal` enum as payload. The SQL type is `TEXT` for every
+one of today's 63 entries and is emitted from the shape. What the
+qualifier needs to know about a field (heading id, heading title, header
+label, section prose, section label, group) is one exhaustive `match` on
+level and shape with no fallback arm; every payload is a closed enum, so
+a new variant anywhere fails to compile until it is placed.
 
 All 63 entries were written out in this encoding from the current table
 and measured at the standard four-space indent: the widest is 97
 characters and none exceeds 100. The two widest:
 
 ```rust
-("integration_points", "Integration Points", Dec, Label(IMPLEMENTATION), TextList, Optional),
-("architecture_decisions", "Architecture Decisions", Both, Label(RELATED), IdList, Optional),
+("integration_points", "Integration Points", Dec, Label(Implementation), TextList, Optional),
+("architecture_decisions", "Architecture Decisions", Both, Label(Related), IdList, Optional),
 ```
 
 `Nullable` is the presence of `supersedes` and `superseded_by` only;
@@ -234,21 +240,30 @@ tests 400. `extract.py` 150, `qualify.py` 250, `load_sqlite.py` 60, `render.py`
 `consumer-run-b6.md` 100. `aliases.toml` 6. A sprint that needs more stops
 and reports the number; it does not pack lines.
 
-The estimate behind the 1,000 differs from RAP-B-ANALYSIS-2's 1,400 to
-1,650 for two reasons that analysis did not assume. Its 569-line field
-table is 63 struct literals expanded by `cargo fmt` to one field per line;
-as six-element tuples with the section inside the level, every entry fits
-one line (measured above), so the table is 63 entries, 14 section
-constants and the declaration, about 90 lines. Its design kept the label
-tree, case-insensitive lookup and document-context diagnostics in the
-crate; all of that is now Python. What remains, by item, counted as
-`cargo fmt` output rather than today's packed lines: 25 types and enums
-with derives at about 8 lines each, 200 (today's 60 packed lines, so the
-reformatting growth the analysis measured is included here); field table,
-90; scalar rules, 40; emission, 120; presence walk and typed acceptance,
-170; inventory and summary, 80; pyo3 module, 60. That is about 760. The
-ceiling is set at 1,000 to leave room for what this estimate has not seen;
-it is where the sprint stops and reports, not a target.
+The estimate behind the 1,000 is reconciled against RAP-B-ANALYSIS-2 as
+follows. That report's disposition table (report lines 7 to 20) keeps 463
+of today's 1,212 lines; its size table (line 77) says those 463 become
+1,305 lines once the skips are removed, and line 81 says the field table
+alone accounts for 569 of them (8 printed lines today). So the retained
+code other than the field table is 455 lines today and 736 formatted, a
+growth of 1.62. Two things differ here. The field table is re-encoded as
+six-element tuples with the section inside the level; every entry fits
+one line (measured above), so it is 63 entries, the `Section` enum and
+the declaration, about 90 lines rather than 569. And the retained set
+includes `REQUIREMENT_SCOPE`, `label_for` and `table_fields` (report line
+13, `lib.rs` 269 to 312, 44 lines), which this sprint deletes because the
+table attribute replaces them: 44 at 1.62 is 71. Applying the report's
+own ratio: 736 less 71 is 665 for retained code, plus 90 for the table,
+plus the report's own strict-ingress allowance of 195 (line 78; 1,500
+less 1,305), gives 950.
+
+The item-by-item estimate, counted as `cargo fmt` output: 25 types and
+enums with derives at about 8 lines each, 200; field table, 90; scalar
+rules, 40; emission, 120; presence walk and typed acceptance, 170;
+inventory and summary, 80; pyo3 module, 60; about 760. The two methods
+give 760 and 950. Both sit under 1,000; the report's method leaves only
+50 lines of headroom, which is why the ceiling is not lower. The ceiling
+is where the sprint stops and reports, not a target.
 
 ## Baseline and test corpus
 
