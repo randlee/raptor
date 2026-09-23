@@ -51,7 +51,7 @@ The schema definition is information, and it is unchanged: the `Status`,
 `RecordKind` and `Modal` enums with their spellings; the `Identity` and
 `Lifecycle` shapes; the nine requirement sections and nine decision
 sections with their nested shapes (`Statement`, `CheckItem`, `IdItem`,
-`LinkItem`, `Alternative`); the 47 field entries as information (each
+`LinkItem`, `Alternative`); the 63 field entries as information (each
 entry's name, label, level, shape, section, required flag and SQL type are
 kept; the entry shape they are written in is defined below and is new);
 the id, version and date rules (the date rule corrected to read the full
@@ -71,18 +71,25 @@ diagnostics built from tree lines, `Field::modal` by table position, the
 
 The field table is a plain `const` array of tuples, one entry per line,
 each entry carrying, in this order: name, label, table (`Req`, `Dec`,
-`Both`), level, shape, section, role (heading id, heading title, header
-label, section prose, section label, group collection), modal, `required`,
-`nullable`, `sql_type`. Written as a tuple with short enum variant names,
-an entry fits one formatted line under 100 characters:
+`Both`), level, shape, section, presence (`Required`, `Optional`,
+`Nullable`). Nothing derivable is stored: the modal is part of the shape
+(`Statements(Must)`), the SQL type is `TEXT` for every one of today's 63
+entries and is emitted from the shape, and what the qualifier needs to
+know about a field (heading id, heading title, header label, section
+prose, section label, group) follows from level and shape. Section names
+are `const` strings so a label entry stays short. The longest entries at
+the standard four-space indent:
 
 ```rust
-("last_updated", "Last Updated", Both, Header, Date, None, HeaderLabel, None, true, false, "TEXT"),
+("alternatives_considered", "Alternatives Considered", Dec, Section, Group, None, Optional),
+("maintainability_impact", "Maintainability Impact", Dec, Label, Text, Some(IMPACT), Required),
 ```
 
-`nullable` is true only for `supersedes` and `superseded_by`; `required`
-no longer decides SQL nullability. `field_table(table)` exports these per
-table as `FieldMeta` records. `json_schema()` is emitted per table with `Status`
+are 96 and 99 characters. `Nullable` is the presence of `supersedes` and
+`superseded_by` only; `Optional` means the canonical empty value when the
+source has nothing. `field_table(table)` exports per table the `FieldMeta`
+the B.1 export already carries (name, label, level, shape, section, modal,
+required, sql_type) plus `table` and `nullable`. `json_schema()` is emitted per table with `Status`
 and `Modal` choices resolvable from the schema and `x-raptor-fields`
 attached per table. `validate_scalar(kind, text) -> Result<(), Error>` is
 the single implementation of the id, version and date rules; Python calls
@@ -212,22 +219,25 @@ completion message.
 ## Ceilings
 
 Measured on `cargo fmt` output with zero `rustfmt::skip` and no line over
-100 characters. Crate `src/` 800 lines total, no file over 400. Crate tests
-400. `extract.py` 150, `qualify.py` 250, `load_sqlite.py` 60, `render.py`
+100 characters. Crate `src/` 1,000 lines total, no file over 450. Crate
+tests 400. `extract.py` 150, `qualify.py` 250, `load_sqlite.py` 60, `render.py`
 36 (unchanged). `tests/test_qualify.py` 150, `tests/test_extract.py` 150.
 `consumer-run-b6.md` 100. `aliases.toml` 6. A sprint that needs more stops
 and reports the number; it does not pack lines.
 
-The 800 differs from RAP-B-ANALYSIS-2's 1,400 to 1,650 for two reasons
-that analysis did not assume. Its 569-line field table is 47 struct
-literals expanded by `cargo fmt` to one field per line; as tuples, the
-table is 47 lines plus the declaration. Its design kept the label tree,
-case-insensitive lookup and document-context diagnostics in the crate; all
-of that is now Python. What remains, by item: 25 types and enums with
-derives at about 8 formatted lines each, 200; field table, 60; scalar
-rules, 40; emission, 120; presence walk and typed acceptance, 170;
-inventory and summary, 80; pyo3 module, 60. That is about 730, and 800 is
-the ceiling, not the target.
+The estimate behind the 1,000 differs from RAP-B-ANALYSIS-2's 1,400 to
+1,650 for two reasons that analysis did not assume. Its 569-line field
+table is 63 struct literals expanded by `cargo fmt` to one field per line;
+as seven-element tuples with section constants, every entry fits one line,
+so the table is 63 entries, 18 section constants and the declaration,
+about 90 lines. Its design kept the label tree, case-insensitive lookup
+and document-context diagnostics in the crate; all of that is now Python.
+What remains, by item, counted as formatted lines: 25 types and enums with
+derives at about 8 lines each, 200; field table, 90; scalar rules, 40;
+emission, 120; presence walk and typed acceptance, 170; inventory and
+summary, 80; pyo3 module, 60. That is about 760. The ceiling is set at
+1,000 to leave room for `cargo fmt` expanding what this estimate has not
+seen; it is where the sprint stops and reports, not a target.
 
 ## Baseline and test corpus
 
@@ -287,7 +297,10 @@ repository.
 
 Applied to `docs/phase-b/plan-phase-b.md` by the operator with this
 document: the label-tree section (the crate takes qualified JSON, not the
-tree; the qualifier takes the tree); the "binder is the schema" bullet (the
+tree; the qualifier takes the tree); the "Field attributes" table (it
+gains `table` and `nullable`, and records `modal`, `required` and
+`sql_type`, which the B.1 export already carries but the table does not
+list); the "binder is the schema" bullet (the
 schema is still the only source of names; the qualifier reads it; the
 sentence "no alias table to extend" goes, aliases live in the consuming
 repository's `.raptor/`); the "corpus is never the test oracle" bullet
