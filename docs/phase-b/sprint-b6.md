@@ -51,27 +51,38 @@ The schema definition is information, and it is unchanged: the `Status`,
 `RecordKind` and `Modal` enums with their spellings; the `Identity` and
 `Lifecycle` shapes; the nine requirement sections and nine decision
 sections with their nested shapes (`Statement`, `CheckItem`, `IdItem`,
-`LinkItem`, `Alternative`); the 47-entry field list (`name`, `label`,
-`level`, `shape`, `section`, `required`, `sql_type`); the id, version and
-date rules (the date rule corrected to read the full year); the fixture.
+`LinkItem`, `Alternative`); the 47 field entries as information (each
+entry's name, label, level, shape, section, required flag and SQL type are
+kept; the entry shape they are written in is defined below and is new);
+the id, version and date rules (the date rule corrected to read the full
+year); the fixture.
 Tests in `tests/schema.rs` that assert emitted DDL, JSON Schema or field
 table content are kept where they still hold. No other line of the old
 file is copied. The following do not come back in any form: `bind_file`,
 the `serde_json::Value` tree helpers, `id_items`, `links`, the checklist
-prefix parser, heading text handling, `Field::modal` by table position,
-the `REQUIREMENT_SCOPE` sentinel, `#[rustfmt::skip]`.
+prefix parser, heading text handling, the case-insensitive tree lookups
+(`same`, `named`, `string`, `label`, `section`), document-context
+diagnostics built from tree lines, `Field::modal` by table position, the
+`REQUIREMENT_SCOPE` sentinel, `#[rustfmt::skip]`.
 
 ## Deliverables
 
 ### Rust: schema and emission (`schema.rs`, `emit.rs`)
 
-The field table is a plain `const` array of one entry per line, each entry
-carrying: name, label, table (`requirements`, `decisions`, or both), level,
-shape, section, role (heading id, heading title, header label, section
-prose, section label, group collection), modal, `nullable`. `nullable` is
-true only for `supersedes` and `superseded_by`; `required` is a separate
-attribute and no longer decides SQL nullability. `field_table(table)`
-exports these per table. `json_schema()` is emitted per table with `Status`
+The field table is a plain `const` array of tuples, one entry per line,
+each entry carrying, in this order: name, label, table (`Req`, `Dec`,
+`Both`), level, shape, section, role (heading id, heading title, header
+label, section prose, section label, group collection), modal, `required`,
+`nullable`, `sql_type`. Written as a tuple with short enum variant names,
+an entry fits one formatted line under 100 characters:
+
+```rust
+("last_updated", "Last Updated", Both, Header, Date, None, HeaderLabel, None, true, false, "TEXT"),
+```
+
+`nullable` is true only for `supersedes` and `superseded_by`; `required`
+no longer decides SQL nullability. `field_table(table)` exports these per
+table as `FieldMeta` records. `json_schema()` is emitted per table with `Status`
 and `Modal` choices resolvable from the schema and `x-raptor-fields`
 attached per table. `validate_scalar(kind, text) -> Result<(), Error>` is
 the single implementation of the id, version and date rules; Python calls
@@ -80,7 +91,10 @@ it and holds no second policy. No field is added, renamed or removed.
 ### Rust: strict ingress (`accept.rs`)
 
 `accept(json) -> Result<Batch, Vec<Error>>` is the only way a record enters
-the crate. Before typed deserialization it walks the value against the
+the crate: `Batch` has private fields and no public constructor, so a
+`Batch` value proves every record in it passed `accept`. `Id`, `Version`
+and `Date` expose `as_str()` and do not implement `Deref`. Before typed
+deserialization it walks the value against the
 field table: unknown key anywhere, missing key, JSON type mismatch, `null`
 in a non-nullable field, and an absent key where `null` is the meaning are
 each an `Error`. This check exists because serde `flatten` and
@@ -91,8 +105,12 @@ constructors. Enum text is matched exactly against canonical spellings.
 Supersession must name a same-kind id. A record that fails does not enter
 the batch; the batch reports every failure, not the first.
 
-One `Error` type: category enum, table, record position, JSON field path,
-item index, offending value, cause, message. It crosses pyo3 as a
+One `Error` type: category, table, record position, JSON field path,
+item index, offending value, cause, message. The category enum is
+`UnknownKey`, `MissingKey`, `TypeMismatch`, `NullNotAllowed`,
+`InvalidId`, `InvalidVersion`, `InvalidDate`, `UnknownVariant`,
+`CrossKindSupersession`; variants may be added, never renamed or removed,
+and Python matches on the name. It crosses pyo3 as a
 structured Python exception with the same members. No `unwrap`, `expect`,
 `panic!`, slice index or arithmetic on input data outside tests; every
 input-dependent path returns `Result`.
@@ -174,6 +192,14 @@ every occurrence at its own line; id-item diagnostics report the item's
 line. Both are intentional location corrections and appear in the expected
 delta.
 
+Rule ownership, which the plan's diagnostics section leaves with the
+crate, is now split. The qualifier raises `MISSING_ID`, `MISSING_FIELD`
+for absent source content, `UNKNOWN_SECTION`, `UNKNOWN_LABEL`, and
+`BAD_VALUE` for text that does not tokenise or does not match a canonical
+choice. The crate raises `BAD_VALUE` for a scalar its typed constructors
+refuse, and `DUPLICATE_ID` and `DANGLING_REFERENCE` from the inventory.
+Every `accept` error maps to `BAD_VALUE` with its category in `message`.
+
 ## Out of scope
 
 Any new column or field; any ADR; any change to `templates/` or
@@ -192,6 +218,17 @@ Measured on `cargo fmt` output with zero `rustfmt::skip` and no line over
 `consumer-run-b6.md` 100. `aliases.toml` 6. A sprint that needs more stops
 and reports the number; it does not pack lines.
 
+The 800 differs from RAP-B-ANALYSIS-2's 1,400 to 1,650 for two reasons
+that analysis did not assume. Its 569-line field table is 47 struct
+literals expanded by `cargo fmt` to one field per line; as tuples, the
+table is 47 lines plus the declaration. Its design kept the label tree,
+case-insensitive lookup and document-context diagnostics in the crate; all
+of that is now Python. What remains, by item: 25 types and enums with
+derives at about 8 formatted lines each, 200; field table, 60; scalar
+rules, 40; emission, 120; presence walk and typed acceptance, 170;
+inventory and summary, 80; pyo3 module, 60. That is about 730, and 800 is
+the ceiling, not the target.
+
 ## Baseline and test corpus
 
 RAP-B-BASELINE-1 pinned, at the stack head and the recorded consumer
@@ -200,8 +237,10 @@ every diagnostic and summary group as full objects. Acceptance compares
 full objects against that bundle, not counts.
 
 Of the consumer repository's Markdown files, about four in five are
-records Raptor itself rendered from the template in an earlier run (one
-file per record under a `rendered/` directory). Those files are the
+records Raptor itself rendered from the template in an earlier run. The
+classification is by path: a file whose path contains a directory named
+`rendered` is a rendered file; every other file is hand-written. The
+consumer run reports the two counts. Those rendered files are the
 qualifier's round-trip test corpus: a file the template wrote must qualify
 and accept with no diagnostic, and a rule that fails on one of them is a
 defect in the rule. The hand-written files are the diagnostic corpus: they
@@ -237,8 +276,9 @@ repository.
   the count of rendered files with zero diagnostics against the count of
   rendered files, and an explicit per-record and per-group delta for every
   difference, each attributed to one of: case-insensitive enum match,
-  whitespace, strict required-content policy, location correction, alias.
-  Unexplained drift fails the sprint. No file path and no repository name.
+  whitespace, strict required-content policy, location correction, alias,
+  scalar rule change (full-year date, `validate_scalar` replacing the old
+  id, version and date checks). Unexplained drift fails the sprint. No file path and no repository name.
 - Every ceiling measured on formatted code and listed in the completion
   message, with the `rustfmt::skip` count, which is zero.
 - Neutrality gate before every commit.
@@ -254,6 +294,10 @@ repository's `.raptor/`); the "corpus is never the test oracle" bullet
 (rendered files are the round-trip corpus, hand-written files the
 diagnostic corpus); the "no exceptions for one repository" bullet
 (per-repository aliases are declared in that repository, not here); the
-diagnostic object (`column`, `value`); the ceilings paragraph (formatted
-code, zero skips, the numbers above); the sprints table row; the "Status
-values outside the enum" gap row.
+diagnostic object (`column`, `value`) and its rule ownership (the
+qualifier raises the source-side rules, the crate the typed and inventory
+rules, as in the diagnostics section above); the ceilings paragraph
+(formatted code, zero skips, the numbers above); the "One stack" bullet
+(B.6 branches from `integrate/phase-b` directly, as the first sprint after
+the stack merged); the sprints table row; the "Status values outside the
+enum" gap row.
