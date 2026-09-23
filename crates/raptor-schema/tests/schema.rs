@@ -68,8 +68,9 @@ fn reject(path: &str, value: Value, category: &str, item: Option<usize>) {
     assert_eq!(result.errors.len(), 1, "{:?}", result.errors);
     check_error(&result.errors[0], category, Some("requirements"), Some(0), path, item, &value);
     if category == "CrossKindSupersession" {
-        assert!(
-            result.errors[0].message.contains("Req") && result.errors[0].message.contains("Adr")
+        assert_eq!(
+            result.errors[0].message.as_ref(),
+            "Found \"ADR-FIX-0001\"; expected a Req identifier, not Adr."
         );
     }
     let output = serde_json::to_value(result).unwrap();
@@ -110,7 +111,6 @@ fn strict_values_have_structured_errors() {
         assert!(accept(&input.to_string()).errors.is_empty());
     }
 }
-
 #[test]
 fn unknown_and_missing_keys_are_rejected_at_every_depth() {
     for (parent, key, item, missing) in [
