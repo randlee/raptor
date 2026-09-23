@@ -54,13 +54,13 @@ fn check_error(
     assert_eq!(serde_json::to_value(&error.table).unwrap(), json!(table));
     assert_eq!(error.record_position, position);
     assert_eq!(error.field_path.as_ref(), path);
-    assert_eq!(error.item_index, item);
+    assert_eq!(error.item_index.as_deref(), item.as_ref());
     assert_eq!(error.offending_value.as_ref(), value);
     assert!(!error.cause.is_empty());
     assert!(!error.message.is_empty());
-    assert!(!error.recovery.as_str().is_empty());
-    assert_ne!(error.recovery.as_str(), error.cause.as_ref());
-    assert_ne!(error.recovery.as_str(), error.message.as_ref());
+    assert!(!error.recovery.is_empty());
+    assert_ne!(error.recovery, error.cause.as_ref());
+    assert_ne!(error.recovery, error.message.as_ref());
 }
 fn reject(path: &str, value: Value, category: &str, item: Option<usize>) {
     let mut input = fixture();
@@ -81,15 +81,37 @@ fn reject(path: &str, value: Value, category: &str, item: Option<usize>) {
             result.errors[0].cause.as_ref(),
             "[\"Draft\",\"Proposed\",\"Active\",\"Approved\",\"Deprecated\",\"Superseded\"]"
         );
+        assert!(
+            result.errors[0]
+                .message
+                .contains(result.errors[0].cause.as_ref())
+        );
+        assert_eq!(
+            serde_json::to_value(&result.errors[0].allowed_values).unwrap(),
+            json!([
+                "Draft",
+                "Proposed",
+                "Active",
+                "Approved",
+                "Deprecated",
+                "Superseded"
+            ])
+        );
     }
     if category == "InvalidId" {
         assert_eq!(
             result.errors[0].cause.as_ref(),
             "an ID with REQ, NFR, or ADR prefix and four digits"
         );
+        assert!(result.errors[0].allowed_values.is_none());
+        assert!(result.errors[0].first_occurrence_record_position.is_none());
     }
     let output = serde_json::to_value(&result).unwrap();
-    assert_eq!(output["errors"][0]["recovery"], json!(result.errors[0].recovery.as_str()));
+    assert_eq!(output["errors"][0]["recovery"], json!(result.errors[0].recovery));
+    if category == "InvalidId" {
+        assert!(output["errors"][0]["allowed_values"].is_null());
+        assert!(output["errors"][0]["first_occurrence_record_position"].is_null());
+    }
     assert_eq!(output["summary"]["counts"], json!({"BAD_VALUE": 1}));
 }
 #[test]
@@ -271,6 +293,9 @@ fn duplicates_report_every_occurrence_within_and_across_tables() {
                 error.cause.as_ref(),
                 "a unique identifier; first occurrence is record position 0"
             );
+            assert_eq!(error.first_occurrence_record_position.as_deref(), Some(&0));
+            assert!(error.allowed_values.is_none());
+            assert!(error.message.contains(error.cause.as_ref()));
         }
         assert_eq!(
             serde_json::to_value(result).unwrap()["summary"]["counts"],
