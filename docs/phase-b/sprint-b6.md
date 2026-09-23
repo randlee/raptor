@@ -79,10 +79,12 @@ of fourteen variants named by the first word of the section heading
 `ImplNotes`, `Test`, `Related`, `Context`, `Decision`, `Consequences`,
 `Alternatives`, `Implementation`, `Impact`); the heading text is one
 exhaustive `match` on that enum. `Rationale` is one variant used by both
-tables; the entry's table attribute says which. The fold is safe because
-a label has exactly one section and a header, item or section has none,
-so the type cannot express a label without a section or a section with
-one. The modal is part of the shape the same way, `Statements(MustNot)`,
+tables with the same heading text in each, so the match needs no table
+input; the entry's table attribute says which table an entry belongs to.
+The fold is safe because a label has exactly one section and a header,
+item or section has none, so the type cannot express a label without a
+section or a section with one. The level's payload therefore differs by
+variant: `Label` carries its section, the other three carry nothing. The modal is part of the shape the same way, `Statements(MustNot)`,
 with the closed `Modal` enum as payload. The SQL type is `TEXT` for every
 one of today's 63 entries and is emitted from the shape. What the
 qualifier needs to know about a field (heading id, heading title, header
@@ -254,8 +256,8 @@ includes `REQUIREMENT_SCOPE`, `label_for` and `table_fields` (report line
 13, `lib.rs` 269 to 312, 44 lines), which this sprint deletes because the
 table attribute replaces them: 44 at 1.62 is 71. Applying the report's
 own ratio: 736 less 71 is 665 for retained code, plus 90 for the table,
-plus the report's own strict-ingress allowance of 195 (line 78; 1,500
-less 1,305), gives 950.
+plus the report's own strict-ingress allowance of 195 (line 78, which is
+line 80's 1,500 less line 77's 1,305), gives 950.
 
 The item-by-item estimate, counted as `cargo fmt` output: 25 types and
 enums with derives at about 8 lines each, 200; field table, 90; scalar
