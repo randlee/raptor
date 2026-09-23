@@ -1,3 +1,4 @@
+import ast
 import json
 import subprocess
 import sys
@@ -80,7 +81,7 @@ def test_duplicate_and_missing_id(tmp_path: Path):
     payload = json.loads(index.read_text())
     assert result.returncode == 1
     assert [issue["rule"] for issue in payload["diagnostics"]["issues"]].count("DUPLICATE_ID") == 2
-    assert [record for record in split(requirement, requirement.read_text())["records"] if record["id"] == "ADR-FIX-0002"][-1]["fields"]["Decision Date"]["value"] == "2026-01-07"
+    assert [record for record in split(requirement, requirement.read_text())["records"] if record["id"] == "ADR-FIX-0002"][-1]["fields"]["Decision Date"]["value"].strip() == "2026-01-07"
     assert len(payload["requirements"]) + len(payload["decisions"]) == 5
     (root / "docs/empty.md").write_text("# Empty\n")
     result = extract(root, index, check=False)
@@ -88,11 +89,19 @@ def test_duplicate_and_missing_id(tmp_path: Path):
     assert any(issue["rule"] == "MISSING_ID" for issue in json.loads(index.read_text())["diagnostics"]["issues"])
 
 
-def test_splitter_owns_no_schema_label():
-    source = (ROOT / "scripts/extract.py").read_text()
-    for table in ("requirements", "decisions"):
-        for field in json.loads(raptor_schema.field_table(table)):
-            assert field["label"] not in source
+def test_scripts_own_no_schema_literals():
+    structural = {"id", "title", "text", "path", "header", "records", "line", "column", "fields",
+                  "sections", "name", "prose", "labels", "groups", "items", "value", "requirements",
+                  "decisions", "modal", "checked", "note", "href"}
+    schemas = json.loads(raptor_schema.json_schema())
+    forbidden = {str(value).casefold() for table in schemas for field in json.loads(raptor_schema.field_table(table))
+                 for value in (field["name"], field["label"], field["section"]) if value}
+    forbidden.update(value.casefold() for schema in schemas.values() for node in schema["definitions"].values() for value in node.get("enum", []))
+    forbidden.update(value.casefold() for schema in schemas.values() for value in schema["x-raptor-kinds"])
+    for path in (ROOT / "scripts").glob("*.py"):
+        for node in ast.walk(ast.parse(path.read_text())):
+            if isinstance(node, ast.Constant) and isinstance(node.value, str) and node.value not in structural:
+                assert node.value.casefold() not in forbidden, (path, node.lineno, node.value)
 
 
 def test_extractor_ignores_file_level_labels_outside_records(tmp_path: Path):

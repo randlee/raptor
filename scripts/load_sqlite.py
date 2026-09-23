@@ -8,11 +8,10 @@ import sqlite3
 from pathlib import Path
 
 import raptor_schema
-
-def fields(table: str) -> list[dict]:
-    seen = set()
-    return [field for field in json.loads(raptor_schema.field_table(table)) if field["name"] != "id_range" and field["level"] != "Label" and not (field["name"] in seen or seen.add(field["name"]))]
-
+if __package__:
+    from .qualify import empty, resolve
+else:
+    from qualify import empty, resolve
 
 def load(index: dict, database: Path) -> None:
     with sqlite3.connect(database) as connection:
@@ -20,11 +19,14 @@ def load(index: dict, database: Path) -> None:
         if not connection.execute("SELECT 1 FROM sqlite_master WHERE type = 'table'").fetchone():
             connection.executescript(raptor_schema.sql_ddl())
         for table in ("requirements", "decisions"):
-            names = [field["name"] for field in fields(table)]
+            schema = json.loads(raptor_schema.json_schema())[table]
+            names = list(schema["properties"])
+            defaults = {f["name"]: empty(schema["properties"][f["name"]], schema) for f in schema["x-raptor-fields"] if not f["required"] and f["name"] in names}
             marks = ", ".join("?" for _ in names)
             sql = f"INSERT OR REPLACE INTO {table} ({', '.join(names)}) VALUES ({marks})"
             for record in index.get(table, []):
-                values = [json.dumps(record[name]) if isinstance(record[name], (dict, list)) else record[name] for name in names]
+                canonical = {name: record.get(name) if record.get(name) is not None else defaults.get(name) for name in names}
+                values = [json.dumps(canonical[name]) if isinstance(canonical[name], (dict, list)) else canonical[name] for name in names]
                 connection.execute(sql, values)
 
 
@@ -32,10 +34,10 @@ def dump(database: Path) -> dict:
     with sqlite3.connect(database) as connection:
         connection.row_factory = sqlite3.Row
         def decode(table: str, row: sqlite3.Row) -> dict:
-            item = dict(row)
-            for field in fields(table):
-                if field["structured"] and isinstance(item[field["name"]], str):
-                    item[field["name"]] = json.loads(item[field["name"]])
+            item, schema = dict(row), json.loads(raptor_schema.json_schema())[table]
+            for name, specification in schema["properties"].items():
+                if resolve(specification, schema).get("type") == "object":
+                    item[name] = json.loads(item[name])
             return item
         return {table: [decode(table, row) for row in connection.execute(f"SELECT * FROM {table} ORDER BY rowid")] for table in ("requirements", "decisions")}
 
