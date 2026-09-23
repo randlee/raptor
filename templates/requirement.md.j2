@@ -6,9 +6,9 @@ required_variables: [record, fields]
 ---
 # Requirement: {{ record.title }}
 
-{% for field in fields if field.level == "Header" %}{% if field.shape == "Derived" %}**{{ field.label }}:** {{ record.id }} through {{ record.id }}{{ '  ' }}
+{% for field in fields if field.level == "Header" %}{% if field.required or record[field.name] %}{% if field.shape == "Derived" %}**{{ field.label }}:** {{ record.id }} through {{ record.id }}{{ '  ' }}
 {% else %}**{{ field.label }}:** {{ record[field.name] }}{{ '  ' }}
-{% endif %}{% endfor %}
+{% endif %}{% endif %}{% endfor %}
 ---
 
 ## {{ record.id }}: {{ record.title }}
@@ -25,5 +25,6 @@ required_variables: [record, fields]
 {% endfor %}{% elif label.shape == "Checklist" %}{% for item in value[label.name] %}- {% if item.checked == true %}[x] {% elif item.checked == false %}[ ] {% endif %}{{ item.text }}
 {% endfor %}{% elif label.shape == "IdList" %}{% for item in value[label.name] %}- {{ item.id }}{% if item.note %} — {{ item.note }}{% endif %}
 {% endfor %}{% elif label.shape == "LinkList" %}{% for item in value[label.name] %}- [{{ item.text }}]({{ item.href }}){% if item.note %} — {{ item.note }}{% endif %}
-{% endfor %}{% else %}{% for item in value[label.name] %}- {{ item }}
-{% endfor %}{% endif %}{{ '\n' }}{% endfor %}{% endif %}{{ '\n' }}{% endfor %}
+{% endfor %}{% elif label.shape == "Text" %}{{ value[label.name] }}
+{% else %}{% for item in value[label.name] %}- {{ item }}
+{% endfor %}{% endif %}{{ '\n' }}{% endfor %}{% endif %}{{ '\n' }}{% endfor %}{{ '\n' }}

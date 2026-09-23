@@ -16,7 +16,7 @@ def render(record: dict, table: str, templates: Path, output: Path) -> None:
     request = sc.ComposeRequest(root=templates.parent, mode=sc.ComposeMode.file(f"{templates.name}/{template}"), vars_input={"record": record, "fields": fields})
     target = output / table / f"{record['id']}.md"
     target.parent.mkdir(parents=True, exist_ok=True)
-    target.write_text(sc.compose_file(request).rendered_text, encoding="utf-8")
+    target.write_text(sc.compose_file(request).rendered_text.rstrip() + "\n", encoding="utf-8")
 
 
 def main() -> int:
