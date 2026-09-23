@@ -1,42 +1,10 @@
 {
   "requirements": [
-    {
-      "id": "REQ-FIX-0001",
-      "title": "Requirement",
-      "status": "Active",
-      "version": "1.0.0",
-      "created": "2026-01-01",
-      "last_updated": "2026-01-02",
-      "owner": "Example Team"
-    },
-    {
-      "id": "NFR-FIX-0001",
-      "title": "Quality",
-      "status": "Draft",
-      "version": "1.0.0",
-      "created": "2026-01-03",
-      "last_updated": "2026-01-04",
-      "owner": "Example Team"
-    }
+    {"id":"REQ-FIX-0001","title":"Requirement","status":"Active","version":"1.0.0","created":"2026-01-01","last_updated":"2026-01-02","owner":"Example Team","requirement_statement":{"text":"The system is reliable.","statements":[{"modal":"Must","text":"persist records"},{"modal":"Should","text":"report status"},{"modal":"MustNot","text":"lose content"}]},"rationale":"A durable record is necessary.","success_criteria":{"text":"Acceptance is measurable.","acceptance_criteria":[{"text":"stored","checked":true},{"text":"retrieved","checked":false},{"text":"reviewed","checked":null}],"test_evidence":["unit test","integration test"]},"dependencies":{"text":"Dependencies are explicit.","requires":[{"id":"NFR-FIX-0001","note":"quality prerequisite"}],"related":[{"id":"ADR-FIX-0001","note":null}]},"product_applicability":{"text":"Applies to supported products.","applies_to":["service","client"],"does_not_apply_to":["legacy"]},"implementation_notes":{"text":"Implementation follows the schema.","key_considerations":["durability","compatibility"]},"test_strategy":{"text":"Tests cover behavior.","test_types":["unit","integration"]},"related_documents":{"text":"Supporting records.","requirements":[],"architecture_decisions":[],"design_documents":[{"text":"guide","href":"https://example.test/guide","note":null}],"work_items":[{"text":"task","href":"https://example.test/task","note":"planned"}],"external_references":[{"text":"standard","href":"https://example.test/standard","note":null}]}},
+    {"id":"NFR-FIX-0001","title":"Quality","status":"Draft","version":"1.0.0","created":"2026-01-03","last_updated":"2026-01-04","owner":"Example Team","requirement_statement":{"text":"Quality is expected.","statements":[{"modal":"Must","text":"remain available"},{"modal":"Should","text":"be observable"}]},"rationale":"Quality protects users.","success_criteria":{"text":"Quality can be tested.","acceptance_criteria":[{"text":"measured","checked":true},{"text":"reported","checked":false}],"test_evidence":["benchmark","review"]},"dependencies":{"text":"No dependencies.","requires":[],"related":[]},"product_applicability":{"text":"Applies broadly.","applies_to":["service","client"],"does_not_apply_to":["prototype"]},"implementation_notes":{"text":"Use metrics.","key_considerations":["latency","availability"]},"test_strategy":{"text":"Measure regularly.","test_types":["load","monitoring"]},"related_documents":{"text":"Supporting records.","requirements":[],"architecture_decisions":[],"design_documents":[{"text":"quality guide","href":"https://example.test/quality","note":null}],"work_items":[{"text":"quality task","href":"https://example.test/quality-task","note":null}],"external_references":[{"text":"quality standard","href":"https://example.test/quality-standard","note":null}]} }
   ],
   "decisions": [
-    {
-      "id": "ADR-FIX-0001",
-      "title": "Decision",
-      "status": "Approved",
-      "version": "1.0.0",
-      "created": "2026-01-05",
-      "last_updated": "2026-01-06",
-      "owner": "Example Team"
-    },
-    {
-      "id": "ADR-FIX-0002",
-      "title": "Decision two",
-      "status": "Approved",
-      "version": "1.0.0",
-      "created": "2026-01-07",
-      "last_updated": "2026-01-08",
-      "owner": "Example Team"
-    }
+    {"id":"ADR-FIX-0001","title":"Decision","status":"Approved","version":"1.0.0","created":"2026-01-05","last_updated":"2026-01-06","owner":"Example Team","related_documents":{"text":"Decision sources.","requirements":[{"id":"REQ-FIX-0001","note":"drives this decision"}],"architecture_decisions":[],"design_documents":[{"text":"design","href":"https://example.test/design","note":null}],"work_items":[{"text":"work","href":"https://example.test/work","note":null}],"external_references":[{"text":"reference","href":"https://example.test/reference","note":null}]}},
+    {"id":"ADR-FIX-0002","title":"Decision two","status":"Approved","version":"1.0.0","created":"2026-01-07","last_updated":"2026-01-08","owner":"Example Team","related_documents":{"text":"No linked requirements.","requirements":[],"architecture_decisions":[],"design_documents":[{"text":"design two","href":"https://example.test/design-two","note":null}],"work_items":[{"text":"work two","href":"https://example.test/work-two","note":null}],"external_references":[{"text":"reference two","href":"https://example.test/reference-two","note":null}]}}
   ]
 }

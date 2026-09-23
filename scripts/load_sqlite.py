@@ -11,7 +11,7 @@ import raptor_schema
 
 def fields(table: str) -> list[dict]:
     seen = set()
-    return [field for field in json.loads(raptor_schema.field_table(table)) if field["name"] != "id_range" and not (field["name"] in seen or seen.add(field["name"]))]
+    return [field for field in json.loads(raptor_schema.field_table(table)) if field["name"] != "id_range" and field["level"] != "Label" and not (field["name"] in seen or seen.add(field["name"]))]
 
 
 def load(index: dict, database: Path) -> None:
@@ -31,7 +31,16 @@ def load(index: dict, database: Path) -> None:
 def dump(database: Path) -> dict:
     with sqlite3.connect(database) as connection:
         connection.row_factory = sqlite3.Row
-        return {table: [dict(row) for row in connection.execute(f"SELECT * FROM {table} ORDER BY rowid")] for table in ("requirements", "decisions")}
+        def row(table: str, value: sqlite3.Row) -> dict:
+            item = dict(value)
+            for field in fields(table):
+                if field["level"] == "Section" and isinstance(item[field["name"]], str):
+                    try:
+                        item[field["name"]] = json.loads(item[field["name"]])
+                    except json.JSONDecodeError:
+                        pass
+            return item
+        return {table: [row(table, value) for value in connection.execute(f"SELECT * FROM {table} ORDER BY rowid")] for table in ("requirements", "decisions")}
 
 
 def main() -> int:

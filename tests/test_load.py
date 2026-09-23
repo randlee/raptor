@@ -1,6 +1,7 @@
 import json
 import subprocess
 import sys
+import sqlite3
 from pathlib import Path
 
 ROOT = Path(__file__).parents[1]
@@ -17,3 +18,5 @@ def test_load_and_dump_are_idempotent(tmp_path: Path):
     run(str(index), str(database))
     second = run(str(database), "--dump")
     assert json.loads(first.stdout) == json.loads(second.stdout) == json.loads(index.read_text())
+    with sqlite3.connect(database) as connection:
+        assert connection.execute("SELECT count(*) FROM edges").fetchone()[0] == 3
