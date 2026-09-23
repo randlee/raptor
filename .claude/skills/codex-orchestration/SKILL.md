@@ -50,6 +50,8 @@ The correct workflow is:
 
 The plan is the spec.
 
+If a task touches Rust, developers must first read `.claude/skills/rust-development/guidelines.txt` and `.claude/skills/rust-best-practices/patterns/practice-inventory.md`; reviewers score against them.
+
 ## Task Sequencing
 
 Team-lead must keep each developer's ATM inbox preloaded during phased work.
@@ -66,7 +68,7 @@ Required execution model:
 - failure to queue follow-on work can stall the phase and is a workflow failure
 - the assigned developer prioritizes queued work using the assignment/template rules, not ad hoc nudges
 
-The team has three Codex developers: `arap`, `crap`, and `lrap`. One developer may take a fix round while another takes the next sprint. Assign medium or low difficulty fix rounds to `lrap`, and state `low`, `medium`, or `high` difficulty in every assignment.
+The team has three Codex developers: `arap`, `crap`, and `lrap`. High-difficulty work goes to `arap`; medium sprint work to `crap`; medium or low fix rounds to `lrap`. Team-lead may reassign when an agent is idle and the others are busy. State `low`, `medium`, or `high` difficulty in every assignment.
 
 ## Interrupt Policy
 

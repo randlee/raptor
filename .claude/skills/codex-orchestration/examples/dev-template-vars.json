@@ -2,6 +2,7 @@
   "task_id": "EXAMPLE-DEV-1",
   "sprint": "P1.1",
   "assignee": "<ATM_CODEX_AGENT>",
+  "difficulty": "low",
   "description": "Implement <feature description>.",
   "worktree_path": "/path/to/repo-worktrees/feature-p1-s1-slug",
   "branch": "feature/p1-s1-slug",
