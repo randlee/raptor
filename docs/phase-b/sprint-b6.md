@@ -92,9 +92,10 @@ one of today's 63 entries and is emitted from the shape. What the
 qualifier needs to know about a field (heading id, heading title, header
 label, section prose, section label, group) is one exhaustive `match` on
 level and shape with no fallback arm; every payload is a closed enum, so
-a new variant anywhere fails to compile until it is placed. An arm may
-leave the shape unnamed, `(Header, _)`, only where another arm of the
-same `match` names every shape, which keeps that guarantee.
+a new variant anywhere fails to compile until it is placed. The `Item`
+and `Section` arms of that `match` name every shape, so a new `Shape`
+variant fails to compile there; the `Header` and `Label(_)` arms, whose
+result does not depend on the shape, may leave it unnamed, `(Header, _)`.
 
 All 63 entries were written out in this encoding from the current table
 and measured at the standard four-space indent: the widest is 97
@@ -127,10 +128,14 @@ public constructor, so a `Batch` value proves every record in it passed
 `accept`. Last, `accept` runs `check_inventory` (below) over the accepted
 records and appends its errors to the same `errors`, so `DUPLICATE_ID` and
 `DANGLING_REFERENCE` come out of the same call. A reference to a rejected
-record is dangling in the loaded batch and is reported as such; the
-message names the target id and nothing links it to the rejection that
-caused it, since Python holds both lists and can join them by id. An
-input that is not the batch shape yields an empty batch and one `Error`
+record is dangling in the loaded batch and is reported as such, naming
+the target id; the crate does not link it to the rejection, because the
+qualifier built the batch and holds the id of every record it submitted
+by position, so it joins the target id to the rejected record's position
+in `errors` itself and needs no second list from the crate. Where the
+rejected record's own id was malformed, no record of that id can exist
+and the reference is dangling in its own right; the qualifier still knows
+the source line of both. An input that is not the batch shape yields an empty batch and one `Error`
 at the root path with no record position. `Id`, `Version` and `Date`
 expose `as_str()` and do not implement `Deref`. Before typed
 deserialization it walks the value against the
@@ -160,7 +165,12 @@ input-dependent path returns `Result`.
 `inventory.rs`, operate on an accepted batch and report record position
 and item index; Python maps those to file and line. `accept` calls
 `check_inventory` last and nothing else calls it. The seven `Rule`
-variants are unchanged and are the key of the summary's counts. `lib.rs`
+variants are unchanged and are the key of the summary's counts:
+`DuplicateId` and `DanglingReference` map to the `Rule` of the same name
+and every other category maps to `BadValue`, in one exhaustive `match` in
+`summarize`. `Rule` is the vocabulary the qualifier's diagnostics and the
+summary share with Python; the category is the crate's exact cause. Both
+exist because Python reports rules and fixes causes. `lib.rs`
 contains the pyo3 module only: `sql_ddl`, `json_schema`, `field_table`,
 `validate_scalar`, `accept`. `check_inventory` and `summarize` are
 crate-internal, because `Batch` is sealed and Python cannot hand one
