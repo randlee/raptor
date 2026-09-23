@@ -43,6 +43,7 @@ RAP-B-AUDIT-1 and RAP-B-BASELINE-1.
 - `tests/test_qualify.py` (new); `tests/test_extract.py`, `tests/test_load.py`
 - `tests/fixtures/records.json` only if a shape below requires it
 - `.raptor/aliases.toml` (new, a comment and three empty tables) in Raptor
+- `rustfmt.toml` at the repository root (new, one line: `fn_call_width = 100`)
 - `docs/phase-b/consumer-run-b6.md` (new)
 
 ## What is carried over, and nothing else
@@ -84,8 +85,9 @@ input; the entry's table attribute says which table an entry belongs to.
 The fold is safe because a label has exactly one section and a header,
 item or section has none, so the type cannot express a label without a
 section or a section with one. The level's payload therefore differs by
-variant: `Label` carries its section, the other three carry nothing. The modal is part of the shape the same way, `Statements(MustNot)`,
-with the closed `Modal` enum as payload. The SQL type is `TEXT` for every
+variant: `Label` carries its section, the other three carry nothing. The
+modal is part of the shape the same way, `Statements(MustNot)`, with the
+closed `Modal` enum as payload. The SQL type is `TEXT` for every
 one of today's 63 entries and is emitted from the shape. What the
 qualifier needs to know about a field (heading id, heading title, header
 label, section prose, section label, group) is one exhaustive `match` on
@@ -114,9 +116,17 @@ it and holds no second policy. No field is added, renamed or removed.
 
 ### Rust: strict ingress (`accept.rs`)
 
-`accept(json) -> Result<Batch, Vec<Error>>` is the only way a record enters
-the crate: `Batch` has private fields and no public constructor, so a
-`Batch` value proves every record in it passed `accept`. `Id`, `Version`
+`accept(json) -> Accepted` is the only way a record enters the crate.
+`Accepted` is a plain struct with two readable fields, `batch: Batch` and
+`errors: Vec<Error>`; there is no `Result`, because acceptance is per
+record: a record with any error is excluded whole, every other record is
+accepted, and every error is reported. `Batch` has private fields and no
+public constructor, so a `Batch` value proves every record in it passed
+`accept`. `DUPLICATE_ID` and `DANGLING_REFERENCE` run over the accepted
+records and append to the same `errors`; a reference to a rejected record
+is dangling in the loaded batch and is reported as such. An input that is
+not the batch shape yields an empty batch and one `Error` at the root
+path with no record position. `Id`, `Version`
 and `Date` expose `as_str()` and do not implement `Deref`. Before typed
 deserialization it walks the value against the
 field table: unknown key anywhere, missing key, JSON type mismatch, `null`
@@ -236,7 +246,13 @@ completion message.
 ## Ceilings
 
 Measured on `cargo fmt` output with zero `rustfmt::skip` and no line over
-100 characters. Crate `src/` 1,000 lines total, no file over 450. Crate
+100 characters. The formatter reads `rustfmt.toml` with `fn_call_width =
+100` and nothing else: rustfmt's default of 60 breaks every field-table
+tuple wider than 60 characters onto six lines, turning the 63 entries into
+about 380 lines; at 100 each entry stays on one line, which is what the
+width measurement above and the estimate below assume. This is the only
+formatter setting; it is not a skip and it is not packing. Crate `src/`
+1,000 lines total, no file over 450. Crate
 tests 400. `extract.py` 150, `qualify.py` 250, `load_sqlite.py` 60, `render.py`
 36 (unchanged). `tests/test_qualify.py` 150, `tests/test_extract.py` 150.
 `consumer-run-b6.md` 100. `aliases.toml` 6. A sprint that needs more stops
