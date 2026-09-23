@@ -56,7 +56,7 @@ def test_binder_diagnostics_and_row_effects(tmp_path: Path):
         result = extract(root, index, check=False)
         payload = json.loads(index.read_text())
         assert result.returncode == 1
-        assert payload["diagnostics"]["issues"][0]["rule"] == rule
+        assert any(issue["rule"] == rule for issue in payload["diagnostics"]["issues"])
         assert len(payload["requirements"]) + len(payload["decisions"]) == records
         file.write_text(original)
 
@@ -88,3 +88,32 @@ def test_extractor_ignores_file_level_labels_outside_records(tmp_path: Path):
     file = next((root / "docs" / "requirements").glob("REQ*.md"))
     file.write_text(file.read_text() + "\n## Appendix\n**Unmapped:** prose\n- item\n")
     assert extract(root, index).returncode == 0
+
+
+def test_b3_section_diagnostics(tmp_path: Path):
+    root, index = project(tmp_path), tmp_path / "index.json"
+    file = next((root / "docs/requirements").glob("REQ*.md"))
+    for needle, replacement, rule, allowed in [
+        ("**Acceptance Criteria:**", "**Acceptance:**", "UNKNOWN_LABEL", ["Acceptance Criteria", "Test Evidence"]),
+        ("NFR-FIX-0001 — quality prerequisite", "not-an-id", "BAD_VALUE", None),
+        ("NFR-FIX-0001 — quality prerequisite", "NFR-FIX-9999", "DANGLING_REFERENCE", None),
+    ]:
+        original = file.read_text()
+        file.write_text(original.replace(needle, replacement, 1))
+        result = extract(root, index, check=False)
+        issues = json.loads(index.read_text())["diagnostics"]["issues"]
+        issue = next(issue for issue in issues if issue["rule"] == rule)
+        assert result.returncode == 1
+        if allowed:
+            assert issue["allowed"] == allowed
+        file.write_text(original)
+
+
+def test_document_level_label_after_record_does_not_crash(tmp_path: Path):
+    root, index = project(tmp_path), tmp_path / "index.json"
+    (root / "docs" / "history.md").write_text(
+        "# History\n## REQ-FIX-0009: Record\ntext\n## Document History\n**Requires:** old record\n"
+    )
+    result = extract(root, index, check=False)
+    assert result.returncode == 1
+    assert json.loads(index.read_text())["metadata"]["files"] == 5
