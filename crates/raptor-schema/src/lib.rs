@@ -723,7 +723,23 @@ pub fn sql_ddl() -> String {
             .collect::<Vec<_>>()
             .join(", ")
     };
-    let edges = [("requirements", "dependencies", "requires"), ("requirements", "dependencies", "related"), ("requirements", "related_documents", "requirements"), ("requirements", "related_documents", "architecture_decisions"), ("decisions", "related_documents", "requirements"), ("decisions", "related_documents", "architecture_decisions")].iter().map(|(table,column,label)| format!("SELECT {table}.id AS source, '{column}.{label}' AS path, json_extract(value, '$.id') AS target, key AS position FROM {table}, json_each({table}.{column}, '$.{label}')")).collect::<Vec<_>>().join(" UNION ALL ");
+    let mut edges = Vec::new();
+    for table in [Requirement::NAME, Decision::NAME] {
+        let fields = field_table(table);
+        for field in fields
+            .iter()
+            .filter(|f| f.level == Level::Label && f.shape == Shape::IdList)
+        {
+            let column = fields
+                .iter()
+                .find(|f| f.level == Level::Section && Some(f.label) == field.section)
+                .expect("id-list fields have a section")
+                .name;
+            let label = field.name;
+            edges.push(format!("SELECT {table}.id AS source, '{column}.{label}' AS path, json_extract(value, '$.id') AS target, key AS position FROM {table}, json_each({table}.{column}, '$.{label}')"));
+        }
+    }
+    let edges = edges.join(" UNION ALL ");
     let status = "'Draft','Proposed','Active','Approved','Deprecated','Superseded'";
     format!(
         "CREATE TABLE requirements ({}, PRIMARY KEY (id), CHECK (status IN ({status})), CHECK (id GLOB 'REQ-*' OR id GLOB 'NFR-*'));\nCREATE TABLE decisions ({}, PRIMARY KEY (id), CHECK (status IN ({status})), CHECK (id GLOB 'ADR-*'));\nCREATE VIEW edges (source, path, target, position) AS {edges};\n",
