@@ -275,15 +275,15 @@ pub fn accept(input: &str) -> Accepted {
                 .and_then(RecordKind::from_id);
             for field in fields.iter().filter(|field| field.nullable) {
                 if let Some(target) = record.get(field.name).and_then(Value::as_str)
-                    && record_kind
-                        .zip(RecordKind::from_id(target))
-                        .is_some_and(|(left, right)| left != right)
+                    && let Some((source_kind, target_kind)) =
+                        record_kind.zip(RecordKind::from_id(target))
+                    && source_kind != target_kind
                 {
                     errors.push(
                         Error::new(
                             CrossKindSupersession,
                             json!(target),
-                            "an identifier of the same kind",
+                            &format!("a {source_kind:?} identifier cannot supersede a {target_kind:?} identifier"),
                         )
                         .at(&format!("/{}", field.name), None),
                     );

@@ -13,12 +13,14 @@ if __package__:
 else:
     from qualify import empty, resolve
 
+TABLES = tuple(json.loads(raptor_schema.json_schema()).keys())
+
 def load(index: dict, database: Path) -> None:
     with sqlite3.connect(database) as connection:
         connection.execute("PRAGMA foreign_keys = ON")
         if not connection.execute("SELECT 1 FROM sqlite_master WHERE type = 'table'").fetchone():
             connection.executescript(raptor_schema.sql_ddl())
-        for table in ("requirements", "decisions"):
+        for table in TABLES:
             schema = json.loads(raptor_schema.json_schema())[table]
             names = list(schema["properties"])
             defaults = {f["name"]: empty(schema["properties"][f["name"]], schema) for f in schema["x-raptor-fields"] if not f["required"] and f["name"] in names}
@@ -39,7 +41,7 @@ def dump(database: Path) -> dict:
                 if resolve(specification, schema).get("type") == "object":
                     item[name] = json.loads(item[name])
             return item
-        return {table: [decode(table, row) for row in connection.execute(f"SELECT * FROM {table} ORDER BY rowid")] for table in ("requirements", "decisions")}
+        return {table: [decode(table, row) for row in connection.execute(f"SELECT * FROM {table} ORDER BY rowid")] for table in TABLES}
 
 
 def main() -> int:

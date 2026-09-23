@@ -24,13 +24,13 @@ macro_rules! scalar {
 scalar!(Id);
 scalar!(Version);
 scalar!(Date);
-
 pub fn validate_scalar(kind: &str, text: &str) -> Result<(), Error> {
     let digits = |part: &str| part.bytes().all(|byte| byte.is_ascii_digit());
     let parts: Vec<_> = text.split('-').collect();
     let valid = match (kind, parts.as_slice()) {
-        ("Id", ["REQ" | "NFR" | "ADR", project, number]) => {
-            (2..=5).contains(&project.len())
+        ("Id", [_, project, number]) => {
+            RecordKind::from_id(text).is_some()
+                && (2..=5).contains(&project.len())
                 && project.bytes().all(|byte| byte.is_ascii_uppercase())
                 && number.len() == 4
                 && digits(number)
