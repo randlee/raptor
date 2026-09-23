@@ -2,7 +2,6 @@ use crate::{emit, schema::*};
 use serde::{Serialize, Serializer};
 use serde_json::{Value, json};
 use std::fmt;
-
 #[derive(Clone, Copy, Debug, Serialize)]
 pub enum ErrorCategory {
     UnknownKey,
@@ -17,11 +16,10 @@ pub enum ErrorCategory {
     DuplicateId,
     DanglingReference,
 }
-
 #[derive(Clone, Debug, Serialize)]
 pub struct Error {
     pub category: ErrorCategory,
-    pub table: Option<Box<str>>,
+    pub table: Option<ErrorTable>,
     pub record_position: Option<usize>,
     pub field_path: Box<str>,
     pub item_index: Option<usize>,
@@ -29,6 +27,21 @@ pub struct Error {
     pub cause: Box<str>,
     pub message: Box<str>,
     pub recovery: Recovery,
+}
+#[derive(Clone)]
+pub struct ErrorTable(pub(crate) Table);
+impl fmt::Debug for ErrorTable {
+    fn fmt(&self, formatter: &mut fmt::Formatter<'_>) -> fmt::Result {
+        formatter.write_str("ErrorTable")
+    }
+}
+impl Serialize for ErrorTable {
+    fn serialize<S: Serializer>(&self, serializer: S) -> Result<S::Ok, S::Error> {
+        serializer.serialize_str(match self.0 {
+            Table::Req => "requirements",
+            Table::Dec | Table::Both => "decisions",
+        })
+    }
 }
 #[derive(Clone, Copy, Debug)]
 pub struct Recovery(ErrorCategory);
@@ -86,7 +99,6 @@ impl fmt::Display for Error {
     }
 }
 impl std::error::Error for Error {}
-
 #[derive(Debug, Serialize)]
 pub struct Batch {
     #[serde(serialize_with = "unpositioned")]
@@ -117,7 +129,6 @@ pub struct Accepted {
     pub batch: Batch,
     pub errors: Vec<Error>,
 }
-
 impl Serialize for Accepted {
     fn serialize<S: Serializer>(&self, serializer: S) -> Result<S::Ok, S::Error> {
         #[derive(Serialize)]
@@ -134,7 +145,6 @@ impl Serialize for Accepted {
         .serialize(serializer)
     }
 }
-
 fn walk(
     value: &Value,
     schema: &Value,
@@ -236,7 +246,6 @@ fn walk(
     }
     errors
 }
-
 pub fn accept(input: &str) -> Accepted {
     use ErrorCategory::*;
     let mut accepted = Accepted {
@@ -249,9 +258,10 @@ pub fn accept(input: &str) -> Accepted {
     let input: Value = match serde_json::from_str(input) {
         Ok(input) => input,
         Err(error) => {
+            let cause = format!("a JSON batch input ({error})");
             accepted
                 .errors
-                .push(Error::new(TypeMismatch, json!(input), &error.to_string()));
+                .push(Error::new(TypeMismatch, json!(input), &cause));
             return accepted;
         }
     };
@@ -278,9 +288,10 @@ pub fn accept(input: &str) -> Accepted {
     let schemas = match emit::json_schema().and_then(serde_json::to_value) {
         Ok(schemas) => schemas,
         Err(error) => {
+            let cause = format!("a serializable schema definition ({error})");
             accepted
                 .errors
-                .push(Error::new(TypeMismatch, Value::Null, &error.to_string()));
+                .push(Error::new(TypeMismatch, Value::Null, &cause));
             return accepted;
         }
     };
@@ -327,11 +338,12 @@ pub fn accept(input: &str) -> Accepted {
                     Table::Both => continue,
                 };
                 if let Err(error) = decoded {
-                    errors.push(Error::new(TypeMismatch, record.clone(), &error.to_string()));
+                    let cause = format!("a valid {table} record ({error})");
+                    errors.push(Error::new(TypeMismatch, record.clone(), &cause));
                 }
             }
             for error in &mut errors {
-                error.table = Some(table.into());
+                error.table = Some(ErrorTable(kind));
                 error.record_position = Some(position);
             }
             accepted.errors.extend(errors);

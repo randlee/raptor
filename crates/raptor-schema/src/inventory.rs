@@ -1,5 +1,5 @@
 use crate::{
-    accept::{Batch, Error, ErrorCategory},
+    accept::{Batch, Error, ErrorCategory, ErrorTable},
     schema::*,
 };
 use serde::Serialize;
@@ -54,11 +54,11 @@ fn references<'a>(
 pub fn check_inventory(batch: &Batch) -> Vec<Error> {
     let requirements = batch.requirements().map(|(position, row)| {
         let targets = references(&row.lifecycle, &row.related_documents, Some(&row.dependencies));
-        ("requirements", position, &row.identity, targets)
+        (Table::Req, position, &row.identity, targets)
     });
     let decisions = batch.decisions().map(|(position, row)| {
         let targets = references(&row.lifecycle, &row.related_documents, None);
-        ("decisions", position, &row.identity, targets)
+        (Table::Dec, position, &row.identity, targets)
     });
     let rows: Vec<_> = requirements.chain(decisions).collect();
     let mut counts = BTreeMap::new();
@@ -72,7 +72,7 @@ pub fn check_inventory(batch: &Batch) -> Vec<Error> {
     for (table, position, identity, targets) in rows {
         let error = |category, text, cause, path, item| {
             let mut error = Error::scalar(category, text, cause).at(path, item);
-            error.table = Some(table.into());
+            error.table = Some(ErrorTable(table));
             error.record_position = Some(position);
             error
         };
@@ -85,7 +85,7 @@ pub fn check_inventory(batch: &Batch) -> Vec<Error> {
             let mut duplicate =
                 Error::scalar(ErrorCategory::DuplicateId, identity.id.as_str(), &cause)
                     .at("/id", None);
-            duplicate.table = Some(table.into());
+            duplicate.table = Some(ErrorTable(table));
             duplicate.record_position = Some(position);
             errors.push(duplicate);
         }

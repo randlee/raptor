@@ -51,7 +51,7 @@ fn check_error(
     value: &Value,
 ) {
     assert_eq!(json!(error.category), category);
-    assert_eq!(error.table.as_deref(), table);
+    assert_eq!(serde_json::to_value(&error.table).unwrap(), json!(table));
     assert_eq!(error.record_position, position);
     assert_eq!(error.field_path.as_ref(), path);
     assert_eq!(error.item_index, item);
@@ -91,6 +91,30 @@ fn reject(path: &str, value: Value, category: &str, item: Option<usize>) {
     let output = serde_json::to_value(&result).unwrap();
     assert_eq!(output["errors"][0]["recovery"], json!(result.errors[0].recovery.as_str()));
     assert_eq!(output["summary"]["counts"], json!({"BAD_VALUE": 1}));
+}
+#[test]
+fn serde_error_causes_render_as_noun_phrases() {
+    for (value, cause, message) in [
+        (
+            json!("{"),
+            "a JSON batch input (EOF while parsing)",
+            "Found \"{\"; expected a JSON batch input (EOF while parsing).",
+        ),
+        (
+            Value::Null,
+            "a serializable schema definition (invalid type)",
+            "Found null; expected a serializable schema definition (invalid type).",
+        ),
+        (
+            json!({"id": 1}),
+            "a valid requirements record (missing field)",
+            "Found {\"id\":1}; expected a valid requirements record (missing field).",
+        ),
+    ] {
+        let error = Error::new(ErrorCategory::TypeMismatch, value, cause);
+        assert_eq!(error.message.as_ref(), message);
+        assert!(!error.message.contains("expected expected"));
+    }
 }
 #[test]
 fn valid_batch_preserves_records_and_checkbox_states() {
@@ -163,10 +187,9 @@ fn unknown_and_missing_keys_are_rejected_at_every_depth() {
             item,
             &value,
         );
-        assert_eq!(
-            serde_json::to_value(result).unwrap()["summary"]["counts"],
-            json!({"BAD_VALUE": 1})
-        );
+        let output = serde_json::to_value(result).unwrap();
+        assert_eq!(output["errors"][0]["table"], "requirements");
+        assert_eq!(output["summary"]["counts"], json!({"BAD_VALUE": 1}));
     }
 }
 
@@ -294,10 +317,9 @@ fn every_reference_group_and_supersession_reports_dangling_targets() {
                 &json!(target),
             );
             assert!(result.errors[0].message.contains(target));
-            assert_eq!(
-                serde_json::to_value(result).unwrap()["summary"]["counts"],
-                json!({"DANGLING_REFERENCE": 1})
-            );
+            let output = serde_json::to_value(result).unwrap();
+            assert_eq!(output["errors"][0]["table"], table);
+            assert_eq!(output["summary"]["counts"], json!({"DANGLING_REFERENCE": 1}));
         }
     }
 }
