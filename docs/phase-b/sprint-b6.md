@@ -71,25 +71,34 @@ diagnostics built from tree lines, `Field::modal` by table position, the
 
 The field table is a plain `const` array of tuples, one entry per line,
 each entry carrying, in this order: name, label, table (`Req`, `Dec`,
-`Both`), level, shape, section, presence (`Required`, `Optional`,
-`Nullable`). Nothing derivable is stored: the modal is part of the shape
-(`Statements(Must)`), the SQL type is `TEXT` for every one of today's 63
-entries and is emitted from the shape, and what the qualifier needs to
-know about a field (heading id, heading title, header label, section
-prose, section label, group) follows from level and shape. Section names
-are `const` strings so a label entry stays short. The longest entries at
-the standard four-space indent:
+`Both`), level, shape, presence (`Required`, `Optional`, `Nullable`).
+Nothing derivable is stored. The section a label belongs to is part of
+its level, `Label(RELATED)`, where the section name is a `const` string
+named by the first word of the section, upper case (`STATEMENT`,
+`RATIONALE`, `SUCCESS`, `DEPENDENCIES`, `PRODUCT`, `IMPL_NOTES`, `TEST`,
+`RELATED`, `CONTEXT`, `DECISION`, `CONSEQUENCES`, `ALTERNATIVES`,
+`IMPLEMENTATION`, `IMPACT`). The modal is part of the shape,
+`Statements(MustNot)`. The SQL type is `TEXT` for every one of today's 63
+entries and is emitted from the shape. What the qualifier needs to know
+about a field (heading id, heading title, header label, section prose,
+section label, group) is one exhaustive `match` on level and shape with
+no fallback arm, so a new variant fails to compile until it is placed.
+
+All 63 entries were written out in this encoding from the current table
+and measured at the standard four-space indent: the widest is 97
+characters and none exceeds 100. The two widest:
 
 ```rust
-("alternatives_considered", "Alternatives Considered", Dec, Section, Group, None, Optional),
-("maintainability_impact", "Maintainability Impact", Dec, Label, Text, Some(IMPACT), Required),
+("integration_points", "Integration Points", Dec, Label(IMPLEMENTATION), TextList, Optional),
+("architecture_decisions", "Architecture Decisions", Both, Label(RELATED), IdList, Optional),
 ```
 
-are 96 and 99 characters. `Nullable` is the presence of `supersedes` and
-`superseded_by` only; `Optional` means the canonical empty value when the
-source has nothing. `field_table(table)` exports per table the `FieldMeta`
-the B.1 export already carries (name, label, level, shape, section, modal,
-required, sql_type) plus `table` and `nullable`. `json_schema()` is emitted per table with `Status`
+`Nullable` is the presence of `supersedes` and `superseded_by` only;
+`Optional` means the canonical empty value when the source has nothing.
+`field_table(table)` exports per table the `FieldMeta` the B.1 export
+already carries (name, label, level, shape, section, modal, required,
+sql_type) plus `table` and `nullable`, all derived from the six stored
+attributes. `json_schema()` is emitted per table with `Status`
 and `Modal` choices resolvable from the schema and `x-raptor-fields`
 attached per table. `validate_scalar(kind, text) -> Result<(), Error>` is
 the single implementation of the id, version and date rules; Python calls
@@ -228,16 +237,18 @@ and reports the number; it does not pack lines.
 The estimate behind the 1,000 differs from RAP-B-ANALYSIS-2's 1,400 to
 1,650 for two reasons that analysis did not assume. Its 569-line field
 table is 63 struct literals expanded by `cargo fmt` to one field per line;
-as seven-element tuples with section constants, every entry fits one line,
-so the table is 63 entries, 18 section constants and the declaration,
-about 90 lines. Its design kept the label tree, case-insensitive lookup
-and document-context diagnostics in the crate; all of that is now Python.
-What remains, by item, counted as formatted lines: 25 types and enums with
-derives at about 8 lines each, 200; field table, 90; scalar rules, 40;
-emission, 120; presence walk and typed acceptance, 170; inventory and
-summary, 80; pyo3 module, 60. That is about 760. The ceiling is set at
-1,000 to leave room for `cargo fmt` expanding what this estimate has not
-seen; it is where the sprint stops and reports, not a target.
+as six-element tuples with the section inside the level, every entry fits
+one line (measured above), so the table is 63 entries, 14 section
+constants and the declaration, about 90 lines. Its design kept the label
+tree, case-insensitive lookup and document-context diagnostics in the
+crate; all of that is now Python. What remains, by item, counted as
+`cargo fmt` output rather than today's packed lines: 25 types and enums
+with derives at about 8 lines each, 200 (today's 60 packed lines, so the
+reformatting growth the analysis measured is included here); field table,
+90; scalar rules, 40; emission, 120; presence walk and typed acceptance,
+170; inventory and summary, 80; pyo3 module, 60. That is about 760. The
+ceiling is set at 1,000 to leave room for what this estimate has not seen;
+it is where the sprint stops and reports, not a target.
 
 ## Baseline and test corpus
 
@@ -297,10 +308,11 @@ repository.
 
 Applied to `docs/phase-b/plan-phase-b.md` by the operator with this
 document: the label-tree section (the crate takes qualified JSON, not the
-tree; the qualifier takes the tree); the "Field attributes" table (it
-gains `table` and `nullable`, and records `modal`, `required` and
-`sql_type`, which the B.1 export already carries but the table does not
-list); the "binder is the schema" bullet (the
+tree; the qualifier takes the tree); the "Field attributes" table (the
+stored entry becomes the six attributes name, label, table, level with
+the section inside it, shape with the modal inside it, presence; the
+plan's four facts plus `name`, `table`, `modal`, `required`, `sql_type`
+and `nullable` are what the export derives from them); the "binder is the schema" bullet (the
 schema is still the only source of names; the qualifier reads it; the
 sentence "no alias table to extend" goes, aliases live in the consuming
 repository's `.raptor/`); the "corpus is never the test oracle" bullet
