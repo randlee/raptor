@@ -28,7 +28,7 @@ required_variables: [record, fields]
 {% else %}{{ value.text }}
 
 {% for label in fields if label.level == "Label" and label.section == field.label %}**{{ label.label }}:**
-{% if label.shape == "StatementList" %}{% set modal = "Must" if label.label == "MUST Statements" else "Should" if label.label == "SHOULD Statements" else "MustNot" %}{% for item in value[label.name] if item.modal == modal %}- {{ item.text }}
+{% if label.shape == "StatementList" %}{% for item in value[label.name] if item.modal == label.modal %}- {{ item.text }}
 {% endfor %}{% elif label.shape == "Checklist" %}{% for item in value[label.name] %}- {% if item.checked == true %}[x] {% elif item.checked == false %}[ ] {% endif %}{{ item.text }}
 {% endfor %}{% elif label.shape == "IdList" %}{% for item in value[label.name] %}- {{ item.id }}{% if item.note %} — {{ item.note }}{% endif %}
 {% endfor %}{% elif label.shape == "LinkList" %}{% for item in value[label.name] %}- [{{ item.text }}]({{ item.href }}){% if item.note %} — {{ item.note }}{% endif %}

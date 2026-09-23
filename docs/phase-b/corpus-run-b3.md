@@ -16,7 +16,7 @@ Each row below is one emitted summary group, in emitted order, without
 aggregation. A dash represents null. Files is the size of the emitted
 file map, including its empty-key bucket for diagnostics without provenance.
 All emitted section values are null; no section context is inferred.
-Five display labels replace the consumer identity prefix with `[consumer]`.
+Six display labels replace the consumer identity prefix with `[consumer]`.
 The full group table exceeds the planned 60-line report ceiling.
 
 | Rule | Section | Label | Count | Files | Allowed |

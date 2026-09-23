@@ -86,7 +86,7 @@ fn inventory_reports_each_duplicate() {
 fn bind_inherits_headers_and_item_status_wins() {
     let bound = bind_file(&tree());
     assert!(bound.diagnostics.is_empty());
-    assert_eq!(bound.requirements[0].identity.id.0, "REQ-FIX-0001");
+    assert_eq!(bound.requirements[0].identity.id.as_str(), "REQ-FIX-0001");
     assert_eq!(bound.requirements[0].lifecycle.status, Status::Active);
 }
 
@@ -108,7 +108,11 @@ fn missing_field_has_no_row() {
     value["header"].as_object_mut().unwrap().remove("Owner");
     let bound = bind_file(&value);
     assert_eq!(
-        only(&bound, Rule::MissingField).id.as_ref().unwrap().0,
+        only(&bound, Rule::MissingField)
+            .id
+            .as_ref()
+            .unwrap()
+            .as_str(),
         "REQ-FIX-0001"
     );
     assert!(bound.requirements.is_empty());
@@ -211,9 +215,9 @@ fn statement_list_collects_all_modals() {
     let row = bind_labels(
         "Requirement Statement",
         &[
-            ("MUST Statements", &["persist"]),
-            ("SHOULD Statements", &["report"]),
-            ("MUST NOT Statements", &["lose"]),
+            ("MUST statements", &["persist"]),
+            ("SHOULD statements", &["report"]),
+            ("MUST NOT statements", &["lose"]),
         ],
     );
     let statements = serde_json::to_value(row.requirement_statement.statements).unwrap();
@@ -242,6 +246,44 @@ fn labels_and_headers_match_case_insensitively() {
         .unwrap();
     value["header"]["version"] = version;
     assert!(bind_file(&value).diagnostics.is_empty());
+}
+
+#[test]
+fn statement_modal_is_exported_with_the_canonical_label() {
+    let fields = field_table("requirements");
+    let statements: Vec<_> = fields
+        .iter()
+        .filter(|field| field.name == "statements")
+        .map(|field| (field.label, field.modal.clone()))
+        .collect();
+    assert_eq!(
+        statements,
+        [
+            ("MUST statements", Some(Modal::Must)),
+            ("SHOULD statements", Some(Modal::Should)),
+            ("MUST NOT statements", Some(Modal::MustNot)),
+        ]
+    );
+}
+
+#[test]
+fn supersession_diagnostics_name_the_invalid_field() {
+    let mut invalid = tree();
+    invalid["header"]["Supersedes"] = json!({"value":"not-an-id","line":7});
+    assert_eq!(
+        only(&bind_file(&invalid), Rule::BadValue).label.as_deref(),
+        Some("Supersedes")
+    );
+    let mut mismatch = tree();
+    mismatch["header"]["Supersedes"] = json!({"value":"ADR-FIX-0001","line":7});
+    let bound = bind_file(&mismatch);
+    assert_eq!(bound.diagnostics.len(), 1);
+    let diagnostic = &bound.diagnostics[0];
+    assert_eq!(diagnostic.label.as_deref(), Some("Supersedes"));
+    assert_eq!(
+        diagnostic.message,
+        "supersession target has a different record kind"
+    );
 }
 
 #[test]
@@ -310,7 +352,7 @@ fn inventory_reports_dangling_reference_with_label_and_remedy() {
     assert_eq!(diagnostics.len(), 1);
     assert_eq!(diagnostics[0].rule, Rule::DanglingReference);
     assert_eq!(diagnostics[0].label.as_deref(), Some("Requires"));
-    assert_eq!(diagnostics[0].id.as_ref().unwrap().0, "REQ-FIX-0001");
+    assert_eq!(diagnostics[0].id.as_ref().unwrap().as_str(), "REQ-FIX-0001");
     assert_eq!(
         summarize(&diagnostics)["groups"][0]["remedy"],
         "Declare the referenced identifier or remove the reference."

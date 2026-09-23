@@ -5,7 +5,7 @@ use std::{
     str::FromStr,
 };
 #[rustfmt::skip]
-macro_rules! string_type { ($name:ident, $check:expr) => { #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize, JsonSchema)] pub struct $name(pub String); impl FromStr for $name { type Err = String; fn from_str(value: &str) -> Result<Self, Self::Err> { if $check(value) { Ok(Self(value.into())) } else { Err(value.into()) } } } }; }
+macro_rules! string_type { ($name:ident, $check:expr) => { #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize, JsonSchema)] pub struct $name(String); impl $name { pub fn as_str(&self) -> &str { &self.0 } } impl std::fmt::Display for $name { fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result { f.write_str(self.as_str()) } } impl FromStr for $name { type Err = String; fn from_str(value: &str) -> Result<Self, Self::Err> { if $check(value) { Ok(Self(value.into())) } else { Err(value.into()) } } } }; }
 fn version(value: &str) -> bool {
     let p: Vec<_> = value.split('.').collect();
     p.len() == 3
@@ -34,9 +34,9 @@ string_type!(Id, identifier);
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize, JsonSchema)] pub enum Modal { Must, Should, MustNot }
 impl Id {
     pub fn kind(&self) -> RecordKind {
-        match &self.0[..3] {
-            "REQ" => RecordKind::Req,
-            "NFR" => RecordKind::Nfr,
+        match self.as_str().split_once('-').map(|(kind, _)| kind) {
+            Some("REQ") => RecordKind::Req,
+            Some("NFR") => RecordKind::Nfr,
             _ => RecordKind::Adr,
         }
     }
@@ -54,6 +54,48 @@ pub struct FieldMeta {
     pub section: Option<&'static str>,
     pub required: bool,
     pub sql_type: &'static str,
+    pub modal: Option<Modal>,
+    pub structured: bool,
+}
+#[derive(Clone, Debug)]
+struct Field {
+    name: &'static str,
+    label: &'static str,
+    level: Level,
+    shape: Shape,
+    section: Option<&'static str>,
+    required: bool,
+    sql_type: &'static str,
+}
+impl Field {
+    fn modal(&self) -> Option<Modal> {
+        FIELDS
+            .iter()
+            .filter(|field| field.name == "statements" && field.level == Level::Label)
+            .position(|field| std::ptr::eq(field, self))
+            .and_then(|index| {
+                [Modal::Must, Modal::Should, Modal::MustNot]
+                    .get(index)
+                    .cloned()
+            })
+    }
+    fn public(&self) -> FieldMeta {
+        FieldMeta {
+            name: self.name,
+            label: self.label,
+            level: self.level.clone(),
+            shape: self.shape.clone(),
+            section: self.section,
+            required: self.required,
+            sql_type: self.sql_type,
+            modal: self.modal(),
+            structured: self.level == Level::Section
+                && !(self.name == "rationale" && self.section == Some(REQUIREMENT_SCOPE))
+                && FIELDS
+                    .iter()
+                    .any(|field| field.level == Level::Label && field.section == Some(self.label)),
+        }
+    }
 }
 #[rustfmt::skip]
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize, JsonSchema)] pub struct Identity { pub id: Id, pub title: String }
@@ -123,12 +165,12 @@ pub trait HasRelatedDocuments {
 #[rustfmt::skip] impl HasRelatedDocuments for Requirement { fn related_documents(&self) -> &RelatedDocuments { &self.related_documents } }
 #[rustfmt::skip] impl HasRelatedDocuments for Decision { fn related_documents(&self) -> &RelatedDocuments { &self.related_documents } }
 #[rustfmt::skip]
-const FIELDS: &[FieldMeta] = &[
-    FieldMeta{name:"id",label:"ID",level:Level::Item,shape:Shape::Id,section:None,required:true,sql_type:"TEXT"}, FieldMeta{name:"title",label:"Title",level:Level::Item,shape:Shape::Text,section:None,required:true,sql_type:"TEXT"}, FieldMeta{name:"status",label:"Status",level:Level::Header,shape:Shape::Status,section:None,required:true,sql_type:"TEXT"}, FieldMeta{name:"version",label:"Version",level:Level::Header,shape:Shape::Version,section:None,required:true,sql_type:"TEXT"}, FieldMeta{name:"created",label:"Created",level:Level::Header,shape:Shape::Date,section:None,required:true,sql_type:"TEXT"}, FieldMeta{name:"last_updated",label:"Last Updated",level:Level::Header,shape:Shape::Date,section:None,required:true,sql_type:"TEXT"}, FieldMeta{name:"owner",label:"Owner",level:Level::Header,shape:Shape::Text,section:None,required:true,sql_type:"TEXT"}, FieldMeta{name:"supersedes",label:"Supersedes",level:Level::Header,shape:Shape::Id,section:None,required:false,sql_type:"TEXT"}, FieldMeta{name:"superseded_by",label:"Superseded By",level:Level::Header,shape:Shape::Id,section:None,required:false,sql_type:"TEXT"}, FieldMeta{name:"id_range",label:"ID Range",level:Level::Header,shape:Shape::Derived,section:None,required:false,sql_type:"TEXT"}, FieldMeta{name:"decision_date",label:"Decision Date",level:Level::Header,shape:Shape::Date,section:None,required:true,sql_type:"TEXT"}, FieldMeta{name:"status",label:"Status",level:Level::Item,shape:Shape::Status,section:None,required:true,sql_type:"TEXT"},
-    FieldMeta{name:"requirement_statement",label:"Requirement Statement",level:Level::Section,shape:Shape::StatementList,section:Some("__requirements"),required:true,sql_type:"TEXT"}, FieldMeta{name:"rationale",label:"Rationale",level:Level::Section,shape:Shape::Text,section:Some("__requirements"),required:true,sql_type:"TEXT"}, FieldMeta{name:"success_criteria",label:"Success Criteria",level:Level::Section,shape:Shape::Checklist,section:Some("__requirements"),required:true,sql_type:"TEXT"}, FieldMeta{name:"dependencies",label:"Dependencies",level:Level::Section,shape:Shape::IdList,section:Some("__requirements"),required:false,sql_type:"TEXT"}, FieldMeta{name:"product_applicability",label:"Product Applicability",level:Level::Section,shape:Shape::TextList,section:Some("__requirements"),required:false,sql_type:"TEXT"}, FieldMeta{name:"implementation_notes",label:"Implementation Notes",level:Level::Section,shape:Shape::TextList,section:Some("__requirements"),required:false,sql_type:"TEXT"}, FieldMeta{name:"test_strategy",label:"Test Strategy",level:Level::Section,shape:Shape::TextList,section:Some("__requirements"),required:false,sql_type:"TEXT"}, FieldMeta{name:"related_documents",label:"Related Documents",level:Level::Section,shape:Shape::Group,section:None,required:false,sql_type:"TEXT"},
-    FieldMeta{name:"statements",label:"MUST Statements",level:Level::Label,shape:Shape::StatementList,section:Some("Requirement Statement"),required:false,sql_type:"TEXT"}, FieldMeta{name:"statements",label:"SHOULD Statements",level:Level::Label,shape:Shape::StatementList,section:Some("Requirement Statement"),required:false,sql_type:"TEXT"}, FieldMeta{name:"statements",label:"MUST NOT Statements",level:Level::Label,shape:Shape::StatementList,section:Some("Requirement Statement"),required:false,sql_type:"TEXT"}, FieldMeta{name:"acceptance_criteria",label:"Acceptance Criteria",level:Level::Label,shape:Shape::Checklist,section:Some("Success Criteria"),required:false,sql_type:"TEXT"}, FieldMeta{name:"test_evidence",label:"Test Evidence",level:Level::Label,shape:Shape::TextList,section:Some("Success Criteria"),required:false,sql_type:"TEXT"}, FieldMeta{name:"requires",label:"Requires",level:Level::Label,shape:Shape::IdList,section:Some("Dependencies"),required:false,sql_type:"TEXT"}, FieldMeta{name:"related",label:"Related",level:Level::Label,shape:Shape::IdList,section:Some("Dependencies"),required:false,sql_type:"TEXT"}, FieldMeta{name:"applies_to",label:"Applies To",level:Level::Label,shape:Shape::TextList,section:Some("Product Applicability"),required:false,sql_type:"TEXT"}, FieldMeta{name:"does_not_apply_to",label:"Does Not Apply To",level:Level::Label,shape:Shape::TextList,section:Some("Product Applicability"),required:false,sql_type:"TEXT"}, FieldMeta{name:"key_considerations",label:"Key Considerations",level:Level::Label,shape:Shape::TextList,section:Some("Implementation Notes"),required:false,sql_type:"TEXT"}, FieldMeta{name:"test_types",label:"Test Types",level:Level::Label,shape:Shape::TextList,section:Some("Test Strategy"),required:false,sql_type:"TEXT"}, FieldMeta{name:"requirements",label:"Requirements",level:Level::Label,shape:Shape::IdList,section:Some("Related Documents"),required:false,sql_type:"TEXT"}, FieldMeta{name:"architecture_decisions",label:"Architecture Decisions",level:Level::Label,shape:Shape::IdList,section:Some("Related Documents"),required:false,sql_type:"TEXT"}, FieldMeta{name:"design_documents",label:"Design Documents",level:Level::Label,shape:Shape::LinkList,section:Some("Related Documents"),required:false,sql_type:"TEXT"}, FieldMeta{name:"work_items",label:"Work Items",level:Level::Label,shape:Shape::LinkList,section:Some("Related Documents"),required:false,sql_type:"TEXT"}, FieldMeta{name:"external_references",label:"External References",level:Level::Label,shape:Shape::LinkList,section:Some("Related Documents"),required:false,sql_type:"TEXT"},
-    FieldMeta{name:"context",label:"Context",level:Level::Section,shape:Shape::Text,section:None,required:true,sql_type:"TEXT"}, FieldMeta{name:"decision",label:"Decision",level:Level::Section,shape:Shape::Text,section:None,required:true,sql_type:"TEXT"}, FieldMeta{name:"rationale",label:"Rationale",level:Level::Section,shape:Shape::Text,section:None,required:true,sql_type:"TEXT"}, FieldMeta{name:"consequences",label:"Consequences",level:Level::Section,shape:Shape::Text,section:None,required:true,sql_type:"TEXT"}, FieldMeta{name:"alternatives",label:"Alternatives Considered",level:Level::Section,shape:Shape::Group,section:None,required:false,sql_type:"TEXT"}, FieldMeta{name:"implementation",label:"Implementation",level:Level::Section,shape:Shape::Text,section:None,required:false,sql_type:"TEXT"}, FieldMeta{name:"impact_analysis",label:"Impact Analysis",level:Level::Section,shape:Shape::Text,section:None,required:false,sql_type:"TEXT"},
-    FieldMeta{name:"background",label:"Background",level:Level::Label,shape:Shape::Text,section:Some("Context"),required:false,sql_type:"TEXT"}, FieldMeta{name:"problem_statement",label:"Problem Statement",level:Level::Label,shape:Shape::Text,section:Some("Context"),required:false,sql_type:"TEXT"}, FieldMeta{name:"chosen_approach",label:"Chosen Approach",level:Level::Label,shape:Shape::Text,section:Some("Decision"),required:false,sql_type:"TEXT"}, FieldMeta{name:"key_principles",label:"Key Principles",level:Level::Label,shape:Shape::TextList,section:Some("Decision"),required:false,sql_type:"TEXT"}, FieldMeta{name:"benefits",label:"Benefits",level:Level::Label,shape:Shape::TextList,section:Some("Rationale"),required:false,sql_type:"TEXT"}, FieldMeta{name:"trade_offs",label:"Trade-offs",level:Level::Label,shape:Shape::TextList,section:Some("Rationale"),required:false,sql_type:"TEXT"}, FieldMeta{name:"positive",label:"Positive",level:Level::Label,shape:Shape::TextList,section:Some("Consequences"),required:false,sql_type:"TEXT"}, FieldMeta{name:"negative",label:"Negative",level:Level::Label,shape:Shape::TextList,section:Some("Consequences"),required:false,sql_type:"TEXT"}, FieldMeta{name:"neutral",label:"Neutral",level:Level::Label,shape:Shape::TextList,section:Some("Consequences"),required:false,sql_type:"TEXT"}, FieldMeta{name:"description",label:"Description",level:Level::Label,shape:Shape::Text,section:Some("Alternatives Considered"),required:false,sql_type:"TEXT"}, FieldMeta{name:"pros",label:"Pros",level:Level::Label,shape:Shape::TextList,section:Some("Alternatives Considered"),required:false,sql_type:"TEXT"}, FieldMeta{name:"cons",label:"Cons",level:Level::Label,shape:Shape::TextList,section:Some("Alternatives Considered"),required:false,sql_type:"TEXT"}, FieldMeta{name:"why_rejected",label:"Why Rejected",level:Level::Label,shape:Shape::Text,section:Some("Alternatives Considered"),required:false,sql_type:"TEXT"}, FieldMeta{name:"key_components",label:"Key Components",level:Level::Label,shape:Shape::TextList,section:Some("Implementation"),required:false,sql_type:"TEXT"}, FieldMeta{name:"integration_points",label:"Integration Points",level:Level::Label,shape:Shape::TextList,section:Some("Implementation"),required:false,sql_type:"TEXT"}, FieldMeta{name:"code_examples",label:"Code Examples",level:Level::Label,shape:Shape::Text,section:Some("Implementation"),required:false,sql_type:"TEXT"}, FieldMeta{name:"affected_components",label:"Affected Components",level:Level::Label,shape:Shape::Text,section:Some("Impact Analysis"),required:false,sql_type:"TEXT"}, FieldMeta{name:"performance_impact",label:"Performance Impact",level:Level::Label,shape:Shape::Text,section:Some("Impact Analysis"),required:false,sql_type:"TEXT"}, FieldMeta{name:"security_impact",label:"Security Impact",level:Level::Label,shape:Shape::Text,section:Some("Impact Analysis"),required:false,sql_type:"TEXT"}, FieldMeta{name:"maintainability_impact",label:"Maintainability Impact",level:Level::Label,shape:Shape::Text,section:Some("Impact Analysis"),required:false,sql_type:"TEXT"},
+const FIELDS: &[Field] = &[
+    Field{name:"id",label:"ID",level:Level::Item,shape:Shape::Id,section:None,required:true,sql_type:"TEXT"}, Field{name:"title",label:"Title",level:Level::Item,shape:Shape::Text,section:None,required:true,sql_type:"TEXT"}, Field{name:"status",label:"Status",level:Level::Header,shape:Shape::Status,section:None,required:true,sql_type:"TEXT"}, Field{name:"version",label:"Version",level:Level::Header,shape:Shape::Version,section:None,required:true,sql_type:"TEXT"}, Field{name:"created",label:"Created",level:Level::Header,shape:Shape::Date,section:None,required:true,sql_type:"TEXT"}, Field{name:"last_updated",label:"Last Updated",level:Level::Header,shape:Shape::Date,section:None,required:true,sql_type:"TEXT"}, Field{name:"owner",label:"Owner",level:Level::Header,shape:Shape::Text,section:None,required:true,sql_type:"TEXT"}, Field{name:"supersedes",label:"Supersedes",level:Level::Header,shape:Shape::Id,section:None,required:false,sql_type:"TEXT"}, Field{name:"superseded_by",label:"Superseded By",level:Level::Header,shape:Shape::Id,section:None,required:false,sql_type:"TEXT"}, Field{name:"id_range",label:"ID Range",level:Level::Header,shape:Shape::Derived,section:None,required:false,sql_type:"TEXT"}, Field{name:"decision_date",label:"Decision Date",level:Level::Header,shape:Shape::Date,section:None,required:true,sql_type:"TEXT"}, Field{name:"status",label:"Status",level:Level::Item,shape:Shape::Status,section:None,required:true,sql_type:"TEXT"},
+    Field{name:"requirement_statement",label:"Requirement Statement",level:Level::Section,shape:Shape::StatementList,section:Some("__requirements"),required:true,sql_type:"TEXT"}, Field{name:"rationale",label:"Rationale",level:Level::Section,shape:Shape::Text,section:Some("__requirements"),required:true,sql_type:"TEXT"}, Field{name:"success_criteria",label:"Success Criteria",level:Level::Section,shape:Shape::Checklist,section:Some("__requirements"),required:true,sql_type:"TEXT"}, Field{name:"dependencies",label:"Dependencies",level:Level::Section,shape:Shape::IdList,section:Some("__requirements"),required:false,sql_type:"TEXT"}, Field{name:"product_applicability",label:"Product Applicability",level:Level::Section,shape:Shape::TextList,section:Some("__requirements"),required:false,sql_type:"TEXT"}, Field{name:"implementation_notes",label:"Implementation Notes",level:Level::Section,shape:Shape::TextList,section:Some("__requirements"),required:false,sql_type:"TEXT"}, Field{name:"test_strategy",label:"Test Strategy",level:Level::Section,shape:Shape::TextList,section:Some("__requirements"),required:false,sql_type:"TEXT"}, Field{name:"related_documents",label:"Related Documents",level:Level::Section,shape:Shape::Group,section:None,required:false,sql_type:"TEXT"},
+    Field{name:"statements",label:"MUST statements",level:Level::Label,shape:Shape::StatementList,section:Some("Requirement Statement"),required:false,sql_type:"TEXT"}, Field{name:"statements",label:"SHOULD statements",level:Level::Label,shape:Shape::StatementList,section:Some("Requirement Statement"),required:false,sql_type:"TEXT"}, Field{name:"statements",label:"MUST NOT statements",level:Level::Label,shape:Shape::StatementList,section:Some("Requirement Statement"),required:false,sql_type:"TEXT"}, Field{name:"acceptance_criteria",label:"Acceptance Criteria",level:Level::Label,shape:Shape::Checklist,section:Some("Success Criteria"),required:false,sql_type:"TEXT"}, Field{name:"test_evidence",label:"Test Evidence",level:Level::Label,shape:Shape::TextList,section:Some("Success Criteria"),required:false,sql_type:"TEXT"}, Field{name:"requires",label:"Requires",level:Level::Label,shape:Shape::IdList,section:Some("Dependencies"),required:false,sql_type:"TEXT"}, Field{name:"related",label:"Related",level:Level::Label,shape:Shape::IdList,section:Some("Dependencies"),required:false,sql_type:"TEXT"}, Field{name:"applies_to",label:"Applies To",level:Level::Label,shape:Shape::TextList,section:Some("Product Applicability"),required:false,sql_type:"TEXT"}, Field{name:"does_not_apply_to",label:"Does Not Apply To",level:Level::Label,shape:Shape::TextList,section:Some("Product Applicability"),required:false,sql_type:"TEXT"}, Field{name:"key_considerations",label:"Key Considerations",level:Level::Label,shape:Shape::TextList,section:Some("Implementation Notes"),required:false,sql_type:"TEXT"}, Field{name:"test_types",label:"Test Types",level:Level::Label,shape:Shape::TextList,section:Some("Test Strategy"),required:false,sql_type:"TEXT"}, Field{name:"requirements",label:"Requirements",level:Level::Label,shape:Shape::IdList,section:Some("Related Documents"),required:false,sql_type:"TEXT"}, Field{name:"architecture_decisions",label:"Architecture Decisions",level:Level::Label,shape:Shape::IdList,section:Some("Related Documents"),required:false,sql_type:"TEXT"}, Field{name:"design_documents",label:"Design Documents",level:Level::Label,shape:Shape::LinkList,section:Some("Related Documents"),required:false,sql_type:"TEXT"}, Field{name:"work_items",label:"Work Items",level:Level::Label,shape:Shape::LinkList,section:Some("Related Documents"),required:false,sql_type:"TEXT"}, Field{name:"external_references",label:"External References",level:Level::Label,shape:Shape::LinkList,section:Some("Related Documents"),required:false,sql_type:"TEXT"},
+    Field{name:"context",label:"Context",level:Level::Section,shape:Shape::Text,section:None,required:true,sql_type:"TEXT"}, Field{name:"decision",label:"Decision",level:Level::Section,shape:Shape::Text,section:None,required:true,sql_type:"TEXT"}, Field{name:"rationale",label:"Rationale",level:Level::Section,shape:Shape::Text,section:None,required:true,sql_type:"TEXT"}, Field{name:"consequences",label:"Consequences",level:Level::Section,shape:Shape::Text,section:None,required:true,sql_type:"TEXT"}, Field{name:"alternatives",label:"Alternatives Considered",level:Level::Section,shape:Shape::Group,section:None,required:false,sql_type:"TEXT"}, Field{name:"implementation",label:"Implementation",level:Level::Section,shape:Shape::Text,section:None,required:false,sql_type:"TEXT"}, Field{name:"impact_analysis",label:"Impact Analysis",level:Level::Section,shape:Shape::Text,section:None,required:false,sql_type:"TEXT"},
+    Field{name:"background",label:"Background",level:Level::Label,shape:Shape::Text,section:Some("Context"),required:false,sql_type:"TEXT"}, Field{name:"problem_statement",label:"Problem Statement",level:Level::Label,shape:Shape::Text,section:Some("Context"),required:false,sql_type:"TEXT"}, Field{name:"chosen_approach",label:"Chosen Approach",level:Level::Label,shape:Shape::Text,section:Some("Decision"),required:false,sql_type:"TEXT"}, Field{name:"key_principles",label:"Key Principles",level:Level::Label,shape:Shape::TextList,section:Some("Decision"),required:false,sql_type:"TEXT"}, Field{name:"benefits",label:"Benefits",level:Level::Label,shape:Shape::TextList,section:Some("Rationale"),required:false,sql_type:"TEXT"}, Field{name:"trade_offs",label:"Trade-offs",level:Level::Label,shape:Shape::TextList,section:Some("Rationale"),required:false,sql_type:"TEXT"}, Field{name:"positive",label:"Positive",level:Level::Label,shape:Shape::TextList,section:Some("Consequences"),required:false,sql_type:"TEXT"}, Field{name:"negative",label:"Negative",level:Level::Label,shape:Shape::TextList,section:Some("Consequences"),required:false,sql_type:"TEXT"}, Field{name:"neutral",label:"Neutral",level:Level::Label,shape:Shape::TextList,section:Some("Consequences"),required:false,sql_type:"TEXT"}, Field{name:"description",label:"Description",level:Level::Label,shape:Shape::Text,section:Some("Alternatives Considered"),required:false,sql_type:"TEXT"}, Field{name:"pros",label:"Pros",level:Level::Label,shape:Shape::TextList,section:Some("Alternatives Considered"),required:false,sql_type:"TEXT"}, Field{name:"cons",label:"Cons",level:Level::Label,shape:Shape::TextList,section:Some("Alternatives Considered"),required:false,sql_type:"TEXT"}, Field{name:"why_rejected",label:"Why Rejected",level:Level::Label,shape:Shape::Text,section:Some("Alternatives Considered"),required:false,sql_type:"TEXT"}, Field{name:"key_components",label:"Key Components",level:Level::Label,shape:Shape::TextList,section:Some("Implementation"),required:false,sql_type:"TEXT"}, Field{name:"integration_points",label:"Integration Points",level:Level::Label,shape:Shape::TextList,section:Some("Implementation"),required:false,sql_type:"TEXT"}, Field{name:"code_examples",label:"Code Examples",level:Level::Label,shape:Shape::Text,section:Some("Implementation"),required:false,sql_type:"TEXT"}, Field{name:"affected_components",label:"Affected Components",level:Level::Label,shape:Shape::Text,section:Some("Impact Analysis"),required:false,sql_type:"TEXT"}, Field{name:"performance_impact",label:"Performance Impact",level:Level::Label,shape:Shape::Text,section:Some("Impact Analysis"),required:false,sql_type:"TEXT"}, Field{name:"security_impact",label:"Security Impact",level:Level::Label,shape:Shape::Text,section:Some("Impact Analysis"),required:false,sql_type:"TEXT"}, Field{name:"maintainability_impact",label:"Maintainability Impact",level:Level::Label,shape:Shape::Text,section:Some("Impact Analysis"),required:false,sql_type:"TEXT"},
 ];
 pub trait Table {
     const NAME: &'static str;
@@ -137,13 +179,13 @@ pub trait Table {
 impl Table for Requirement {
     const NAME: &'static str = "requirements";
     fn fields() -> Vec<FieldMeta> {
-        FIELDS.to_vec()
+        FIELDS.iter().map(Field::public).collect()
     }
 }
 impl Table for Decision {
     const NAME: &'static str = "decisions";
     fn fields() -> Vec<FieldMeta> {
-        FIELDS.to_vec()
+        FIELDS.iter().map(Field::public).collect()
     }
 }
 
@@ -168,6 +210,10 @@ pub struct Bound {
 }
 const MISSING: (&str, &str) = ("required field is missing", "Add the required field.");
 const BAD: (&str, &str) = ("field value is invalid", "Use the documented value format.");
+const CROSS_KIND: (&str, &str) = (
+    "supersession target has a different record kind",
+    "Reference a record with the same kind.",
+);
 const UNKNOWN_SECTION: (&str, &str) = (
     "section is not defined",
     "Remove the section or use an allowed section.",
@@ -220,59 +266,48 @@ fn string(tree: &serde_json::Value, key: &str) -> Option<String> {
 fn tree_line(tree: &serde_json::Value) -> u32 {
     tree.get("line").and_then(|v| v.as_u64()).unwrap_or(0) as u32
 }
+const REQUIREMENT_SCOPE: &str = "__requirements";
+fn label_for(name: &str) -> &'static str {
+    FIELDS
+        .iter()
+        .find(|field| field.name == name)
+        .expect("field metadata exists")
+        .label
+}
 fn table_fields(kind: RecordKind) -> Vec<FieldMeta> {
+    let requirement_sections: Vec<_> = FIELDS
+        .iter()
+        .filter(|field| field.level == Level::Section && field.section == Some(REQUIREMENT_SCOPE))
+        .map(|field| field.label)
+        .chain(std::iter::once(label_for("related_documents")))
+        .collect();
+    let decision_sections: Vec<_> = FIELDS
+        .iter()
+        .filter(|field| field.level == Level::Section && field.section.is_none())
+        .map(|field| field.label)
+        .collect();
     FIELDS
         .iter()
         .filter(|f| match kind {
-            RecordKind::Adr => {
-                f.section.is_none()
-                    && f.name != "requirement_statement"
-                    && f.name != "success_criteria"
-                    && f.name != "dependencies"
-                    && f.name != "product_applicability"
-                    && f.name != "implementation_notes"
-                    && f.name != "test_strategy"
-                    || matches!(
-                        f.section,
-                        Some(
-                            "Related Documents"
-                                | "Context"
-                                | "Decision"
-                                | "Rationale"
-                                | "Consequences"
-                                | "Alternatives Considered"
-                                | "Implementation"
-                                | "Impact Analysis"
-                        )
-                    )
-                    || f.label == "Related Documents"
-            }
-            _ => {
-                !(matches!(
-                    f.label,
-                    "Decision Date"
-                        | "Context"
-                        | "Decision"
-                        | "Consequences"
-                        | "Alternatives Considered"
-                        | "Implementation"
-                        | "Impact Analysis"
-                ) || f.name == "rationale" && f.section.is_none()
-                    || matches!(
-                        f.section,
-                        Some(
-                            "Context"
-                                | "Decision"
-                                | "Rationale"
-                                | "Consequences"
-                                | "Alternatives Considered"
-                                | "Implementation"
-                                | "Impact Analysis"
-                        )
-                    ))
-            }
+            RecordKind::Adr => match f.level {
+                Level::Header | Level::Item => true,
+                Level::Section => f.section.is_none(),
+                Level::Label => f
+                    .section
+                    .is_some_and(|section| decision_sections.contains(&section)),
+            },
+            _ => match f.level {
+                Level::Header => f.name != "decision_date",
+                Level::Item => true,
+                Level::Section => {
+                    f.section == Some(REQUIREMENT_SCOPE) || f.name == "related_documents"
+                }
+                Level::Label => f
+                    .section
+                    .is_some_and(|section| requirement_sections.contains(&section)),
+            },
         })
-        .cloned()
+        .map(Field::public)
         .collect()
 }
 fn allowed(fields: &[FieldMeta], level: Level, section: Option<&str>) -> Vec<String> {
@@ -433,7 +468,7 @@ pub fn bind_file(tree: &serde_json::Value) -> Bound {
                 Rule::UnknownLabel,
                 None,
                 name.clone(),
-                allowed(FIELDS, Level::Header, None),
+                allowed(&table_fields(RecordKind::Req), Level::Header, None),
             ));
         }
     }
@@ -452,9 +487,9 @@ pub fn bind_file(tree: &serde_json::Value) -> Bound {
             val(FIELDS[6].label),
         );
         let (supersedes, superseded_by, decision_date) = (
-            val("Supersedes"),
-            val("Superseded By"),
-            val("Decision Date"),
+            val(label_for("supersedes")),
+            val(label_for("superseded_by")),
+            val(label_for("decision_date")),
         );
         if raw_id.is_none() {
             out.diagnostics
@@ -476,7 +511,7 @@ pub fn bind_file(tree: &serde_json::Value) -> Bound {
         };
         let fields_for = table_fields(id.kind());
         for (name, value) in fields.as_object().into_iter().flatten() {
-            if !same(name, "Status") {
+            if !same(name, label_for("status")) {
                 out.diagnostics.push(unknown(
                     file,
                     tree_line(value),
@@ -622,35 +657,51 @@ pub fn bind_file(tree: &serde_json::Value) -> Bound {
             last_updated.unwrap().parse(),
         );
         if let (Some(status), Ok(version), Ok(created), Ok(last_updated)) = parsed {
-            let parse_link = |raw: Option<String>| raw.map(|value| value.parse::<Id>()).transpose();
-            let (supersedes, superseded_by) =
-                match (parse_link(supersedes), parse_link(superseded_by)) {
-                    (Ok(supersedes), Ok(superseded_by)) => (supersedes, superseded_by),
-                    _ => {
-                        out.diagnostics.push(diagnostic(
-                            file,
-                            line,
-                            Rule::BadValue,
-                            Some(id.clone()),
-                            None,
-                        ));
-                        continue;
-                    }
-                };
-            if supersedes
-                .as_ref()
-                .is_some_and(|target| target.kind() != id.kind())
-                || superseded_by
+            let mut parse_link = |raw: Option<String>, label: &str| match raw
+                .map(|value| value.parse::<Id>())
+                .transpose()
+            {
+                Ok(value) => Some(value),
+                Err(_) => {
+                    out.diagnostics.push(diagnostic(
+                        file,
+                        line,
+                        Rule::BadValue,
+                        Some(id.clone()),
+                        Some(label.into()),
+                    ));
+                    None
+                }
+            };
+            let supersedes = match parse_link(supersedes, label_for("supersedes")) {
+                Some(value) => value,
+                None => continue,
+            };
+            let superseded_by = match parse_link(superseded_by, label_for("superseded_by")) {
+                Some(value) => value,
+                None => continue,
+            };
+            if let Some(label) = [
+                (label_for("supersedes"), &supersedes),
+                (label_for("superseded_by"), &superseded_by),
+            ]
+            .into_iter()
+            .find_map(|(label, target)| {
+                target
                     .as_ref()
                     .is_some_and(|target| target.kind() != id.kind())
-            {
-                out.diagnostics.push(diagnostic(
+                    .then_some(label)
+            }) {
+                let mut issue = diagnostic(
                     file,
                     line,
                     Rule::BadValue,
                     Some(id.clone()),
-                    None,
-                ));
+                    Some(label.into()),
+                );
+                issue.message = CROSS_KIND.0;
+                issue.remedy = CROSS_KIND.1;
+                out.diagnostics.push(issue);
                 continue;
             }
             let decision_date = match decision_date.map(|value| value.parse::<Date>()).transpose() {
@@ -661,7 +712,7 @@ pub fn bind_file(tree: &serde_json::Value) -> Bound {
                         line,
                         Rule::BadValue,
                         Some(id.clone()),
-                        Some("Decision Date".into()),
+                        Some(label_for("decision_date").into()),
                     ));
                     continue;
                 }
@@ -679,33 +730,37 @@ pub fn bind_file(tree: &serde_json::Value) -> Bound {
                 id: id.clone(),
                 title: title.unwrap(),
             };
-            let related = section(item, "Related Documents");
+            let related = section(item, label_for("related_documents"));
             let related_documents = RelatedDocuments {
                 text: related.map(prose).unwrap_or_default(),
                 requirements: id_items(
-                    related.and_then(|x| label(x, "Requirements")),
+                    related.and_then(|x| label(x, label_for("requirements"))),
                     file,
                     &id,
-                    "Requirements",
+                    label_for("requirements"),
                     &mut out.diagnostics,
                 ),
                 architecture_decisions: id_items(
-                    related.and_then(|x| label(x, "Architecture Decisions")),
+                    related.and_then(|x| label(x, label_for("architecture_decisions"))),
                     file,
                     &id,
-                    "Architecture Decisions",
+                    label_for("architecture_decisions"),
                     &mut out.diagnostics,
                 ),
-                design_documents: links(related.and_then(|x| label(x, "Design Documents"))),
-                work_items: links(related.and_then(|x| label(x, "Work Items"))),
-                external_references: links(related.and_then(|x| label(x, "External References"))),
+                design_documents: links(
+                    related.and_then(|x| label(x, label_for("design_documents"))),
+                ),
+                work_items: links(related.and_then(|x| label(x, label_for("work_items")))),
+                external_references: links(
+                    related.and_then(|x| label(x, label_for("external_references"))),
+                ),
             };
             if identity.id.kind() == RecordKind::Adr {
                 let (context, decision, rationale, consequences) = (
-                    section(item, "Context"),
-                    section(item, "Decision"),
-                    section(item, "Rationale"),
-                    section(item, "Consequences"),
+                    section(item, label_for("context")),
+                    section(item, label_for("decision")),
+                    section(item, label_for("rationale")),
+                    section(item, label_for("consequences")),
                 );
                 if [context, decision, rationale, consequences]
                     .iter()
@@ -720,7 +775,7 @@ pub fn bind_file(tree: &serde_json::Value) -> Bound {
                     ));
                     continue;
                 }
-                let alternatives = section(item, "Alternatives Considered");
+                let alternatives = section(item, label_for("alternatives"));
                 let groups = alternatives
                     .and_then(|s| s.get("groups"))
                     .and_then(|v| v.as_array())
@@ -733,16 +788,20 @@ pub fn bind_file(tree: &serde_json::Value) -> Bound {
                             .and_then(|n| n.split_once(": ").map(|(_, n)| n))
                             .unwrap_or_default()
                             .into(),
-                        description: label(group, "Description").map(prose).unwrap_or_default(),
+                        description: label(group, label_for("description"))
+                            .map(prose)
+                            .unwrap_or_default(),
                         pros: text(
-                            label(group, "Pros").unwrap_or(&serde_json::Value::Null),
+                            label(group, label_for("pros")).unwrap_or(&serde_json::Value::Null),
                             "items",
                         ),
                         cons: text(
-                            label(group, "Cons").unwrap_or(&serde_json::Value::Null),
+                            label(group, label_for("cons")).unwrap_or(&serde_json::Value::Null),
                             "items",
                         ),
-                        why_rejected: label(group, "Why Rejected").map(prose).unwrap_or_default(),
+                        why_rejected: label(group, label_for("why_rejected"))
+                            .map(prose)
+                            .unwrap_or_default(),
                     })
                     .collect();
                 out.decisions.push(Decision {
@@ -752,23 +811,23 @@ pub fn bind_file(tree: &serde_json::Value) -> Bound {
                     context: Context {
                         text: context.map(prose).unwrap_or_default(),
                         background: context
-                            .and_then(|s| label(s, "Background"))
+                            .and_then(|s| label(s, label_for("background")))
                             .map(prose)
                             .unwrap_or_default(),
                         problem_statement: context
-                            .and_then(|s| label(s, "Problem Statement"))
+                            .and_then(|s| label(s, label_for("problem_statement")))
                             .map(prose)
                             .unwrap_or_default(),
                     },
                     decision: DecisionSection {
                         text: decision.map(prose).unwrap_or_default(),
                         chosen_approach: decision
-                            .and_then(|s| label(s, "Chosen Approach"))
+                            .and_then(|s| label(s, label_for("chosen_approach")))
                             .map(prose)
                             .unwrap_or_default(),
                         key_principles: text(
                             decision
-                                .and_then(|s| label(s, "Key Principles"))
+                                .and_then(|s| label(s, label_for("key_principles")))
                                 .unwrap_or(&serde_json::Value::Null),
                             "items",
                         ),
@@ -777,13 +836,13 @@ pub fn bind_file(tree: &serde_json::Value) -> Bound {
                         text: rationale.map(prose).unwrap_or_default(),
                         benefits: text(
                             rationale
-                                .and_then(|s| label(s, "Benefits"))
+                                .and_then(|s| label(s, label_for("benefits")))
                                 .unwrap_or(&serde_json::Value::Null),
                             "items",
                         ),
                         trade_offs: text(
                             rationale
-                                .and_then(|s| label(s, "Trade-offs"))
+                                .and_then(|s| label(s, label_for("trade_offs")))
                                 .unwrap_or(&serde_json::Value::Null),
                             "items",
                         ),
@@ -792,19 +851,19 @@ pub fn bind_file(tree: &serde_json::Value) -> Bound {
                         text: consequences.map(prose).unwrap_or_default(),
                         positive: text(
                             consequences
-                                .and_then(|s| label(s, "Positive"))
+                                .and_then(|s| label(s, label_for("positive")))
                                 .unwrap_or(&serde_json::Value::Null),
                             "items",
                         ),
                         negative: text(
                             consequences
-                                .and_then(|s| label(s, "Negative"))
+                                .and_then(|s| label(s, label_for("negative")))
                                 .unwrap_or(&serde_json::Value::Null),
                             "items",
                         ),
                         neutral: text(
                             consequences
-                                .and_then(|s| label(s, "Neutral"))
+                                .and_then(|s| label(s, label_for("neutral")))
                                 .unwrap_or(&serde_json::Value::Null),
                             "items",
                         ),
@@ -814,43 +873,43 @@ pub fn bind_file(tree: &serde_json::Value) -> Bound {
                         groups,
                     },
                     implementation: {
-                        let s = section(item, "Implementation");
+                        let s = section(item, label_for("implementation"));
                         Implementation {
                             text: s.map(prose).unwrap_or_default(),
                             key_components: text(
-                                s.and_then(|x| label(x, "Key Components"))
+                                s.and_then(|x| label(x, label_for("key_components")))
                                     .unwrap_or(&serde_json::Value::Null),
                                 "items",
                             ),
                             integration_points: text(
-                                s.and_then(|x| label(x, "Integration Points"))
+                                s.and_then(|x| label(x, label_for("integration_points")))
                                     .unwrap_or(&serde_json::Value::Null),
                                 "items",
                             ),
                             code_examples: s
-                                .and_then(|x| label(x, "Code Examples"))
+                                .and_then(|x| label(x, label_for("code_examples")))
                                 .map(prose)
                                 .unwrap_or_default(),
                         }
                     },
                     impact_analysis: {
-                        let s = section(item, "Impact Analysis");
+                        let s = section(item, label_for("impact_analysis"));
                         ImpactAnalysis {
                             text: s.map(prose).unwrap_or_default(),
                             affected_components: s
-                                .and_then(|x| label(x, "Affected Components"))
+                                .and_then(|x| label(x, label_for("affected_components")))
                                 .map(prose)
                                 .unwrap_or_default(),
                             performance_impact: s
-                                .and_then(|x| label(x, "Performance Impact"))
+                                .and_then(|x| label(x, label_for("performance_impact")))
                                 .map(prose)
                                 .unwrap_or_default(),
                             security_impact: s
-                                .and_then(|x| label(x, "Security Impact"))
+                                .and_then(|x| label(x, label_for("security_impact")))
                                 .map(prose)
                                 .unwrap_or_default(),
                             maintainability_impact: s
-                                .and_then(|x| label(x, "Maintainability Impact"))
+                                .and_then(|x| label(x, label_for("maintainability_impact")))
                                 .map(prose)
                                 .unwrap_or_default(),
                         }
@@ -858,9 +917,9 @@ pub fn bind_file(tree: &serde_json::Value) -> Bound {
                     related_documents,
                 })
             } else {
-                let statement = section(item, "Requirement Statement");
-                let success = section(item, "Success Criteria");
-                if [statement, section(item, "Rationale"), success]
+                let statement = section(item, label_for("requirement_statement"));
+                let success = section(item, label_for("success_criteria"));
+                if [statement, section(item, label_for("rationale")), success]
                     .iter()
                     .any(Option::is_none)
                 {
@@ -872,26 +931,29 @@ pub fn bind_file(tree: &serde_json::Value) -> Bound {
                         None,
                     ));
                 }
-                let deps = section(item, "Dependencies");
-                let applicability = section(item, "Product Applicability");
-                let notes = section(item, "Implementation Notes");
-                let strategy = section(item, "Test Strategy");
+                let deps = section(item, label_for("dependencies"));
+                let applicability = section(item, label_for("product_applicability"));
+                let notes = section(item, label_for("implementation_notes"));
+                let strategy = section(item, label_for("test_strategy"));
                 let mut statements = vec![];
-                for (name, modal) in [
-                    ("MUST Statements", Modal::Must),
-                    ("SHOULD Statements", Modal::Should),
-                    ("MUST NOT Statements", Modal::MustNot),
-                ] {
+                for field in fields_for.iter().filter(|field| {
+                    field.name == "statements"
+                        && field.level == Level::Label
+                        && field.section == Some(label_for("requirement_statement"))
+                }) {
                     statements.extend(
                         text(
                             statement
-                                .and_then(|x| label(x, name))
+                                .and_then(|x| label(x, field.label))
                                 .unwrap_or(&serde_json::Value::Null),
                             "items",
                         )
                         .into_iter()
                         .map(|text| Statement {
-                            modal: modal.clone(),
+                            modal: field
+                                .modal
+                                .clone()
+                                .expect("statement modal metadata exists"),
                             text,
                         }),
                     );
@@ -903,15 +965,17 @@ pub fn bind_file(tree: &serde_json::Value) -> Bound {
                         text: statement.map(prose).unwrap_or_default(),
                         statements,
                     },
-                    rationale: section(item, "Rationale").map(prose).unwrap_or_default(),
+                    rationale: section(item, label_for("rationale"))
+                        .map(prose)
+                        .unwrap_or_default(),
                     success_criteria: SuccessCriteria {
                         text: success.map(prose).unwrap_or_default(),
                         acceptance_criteria: checklist(
-                            success.and_then(|x| label(x, "Acceptance Criteria")),
+                            success.and_then(|x| label(x, label_for("acceptance_criteria"))),
                         ),
                         test_evidence: text(
                             success
-                                .and_then(|x| label(x, "Test Evidence"))
+                                .and_then(|x| label(x, label_for("test_evidence")))
                                 .unwrap_or(&serde_json::Value::Null),
                             "items",
                         ),
@@ -919,17 +983,17 @@ pub fn bind_file(tree: &serde_json::Value) -> Bound {
                     dependencies: Dependencies {
                         text: deps.map(prose).unwrap_or_default(),
                         requires: id_items(
-                            deps.and_then(|x| label(x, "Requires")),
+                            deps.and_then(|x| label(x, label_for("requires"))),
                             file,
                             &id,
-                            "Requires",
+                            label_for("requires"),
                             &mut out.diagnostics,
                         ),
                         related: id_items(
-                            deps.and_then(|x| label(x, "Related")),
+                            deps.and_then(|x| label(x, label_for("related"))),
                             file,
                             &id,
-                            "Related",
+                            label_for("related"),
                             &mut out.diagnostics,
                         ),
                     },
@@ -937,13 +1001,13 @@ pub fn bind_file(tree: &serde_json::Value) -> Bound {
                         text: applicability.map(prose).unwrap_or_default(),
                         applies_to: text(
                             applicability
-                                .and_then(|x| label(x, "Applies To"))
+                                .and_then(|x| label(x, label_for("applies_to")))
                                 .unwrap_or(&serde_json::Value::Null),
                             "items",
                         ),
                         does_not_apply_to: text(
                             applicability
-                                .and_then(|x| label(x, "Does Not Apply To"))
+                                .and_then(|x| label(x, label_for("does_not_apply_to")))
                                 .unwrap_or(&serde_json::Value::Null),
                             "items",
                         ),
@@ -952,7 +1016,7 @@ pub fn bind_file(tree: &serde_json::Value) -> Bound {
                         text: notes.map(prose).unwrap_or_default(),
                         key_considerations: text(
                             notes
-                                .and_then(|x| label(x, "Key Considerations"))
+                                .and_then(|x| label(x, label_for("key_considerations")))
                                 .unwrap_or(&serde_json::Value::Null),
                             "items",
                         ),
@@ -961,7 +1025,7 @@ pub fn bind_file(tree: &serde_json::Value) -> Bound {
                         text: strategy.map(prose).unwrap_or_default(),
                         test_types: text(
                             strategy
-                                .and_then(|x| label(x, "Test Types"))
+                                .and_then(|x| label(x, label_for("test_types")))
                                 .unwrap_or(&serde_json::Value::Null),
                             "items",
                         ),
@@ -983,19 +1047,19 @@ pub fn check_inventory(requirements: &[Requirement], decisions: &[Decision]) -> 
         .map(|x| &x.identity.id)
         .chain(decisions.iter().map(|x| &x.identity.id))
     {
-        *seen.entry(id.0.clone()).or_default() += 1
+        *seen.entry(id.as_str().to_owned()).or_default() += 1
     }
     let mut diagnostics: Vec<_> = requirements
         .iter()
         .map(|x| &x.identity.id)
         .chain(decisions.iter().map(|x| &x.identity.id))
-        .filter(|x| seen[&x.0] > 1)
+        .filter(|x| seen[x.as_str()] > 1)
         .map(|id| diagnostic("", 0, Rule::DuplicateId, Some(id.clone()), None))
         .collect();
     let declared: HashSet<_> = seen.keys().cloned().collect();
     let mut check = |source: &Id, label: &str, values: &[IdItem]| {
         for item in values {
-            if !declared.contains(&item.id.0) {
+            if !declared.contains(item.id.as_str()) {
                 diagnostics.push(diagnostic(
                     "",
                     0,
@@ -1009,26 +1073,34 @@ pub fn check_inventory(requirements: &[Requirement], decisions: &[Decision]) -> 
     for row in requirements {
         check(
             &row.identity.id,
-            "Requirements",
+            label_for("requirements"),
             &row.related_documents.requirements,
         );
         check(
             &row.identity.id,
-            "Architecture Decisions",
+            label_for("architecture_decisions"),
             &row.related_documents.architecture_decisions,
         );
-        check(&row.identity.id, "Requires", &row.dependencies.requires);
-        check(&row.identity.id, "Related", &row.dependencies.related);
+        check(
+            &row.identity.id,
+            label_for("requires"),
+            &row.dependencies.requires,
+        );
+        check(
+            &row.identity.id,
+            label_for("related"),
+            &row.dependencies.related,
+        );
     }
     for row in decisions {
         check(
             &row.identity.id,
-            "Requirements",
+            label_for("requirements"),
             &row.related_documents.requirements,
         );
         check(
             &row.identity.id,
-            "Architecture Decisions",
+            label_for("architecture_decisions"),
             &row.related_documents.architecture_decisions,
         );
     }
@@ -1091,7 +1163,7 @@ pub fn sql_ddl() -> String {
 }
 pub fn json_schema() -> serde_json::Value {
     let mut schema = serde_json::to_value(schemars::schema_for!(Records)).unwrap();
-    schema["x-raptor-fields"] = serde_json::to_value(FIELDS).unwrap();
+    schema["x-raptor-fields"] = serde_json::to_value(Requirement::fields()).unwrap();
     schema
 }
 #[rustfmt::skip]
