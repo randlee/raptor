@@ -51,7 +51,7 @@ fn check_error(
     value: &Value,
 ) {
     assert_eq!(json!(error.category), category);
-    assert_eq!(serde_json::to_value(&error.table).unwrap(), json!(table));
+    assert_eq!(serde_json::to_value(error.table).unwrap(), json!(table));
     assert_eq!(error.record_position, position);
     assert_eq!(error.field_path.as_ref(), path);
     assert_eq!(error.item_index.as_deref(), item.as_ref());
@@ -115,27 +115,49 @@ fn reject(path: &str, value: Value, category: &str, item: Option<usize>) {
     assert_eq!(output["summary"]["counts"], json!({"BAD_VALUE": 1}));
 }
 #[test]
-fn serde_error_causes_render_as_noun_phrases() {
-    for (value, cause, message) in [
-        (
-            json!("{"),
-            "a JSON batch input (EOF while parsing)",
-            "Found \"{\"; expected a JSON batch input (EOF while parsing).",
-        ),
-        (
-            Value::Null,
-            "a serializable schema definition (invalid type)",
-            "Found null; expected a serializable schema definition (invalid type).",
-        ),
-        (
-            json!({"id": 1}),
-            "a valid requirements record (missing field)",
-            "Found {\"id\":1}; expected a valid requirements record (missing field).",
-        ),
+fn serde_error_causes_preserve_real_failures() {
+    let check = |value: Value, expected: &str, source: serde_json::Error| {
+        let detail = source.to_string();
+        let error = Error::from_serde(value.clone(), expected, source);
+        assert_eq!(error.cause.as_ref(), format!("{expected} ({detail})"));
+        assert_eq!(
+            error.message.as_ref(),
+            format!("Found {value}; expected {expected} ({detail}).")
+        );
+        error
+    };
+    for input in ["?", "{", "[1,]"] {
+        let source = serde_json::from_str::<Value>(input).unwrap_err();
+        let error = check(json!(input), "a JSON batch input", source);
+        assert_eq!(json!(accept(input).errors[0]), json!(error));
+    }
+    assert_eq!(
+        accept("?").errors[0].message.as_ref(),
+        "Found \"?\"; expected a JSON batch input (expected value at line 1 column 1)."
+    );
+    for key in [vec![], vec![1], vec![1, 2]] {
+        let map = std::collections::BTreeMap::from([(key, true)]);
+        let source = serde_json::to_value(map).unwrap_err();
+        check(Value::Null, "a serializable schema definition", source);
+    }
+    for value in [json!({}), json!({"id": 1}), json!({"id": "REQ-FIX-0001"})] {
+        let source = serde_json::from_value::<Requirement>(value.clone()).unwrap_err();
+        check(value, "a valid requirements record", source);
+    }
+}
+#[test]
+fn error_tables_reject_both_and_reveal_identity() {
+    let mut error = Error::new(ErrorCategory::TypeMismatch, Value::Null, "a record");
+    for (kind, label, debug) in [
+        (Table::Req, Some("requirements"), "Some(Req)"),
+        (Table::Dec, Some("decisions"), "Some(Dec)"),
+        (Table::Both, None, "None"),
     ] {
-        let error = Error::new(ErrorCategory::TypeMismatch, value, cause);
-        assert_eq!(error.message.as_ref(), message);
-        assert!(!error.message.contains("expected expected"));
+        let converted = kind.try_into();
+        assert_eq!(converted.is_err(), label.is_none());
+        error.table = converted.ok();
+        assert_eq!(json!(error.table), json!(label));
+        assert_eq!(format!("{:?}", error.table), debug);
     }
 }
 #[test]

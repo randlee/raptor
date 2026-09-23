@@ -2,49 +2,80 @@ use crate::{emit, schema::*};
 use serde::{Serialize, Serializer};
 use serde_json::{Value, json};
 use std::fmt;
-#[derive(Clone, Copy, Debug, Serialize)]
+
+/// Classifies why input could not be accepted into the batch.
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash, Serialize)]
 pub enum ErrorCategory {
+    /// An object contains a key not declared by its schema.
     UnknownKey,
+    /// An object omits a required key.
     MissingKey,
+    /// A value or batch has the wrong JSON shape or cannot be decoded.
     TypeMismatch,
+    /// A non-nullable field contains JSON null.
     NullNotAllowed,
+    /// An identifier does not match the supported record ID format.
     InvalidId,
+    /// A version does not match the supported version format.
     InvalidVersion,
+    /// A date has an invalid format or calendar value.
     InvalidDate,
+    /// A value is outside the permitted choices.
     UnknownVariant,
+    /// A supersession link connects different record kinds.
     CrossKindSupersession,
+    /// Multiple accepted records share an identifier.
     DuplicateId,
+    /// A reference has no matching accepted record in the batch.
     DanglingReference,
 }
-#[derive(Clone, Debug, Serialize)]
+
+/// Describes a rejected value, its location, and how to correct it.
+#[derive(Clone, Debug, PartialEq, Serialize)]
 pub struct Error {
+    /// The reason this value was rejected.
     pub category: ErrorCategory,
+    /// The containing table, or None for a batch-level error.
     pub table: Option<ErrorTable>,
+    /// Zero-based record position in the original table, before rejection filtering.
     pub record_position: Option<usize>,
+    /// JSON pointer to the invalid field, or empty for a root error.
     pub field_path: Box<str>,
+    // Boxing here and below is a size choice, not a semantic distinction from record_position.
+    // This set keeps size_of::<Error>() below result_large_err's 128-byte limit.
+    /// Zero-based position of an invalid array item, if applicable.
     pub item_index: Option<Box<usize>>,
+    /// The original JSON value that failed validation.
     pub offending_value: Box<Value>,
+    /// The expected shape or constraint, including any original serde detail.
     pub cause: Box<str>,
+    /// The complete human-readable diagnostic.
     pub message: Box<str>,
+    /// An action the caller can take to correct this category of error.
     pub recovery: &'static str,
     /// Allowed values for `UnknownVariant`; otherwise `None`.
     pub allowed_values: Option<Box<Vec<Value>>>,
     /// First duplicate position for `DuplicateId`; otherwise `None`.
     pub first_occurrence_record_position: Option<Box<usize>>,
 }
-#[derive(Clone)]
-pub struct ErrorTable(pub(crate) Table);
-impl fmt::Debug for ErrorTable {
-    fn fmt(&self, formatter: &mut fmt::Formatter<'_>) -> fmt::Result {
-        formatter.write_str("ErrorTable")
-    }
+/// Identifies exactly one table containing a rejected record.
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash, Serialize)]
+pub enum ErrorTable {
+    /// The requirements table, including nonfunctional requirements.
+    #[serde(rename = "requirements")]
+    Req,
+    /// The architecture decisions table.
+    #[serde(rename = "decisions")]
+    Dec,
 }
-impl Serialize for ErrorTable {
-    fn serialize<S: Serializer>(&self, serializer: S) -> Result<S::Ok, S::Error> {
-        serializer.serialize_str(match self.0 {
-            Table::Req => "requirements",
-            Table::Dec | Table::Both => "decisions",
-        })
+impl TryFrom<Table> for ErrorTable {
+    type Error = &'static str;
+    fn try_from(table: Table) -> Result<Self, Self::Error> {
+        match table {
+            Table::Req => Ok(Self::Req),
+            Table::Dec => Ok(Self::Dec),
+            Table::Both => Err("a single requirements or decisions table"),
+        }
     }
 }
 fn recovery(category: &ErrorCategory) -> &'static str {
@@ -83,6 +114,10 @@ impl Error {
             first_occurrence_record_position: None,
         }
     }
+    /// Adapts a serde failure to the shared error constructor, preserving its detail.
+    pub fn from_serde(value: Value, expected: &str, error: serde_json::Error) -> Self {
+        Self::new(ErrorCategory::TypeMismatch, value, &format!("{expected} ({error})"))
+    }
     pub fn at(mut self, path: &str, item: Option<usize>) -> Self {
         self.field_path = path.into();
         self.item_index = item.map(Box::new);
@@ -95,6 +130,7 @@ impl fmt::Display for Error {
     }
 }
 impl std::error::Error for Error {}
+
 #[derive(Debug, Serialize)]
 pub struct Batch {
     #[serde(serialize_with = "unpositioned")]
@@ -125,6 +161,7 @@ pub struct Accepted {
     pub batch: Batch,
     pub errors: Vec<Error>,
 }
+
 impl Serialize for Accepted {
     fn serialize<S: Serializer>(&self, serializer: S) -> Result<S::Ok, S::Error> {
         #[derive(Serialize)]
@@ -141,6 +178,7 @@ impl Serialize for Accepted {
         .serialize(serializer)
     }
 }
+
 fn walk(
     value: &Value,
     schema: &Value,
@@ -239,6 +277,7 @@ fn walk(
     }
     errors
 }
+
 pub fn accept(input: &str) -> Accepted {
     use ErrorCategory::*;
     let mut accepted = Accepted {
@@ -251,10 +290,9 @@ pub fn accept(input: &str) -> Accepted {
     let input: Value = match serde_json::from_str(input) {
         Ok(input) => input,
         Err(error) => {
-            let cause = format!("a JSON batch input ({error})");
             accepted
                 .errors
-                .push(Error::new(TypeMismatch, json!(input), &cause));
+                .push(Error::from_serde(json!(input), "a JSON batch input", error));
             return accepted;
         }
     };
@@ -281,14 +319,24 @@ pub fn accept(input: &str) -> Accepted {
     let schemas = match emit::json_schema().and_then(serde_json::to_value) {
         Ok(schemas) => schemas,
         Err(error) => {
-            let cause = format!("a serializable schema definition ({error})");
-            accepted
-                .errors
-                .push(Error::new(TypeMismatch, Value::Null, &cause));
+            accepted.errors.push(Error::from_serde(
+                Value::Null,
+                "a serializable schema definition",
+                error,
+            ));
             return accepted;
         }
     };
     for (table, kind) in emit::TABLES {
+        let error_table = match ErrorTable::try_from(kind) {
+            Ok(table) => table,
+            Err(cause) => {
+                accepted
+                    .errors
+                    .push(Error::new(UnknownVariant, json!(table), cause));
+                return accepted;
+            }
+        };
         let Some(schema) = schemas.get(table) else {
             continue;
         };
@@ -331,12 +379,15 @@ pub fn accept(input: &str) -> Accepted {
                     Table::Both => continue,
                 };
                 if let Err(error) = decoded {
-                    let cause = format!("a valid {table} record ({error})");
-                    errors.push(Error::new(TypeMismatch, record.clone(), &cause));
+                    errors.push(Error::from_serde(
+                        record.clone(),
+                        &format!("a valid {table} record"),
+                        error,
+                    ));
                 }
             }
             for error in &mut errors {
-                error.table = Some(ErrorTable(kind));
+                error.table = Some(error_table);
                 error.record_position = Some(position);
             }
             accepted.errors.extend(errors);

@@ -54,11 +54,11 @@ fn references<'a>(
 pub fn check_inventory(batch: &Batch) -> Vec<Error> {
     let requirements = batch.requirements().map(|(position, row)| {
         let targets = references(&row.lifecycle, &row.related_documents, Some(&row.dependencies));
-        (Table::Req, position, &row.identity, targets)
+        (ErrorTable::Req, position, &row.identity, targets)
     });
     let decisions = batch.decisions().map(|(position, row)| {
         let targets = references(&row.lifecycle, &row.related_documents, None);
-        (Table::Dec, position, &row.identity, targets)
+        (ErrorTable::Dec, position, &row.identity, targets)
     });
     let rows: Vec<_> = requirements.chain(decisions).collect();
     let mut counts = BTreeMap::new();
@@ -72,7 +72,7 @@ pub fn check_inventory(batch: &Batch) -> Vec<Error> {
     for (table, position, identity, targets) in rows {
         let error = |category, text, cause: String, path, item| {
             let mut error = Error::scalar(category, text, &cause).at(path, item);
-            error.table = Some(ErrorTable(table));
+            error.table = Some(table);
             error.record_position = Some(position);
             error
         };
