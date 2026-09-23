@@ -64,13 +64,13 @@ pub fn validate_scalar(kind: &str, text: &str) -> Result<(), Error> {
     if valid {
         return Ok(());
     }
-    let category = match kind {
-        "Id" => ErrorCategory::InvalidId,
-        "Version" => ErrorCategory::InvalidVersion,
-        "Date" => ErrorCategory::InvalidDate,
-        _ => ErrorCategory::UnknownVariant,
+    let (category, cause) = match kind {
+        "Id" => (ErrorCategory::InvalidId, "an ID with REQ, NFR, or ADR prefix and four digits"),
+        "Version" => (ErrorCategory::InvalidVersion, "a version in N.N.N format"),
+        "Date" => (ErrorCategory::InvalidDate, "a valid YYYY-MM-DD date"),
+        _ => (ErrorCategory::UnknownVariant, "one of Id, Version, or Date"),
     };
-    Err(Error::scalar(category, text))
+    Err(Error::scalar(category, text, cause))
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]

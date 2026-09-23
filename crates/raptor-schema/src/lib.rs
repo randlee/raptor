@@ -2,7 +2,7 @@ mod accept;
 mod emit;
 mod inventory;
 mod schema;
-pub use accept::{Accepted, Batch, Error, ErrorCategory, accept};
+pub use accept::{Accepted, Batch, Error, ErrorCategory, Recovery, accept};
 pub use emit::{FieldMeta, field_table, json_schema, sql_ddl};
 pub use inventory::{Rule, Summary};
 pub use schema::*;
@@ -41,7 +41,14 @@ mod python {
     fn field_table(py: Python<'_>, table: &str) -> PyResult<String> {
         match emit::TABLES.iter().find(|(name, _)| *name == table) {
             Some((_, kind)) => json(emit::field_table(*kind)),
-            None => fail(py, Error::scalar(ErrorCategory::UnknownVariant, table)),
+            None => fail(
+                py,
+                Error::scalar(
+                    ErrorCategory::UnknownVariant,
+                    table,
+                    "one of requirements or decisions",
+                ),
+            ),
         }
     }
     #[pyfunction]

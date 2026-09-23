@@ -3,7 +3,7 @@ use serde::{Serialize, Serializer};
 use serde_json::{Value, json};
 use std::fmt;
 
-#[derive(Clone, Debug, Serialize)]
+#[derive(Clone, Copy, Debug, Serialize)]
 pub enum ErrorCategory {
     UnknownKey,
     MissingKey,
@@ -28,14 +28,43 @@ pub struct Error {
     pub offending_value: Box<Value>,
     pub cause: Box<str>,
     pub message: Box<str>,
+    pub recovery: Recovery,
+}
+#[derive(Clone, Copy, Debug)]
+pub struct Recovery(ErrorCategory);
+impl Recovery {
+    pub fn as_str(&self) -> &'static str {
+        recovery(&self.0)
+    }
+}
+impl Serialize for Recovery {
+    fn serialize<S: Serializer>(&self, serializer: S) -> Result<S::Ok, S::Error> {
+        serializer.serialize_str(self.as_str())
+    }
+}
+fn recovery(category: &ErrorCategory) -> &'static str {
+    use ErrorCategory::*;
+    match category {
+        UnknownKey => "Remove the undeclared key or use a declared key.",
+        MissingKey => "Add the required key at the reported field path.",
+        TypeMismatch => "Replace the value with the expected JSON type.",
+        NullNotAllowed => "Replace null with a value of the expected JSON type.",
+        InvalidId | InvalidVersion => "Replace the value with the expected format.",
+        InvalidDate => "Replace the date with a valid date in the expected format.",
+        UnknownVariant => "Replace the value with one of the allowed values.",
+        CrossKindSupersession => "Reference an identifier of the same record kind.",
+        DuplicateId => "Rename one record so each identifier is unique.",
+        DanglingReference => "Create the referenced record or correct the reference.",
+    }
 }
 impl Error {
-    pub fn scalar(category: ErrorCategory, text: &str) -> Self {
-        Self::new(category, json!(text), "value does not satisfy the scalar format")
+    pub fn scalar(category: ErrorCategory, text: &str, cause: &str) -> Self {
+        Self::new(category, json!(text), cause)
     }
     pub fn new(category: ErrorCategory, value: Value, cause: &str) -> Self {
         Self {
             message: format!("Found {value}; expected {cause}.").into(),
+            recovery: Recovery(category),
             category,
             offending_value: Box::new(value),
             cause: cause.into(),
