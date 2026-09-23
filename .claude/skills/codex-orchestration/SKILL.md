@@ -1,12 +1,12 @@
 ---
 name: codex-orchestration
 version: 2.1.0
-description: Orchestrate multi-sprint phases where crap (Codex) is the sole developer, with pipelined QA via quality-mgr teammate. Team-lead chooses the review type; quality-mgr chooses the reviewers.
+description: Orchestrate multi-sprint phases where three Codex developers execute stacked sprint work, with pipelined QA via quality-mgr teammate. Team-lead chooses the review type; quality-mgr chooses the reviewers.
 ---
 
 # Codex Orchestration
 
-This skill defines how team-lead orchestrates phases where **`crap` (Codex)** is the sole developer, executing sprints sequentially while QA runs in parallel via a dedicated **quality-mgr** teammate.
+This skill defines how team-lead orchestrates phases where three Codex developers — **`arap`**, **`crap`**, and **`lrap`** — execute sprint work while QA runs in parallel via a dedicated **quality-mgr** teammate.
 
 ## Core Rule
 
@@ -19,6 +19,7 @@ This skill defines how team-lead orchestrates phases where **`crap` (Codex)** is
 Team-lead chooses the review type.
 `quality-mgr` chooses and launches the reviewers according to `.claude/agents/quality-mgr.md`.
 `quality-mgr` must re-read that prompt for every assignment.
+`quality-mgr` runs every assignment it holds in parallel and does not queue assignments.
 
 Do not hardcode reviewer selection in team-lead messages when using this skill.
 
@@ -32,7 +33,7 @@ Team-lead must:
 - identify the exact sprint or fix slice being assigned
 - extract that sprint scope as written
 - wrap it in `dev-template.xml.j2`
-- send it to `crap`
+- send it to the assigned developer
 
 Team-lead must **not**:
 
@@ -45,17 +46,19 @@ The correct workflow is:
 
 1. read the plan
 2. extract the sprint slice
-3. send that slice to `crap` through the dev template
+3. send that slice to the assigned developer through the dev template
 
 The plan is the spec.
 
+If a task touches Rust, developers must first read `.claude/skills/rust-development/guidelines.txt` and `.claude/skills/rust-best-practices/patterns/practice-inventory.md`; reviewers score against them.
+
 ## Task Sequencing
 
-Team-lead must keep `crap`'s ATM inbox preloaded during phased work.
+Team-lead must keep each developer's ATM inbox preloaded during phased work.
 
 Required execution model:
 
-- `crap` replies immediately when a task is read
+- the assigned developer replies immediately when a task is read
 - queued tasks get a receipt message, not an `atm ack`
 - `atm ack` happens only when that task becomes active and execution starts
 - queued assignments execute in order received unless a task explicitly says `INTERRUPT CURRENT TASK`
@@ -63,7 +66,9 @@ Required execution model:
 - team-lead must queue the next known task as soon as the current task is started
 - do not wait for task completion or validation before queueing the next known task
 - failure to queue follow-on work can stall the phase and is a workflow failure
-- `crap` prioritizes queued work using the assignment/template rules, not ad hoc nudges
+- the assigned developer prioritizes queued work using the assignment/template rules, not ad hoc nudges
+
+The team has three Codex developers: `arap`, `crap`, and `lrap`. High-difficulty sprint work goes to `arap`; medium-difficulty sprint work to `crap`; low-difficulty sprint work to `lrap`; high-difficulty fix rounds to `arap`; medium- or low-difficulty fix rounds to `lrap`. Team-lead may reassign when an agent is idle and the others are busy. State `low`, `medium`, or `high` difficulty in every assignment.
 
 ## Interrupt Policy
 
@@ -71,9 +76,9 @@ Required execution model:
 
 Valid interrupt reasons:
 
-- `crap` is working from incorrect instructions
-- `crap` is on the wrong branch or worktree
-- `crap`'s current work conflicts with another agent's work
+- the assigned developer is working from incorrect instructions
+- the assigned developer is on the wrong branch or worktree
+- the assigned developer's current work conflicts with another agent's work
 - continuing the current task would produce invalid output because the task basis is wrong
 
 Not valid interrupt reasons:
@@ -83,7 +88,9 @@ Not valid interrupt reasons:
 - a new QA finding on another branch/worktree
 - team-lead preference to reprioritize work already correctly queued
 
-Do not interrupt for normal dev/QA loop work. Queue the fix and let `crap` reach it in order.
+Never interrupt a task in progress for fix work. Assign fix work on a new branch on top of the stack; never use the sprint branch under review.
+
+Do not interrupt for normal dev/QA loop work. Queue the fix and let the assigned developer reach it in order.
 
 ## Nudge Text
 
@@ -94,18 +101,19 @@ Nudges must be short and protocol-only.
 - Nudges exist to restore queue/ack/start behavior, not to resend the task.
 - Long narrative nudges reduce traceability and can break inbox acknowledgement discipline.
 
+Team-lead runs on herdr. Assign development work with `atm task assign <agent> --task-id <ID> --template .claude/skills/codex-orchestration/dev-template.xml.j2 --vars <vars.json>`.
+Assign QA with `.claude/skills/codex-orchestration/qa-template.xml.j2` to `quality-mgr`; QA assignments run in parallel and do not queue.
+
 Typical nudge:
 
 ```bash
-tmux send-keys -t $ATM_TEAM:1.2 "check atm for <TASK-ID>" Enter; sleep 0.5;
-tmux send-keys -t $ATM_TEAM:1.2 "" Enter
+atm send <agent> "check atm for <TASK-ID>"
 ```
 
 Urgent nudge:
 
 ```bash
-tmux send-keys -t $ATM_TEAM:1.2 "check atm IMMEDIATELY for <TASK-ID>" Enter; sleep 0.5;
-tmux send-keys -t $ATM_TEAM:1.2 "" Enter
+atm send <agent> "check atm IMMEDIATELY for <TASK-ID>"
 ```
 
 Use the urgent nudge rarely. It is for true interrupt conditions only, not normal QA/fix traffic.
@@ -190,24 +198,35 @@ git log origin/integrate/phase-{P}..origin/{branch} --oneline   # commits unique
 git log origin/{branch}..origin/integrate/phase-{P} --oneline   # commits missing from branch (must be empty)
 ```
 
-If the second command shows commits, have `crap` merge forward before opening the PR:
+If the second command shows commits, have the assigned developer rebase before opening the PR:
 
 ```bash
-git fetch origin && git merge origin/integrate/phase-{P}
+git fetch origin && git rebase origin/integrate/phase-{P}
 ```
 
 Missing merges cause pre-existing test failures that block CI and cause QA agents to file false root-cause reports.
 
+## Stack Discipline
+
+For stacked branches managed with `gh stack`, rebase onto the parent after every push:
+
+```bash
+git fetch origin && git rebase origin/<parent>
+git push --force-with-lease origin <branch>
+```
+
+Never merge forward. Create fix branches on top of the stack and push them separately.
+
 ## Workflow
 
-1. `crap` replies immediately when a new assignment is read.
-2. if the assignment is not starting yet, `crap` reports it as queued behind the current task and continues active work.
-3. when a queued task becomes active, `crap` runs `atm ack` and sends a start message with task id + branch/worktree.
-4. as soon as `crap` starts task `N`, team-lead queues the next known task.
-5. `crap` completes the task and reports branch + SHA.
+1. The assigned developer replies immediately when a new assignment is read.
+2. if the assignment is not starting yet, the assigned developer reports it as queued behind the current task and continues active work.
+3. when a queued task becomes active, the assigned developer runs `atm ack` and sends a start message with task id + branch/worktree.
+4. as soon as a developer starts task `N`, team-lead queues the next known task.
+5. the assigned developer completes the task and reports branch + SHA.
 6. team-lead opens PR and starts CI monitoring.
-7. team-lead creates the next dev worktree for `crap`.
-8. team-lead reads the active plan, extracts the next sprint slice verbatim, and sends that sprint assignment to `crap`.
+7. team-lead creates the next dev worktree for the assigned developer.
+8. team-lead reads the active plan, extracts the next sprint slice verbatim, and sends that sprint assignment to the assigned developer.
 9. team-lead sends the QA assignment to `quality-mgr` using `qa-template.xml.j2` with the correct `review_type`.
 10. quality-mgr launches reviewers per its own prompt and returns one consolidated report.
 11. team-lead schedules fixes if needed.
@@ -216,7 +235,7 @@ Missing merges cause pre-existing test failures that block CI and cause QA agent
 ## Anti-Patterns
 
 - Do not hardcode reviewer names in team-lead workflow or templates. `quality-mgr` chooses the reviewers.
-- Do not rewrite sprint scope before assigning it to `crap`.
+- Do not rewrite sprint scope before assigning it to a developer.
 - Do not summarize the plan when the sprint can be extracted directly.
 - Do not treat team-lead interpretation as authoritative over the plan text.
 - Do not assume every newly delivered assignment should start immediately.
@@ -227,5 +246,5 @@ Missing merges cause pre-existing test failures that block CI and cause QA agent
 - Do not expand task content into a nudge.
 - Do not skip the repo-defined mandatory reviewers from `quality-mgr.md`.
 - Do not accept sprint or phase implementation QA without fenced JSON evidence from the launched reviewers.
-- Do not omit workflow steps from task messages — embed them every time; `crap` does not remember prior instructions.
+- Do not omit workflow steps from task messages — embed them every time; developers do not remember prior instructions.
 - Do not open a PR without first running the Pre-PR Merge Check.

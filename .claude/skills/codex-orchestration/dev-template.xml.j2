@@ -7,6 +7,7 @@ required_variables:
   - task_id
   - sprint
   - assignee
+  - difficulty
   - plan_path
   - plan_line_range
   - description
@@ -23,6 +24,8 @@ required_variables:
     <line-range>{{ plan_line_range }}</line-range>
   </source-plan>
   <description>{{ description }}</description>
+  <difficulty>Difficulty: {{ difficulty }}</difficulty>
+  <!-- Allowed values: low, medium, high. -->
 
   <worktree>{{ worktree_path }}</worktree>
   <branch>{{ branch }}</branch>
@@ -76,7 +79,8 @@ required_variables:
     <step id="a2">When this task becomes active, run `atm ack` and send a start message naming the task id, branch, and worktree.</step>
     <step id="b">If this is the active queued task, begin executing immediately after `atm ack`. Otherwise keep it queued and continue the current active task until this task reaches the front of the queue.</step>
     <step id="b1">Treat the active plan slice at `{{ plan_path }}` lines `{{ plan_line_range }}` as the authoritative sprint specification. If the ATM assignment text conflicts with that plan slice, escalate instead of silently following the rewritten assignment.</step>
-    <step id="c">Before coding: run `git fetch origin && git merge origin/{{ pr_target }}` to include all prior sprint fixes. Then complete the assigned development work end-to-end.</step>
+    <step id="c0">Before coding, if the task touches Rust, read `.claude/skills/rust-development/guidelines.txt` and `.claude/skills/rust-best-practices/patterns/practice-inventory.md` first; the reviewers score against them.</step>
+    <step id="c">Before coding: run `git fetch origin && git rebase origin/{{ pr_target }}` to include all prior sprint fixes. Then complete the assigned development work end-to-end.</step>
     <step id="c1">Default to simplification. Prefer code removal over code addition. Do not add workaround paths for simple types or simple contracts. If code must be added, the completion report must state what old path, fallback, or manual rule it enables us to delete.</step>
     <step id="d">As soon as the development changes are complete and the branch is in a pushable state, commit and push immediately. Send me the branch name + commit hash right away so I can open the PR and prepare the next worktree in parallel.</step>
     <step id="e">After the push report, run `{BUILD_COMMAND}` and `{TEST_COMMAND}`. Do not wait for PR creation before starting validation.</step>

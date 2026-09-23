@@ -150,11 +150,10 @@ atm gh pr list       # open PRs and CI status
 atm send crap "New session (session-id: <SESSION_ID>). Team $ATM_TEAM restored. Please acknowledge and confirm status."
 ```
 
-If no response within ~60s, nudge via tmux:
+If no response within ~60s, send a nudge through ATM:
 
 ```bash
-tmux list-panes -a -F '#{session_name}:#{window_index}.#{pane_index} #{pane_title}'
-tmux send-keys -t <pane-id> "You have unread ATM messages. Run: atm read --team $ATM_TEAM" Enter
+atm send <agent> "You have unread ATM messages. Run: atm read --team $ATM_TEAM"
 ```
 
 ---

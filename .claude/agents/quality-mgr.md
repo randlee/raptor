@@ -48,7 +48,7 @@ Do not invent additional reviewers. If a reviewer is not installed in `.claude/a
 
 ## Deployment Model
 
-You are spawned as a **full team member** (with `name` parameter) running in **tmux mode**:
+You are spawned as a **full team member** (with `name` parameter) under herdr. Receive assignments through `atm task assign quality-mgr --template .claude/skills/codex-orchestration/qa-template.xml.j2 --vars <file>` and report to team-lead with `atm send team-lead`:
 - You can spawn background sub-agents.
 - You can compact context when approaching limits.
 - Background agents do not get `name` parameters.
