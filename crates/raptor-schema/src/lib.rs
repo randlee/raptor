@@ -201,7 +201,22 @@ fn diagnostic(
         remedy,
     }
 }
-#[rustfmt::skip] fn string(tree: &serde_json::Value, key: &str) -> Option<String> { let value = tree.get(key)?; value.as_str().or_else(|| value.get("value").and_then(|v| v.as_str())).map(str::to_owned) }
+fn same(left: &str, right: &str) -> bool {
+    left.eq_ignore_ascii_case(right)
+}
+fn named<'a>(tree: &'a serde_json::Value, key: &str) -> Option<&'a serde_json::Value> {
+    tree.as_object()?
+        .iter()
+        .find(|(name, _)| same(name, key))
+        .map(|(_, value)| value)
+}
+fn string(tree: &serde_json::Value, key: &str) -> Option<String> {
+    let value = named(tree, key)?;
+    value
+        .as_str()
+        .or_else(|| value.get("value").and_then(|v| v.as_str()))
+        .map(str::to_owned)
+}
 fn tree_line(tree: &serde_json::Value) -> u32 {
     tree.get("line").and_then(|v| v.as_u64()).unwrap_or(0) as u32
 }
@@ -296,11 +311,11 @@ fn prose(value: &serde_json::Value) -> String {
     text(value, "prose").join("\n")
 }
 fn label<'a>(section: &'a serde_json::Value, name: &str) -> Option<&'a serde_json::Value> {
-    section
-        .get("labels")?
-        .as_array()?
-        .iter()
-        .find(|x| x.get("name").and_then(|x| x.as_str()) == Some(name))
+    section.get("labels")?.as_array()?.iter().find(|x| {
+        x.get("name")
+            .and_then(|x| x.as_str())
+            .is_some_and(|value| same(value, name))
+    })
 }
 fn id_items(
     value: Option<&serde_json::Value>,
@@ -385,10 +400,11 @@ fn checklist(value: Option<&serde_json::Value>) -> Vec<CheckItem> {
         .collect()
 }
 fn section<'a>(item: &'a serde_json::Value, name: &str) -> Option<&'a serde_json::Value> {
-    item.get("sections")?
-        .as_array()?
-        .iter()
-        .find(|x| x.get("name").and_then(|x| x.as_str()) == Some(name))
+    item.get("sections")?.as_array()?.iter().find(|x| {
+        x.get("name")
+            .and_then(|x| x.as_str())
+            .is_some_and(|value| same(value, name))
+    })
 }
 pub fn bind_file(tree: &serde_json::Value) -> Bound {
     let file = tree
@@ -409,7 +425,7 @@ pub fn bind_file(tree: &serde_json::Value) -> Bound {
     for (name, value) in header.as_object().into_iter().flatten() {
         if !FIELDS
             .iter()
-            .any(|f| f.level == Level::Header && f.label == name)
+            .any(|f| f.level == Level::Header && same(f.label, name))
         {
             out.diagnostics.push(unknown(
                 file,
@@ -460,7 +476,7 @@ pub fn bind_file(tree: &serde_json::Value) -> Bound {
         };
         let fields_for = table_fields(id.kind());
         for (name, value) in fields.as_object().into_iter().flatten() {
-            if name != "Status" {
+            if !same(name, "Status") {
                 out.diagnostics.push(unknown(
                     file,
                     tree_line(value),
@@ -484,7 +500,7 @@ pub fn bind_file(tree: &serde_json::Value) -> Bound {
                 .to_owned();
             let known = fields_for
                 .iter()
-                .any(|f| f.level == Level::Section && f.label == name);
+                .any(|f| f.level == Level::Section && same(f.label, &name));
             if !known {
                 out.diagnostics.push(unknown(
                     file,
@@ -509,14 +525,16 @@ pub fn bind_file(tree: &serde_json::Value) -> Bound {
                 if known
                     && !fields_for.iter().any(|f| {
                         f.level == Level::Label
-                            && f.section
-                                == Some(
+                            && f.section.is_some_and(|value| {
+                                same(
+                                    value,
                                     section
                                         .get("name")
                                         .and_then(|x| x.as_str())
                                         .unwrap_or_default(),
                                 )
-                            && f.label == name
+                            })
+                            && same(f.label, &name)
                     })
                 {
                     out.diagnostics.push(unknown(
@@ -540,7 +558,7 @@ pub fn bind_file(tree: &serde_json::Value) -> Bound {
                 .flatten()
             {
                 let group_allowed = fields_for.iter().any(|f| {
-                    f.level == Level::Section && f.label == name && f.shape == Shape::Group
+                    f.level == Level::Section && same(f.label, &name) && f.shape == Shape::Group
                 });
                 if !group_allowed {
                     out.diagnostics.push(unknown(
@@ -569,8 +587,8 @@ pub fn bind_file(tree: &serde_json::Value) -> Bound {
                     if group_allowed
                         && !fields_for.iter().any(|f| {
                             f.level == Level::Label
-                                && f.section == Some(name.as_str())
-                                && f.label == label_name
+                                && f.section.is_some_and(|value| same(value, name.as_str()))
+                                && same(f.label, label_name)
                         })
                     {
                         out.diagnostics.push(unknown(
