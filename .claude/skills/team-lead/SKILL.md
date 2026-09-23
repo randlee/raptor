@@ -92,7 +92,7 @@ When assigning work to any teammate:
 ### Communication Rules
 
 - **No ACK = work is not being done.** If a teammate does not acknowledge within a reasonable
-  window, assume the message was not received and follow up (nudge via tmux for Codex agents).
+  window, assume the message was not received and follow up (nudge via `atm send <agent> "check atm for <TASK-ID>"`).
 - **Codex agents (`crap`)** do not receive message injection — they only see
   new messages when they check mail after their current task completes. Do not assume they
   received a message until they ACK.
