@@ -283,7 +283,7 @@ pub fn accept(input: &str) -> Accepted {
                         Error::new(
                             CrossKindSupersession,
                             json!(target),
-                            &format!("a {source_kind:?} identifier cannot supersede a {target_kind:?} identifier"),
+                            &format!("a {source_kind:?} identifier, not {target_kind:?}"),
                         )
                         .at(&format!("/{}", field.name), None),
                     );
