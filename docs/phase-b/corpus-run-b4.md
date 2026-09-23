@@ -6,12 +6,13 @@ schema pass; no source document is changed by this sprint.
 
 | Diagnostic group | Before | After |
 | --- | ---: | ---: |
-| Missing field | recorded | recorded |
-| Invalid value | recorded | recorded |
-| Unknown section | recorded | recorded |
-| Unknown label | recorded | recorded |
-| Duplicate identifier | recorded | recorded |
-| Dangling reference | recorded | recorded |
+| Missing field | 282 | 361 |
+| Invalid value | 337 | 345 |
+| Unknown section | 0 | 304 |
+| Unknown label | 1902 | 1180 |
+| Duplicate identifier | 39 | 10 |
+| Dangling reference | 2 | 3 |
 
 The B.4 fixture round trip is validated by the automated Rust and Python
 suite, including same-table supersession foreign keys and group parsing.
+The detailed per-group table exceeds this report's 70-line ceiling; the fresh run has 634 groups.
