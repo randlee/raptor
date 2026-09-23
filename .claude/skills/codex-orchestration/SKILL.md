@@ -68,7 +68,7 @@ Required execution model:
 - failure to queue follow-on work can stall the phase and is a workflow failure
 - the assigned developer prioritizes queued work using the assignment/template rules, not ad hoc nudges
 
-The team has three Codex developers: `arap`, `crap`, and `lrap`. High-difficulty work goes to `arap`; medium sprint work to `crap`; medium or low fix rounds to `lrap`. Team-lead may reassign when an agent is idle and the others are busy. State `low`, `medium`, or `high` difficulty in every assignment.
+The team has three Codex developers: `arap`, `crap`, and `lrap`. High-difficulty sprint work goes to `arap`; medium-difficulty sprint work to `crap`; low-difficulty sprint work to `lrap`; high-difficulty fix rounds to `arap`; medium- or low-difficulty fix rounds to `lrap`. Team-lead may reassign when an agent is idle and the others are busy. State `low`, `medium`, or `high` difficulty in every assignment.
 
 ## Interrupt Policy
 
