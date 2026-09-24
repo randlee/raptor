@@ -41,8 +41,9 @@ pub struct Error {
     pub record_position: Option<usize>,
     /// JSON pointer to the invalid field, or empty for a root error.
     pub field_path: Box<str>,
-    // Boxing here and below is a size choice, not a semantic distinction from record_position.
-    // This set keeps size_of::<Error>() below result_large_err's 128-byte limit.
+    // record_position is set on nearly every error; keep this common path allocation-free.
+    // Box only rare-path item_index, allowed_values and first_occurrence_record_position.
+    // None allocates nothing; Error stays 120 bytes, below result_large_err's 128-byte limit.
     /// Zero-based position of an invalid array item, if applicable.
     pub item_index: Option<Box<usize>>,
     /// The original JSON value that failed validation.
@@ -67,6 +68,14 @@ pub enum ErrorTable {
     /// The architecture decisions table.
     #[serde(rename = "decisions")]
     Dec,
+}
+impl From<ErrorTable> for Table {
+    fn from(table: ErrorTable) -> Self {
+        match table {
+            ErrorTable::Req => Self::Req,
+            ErrorTable::Dec => Self::Dec,
+        }
+    }
 }
 impl TryFrom<Table> for ErrorTable {
     type Error = &'static str;
@@ -328,15 +337,6 @@ pub fn accept(input: &str) -> Accepted {
         }
     };
     for (table, kind) in emit::TABLES {
-        let error_table = match ErrorTable::try_from(kind) {
-            Ok(table) => table,
-            Err(cause) => {
-                accepted
-                    .errors
-                    .push(Error::new(UnknownVariant, json!(table), cause));
-                return accepted;
-            }
-        };
         let Some(schema) = schemas.get(table) else {
             continue;
         };
@@ -349,7 +349,7 @@ pub fn accept(input: &str) -> Accepted {
             .enumerate()
         {
             let mut errors = walk(record, schema, &definitions, "", None);
-            let fields = emit::field_table(kind);
+            let fields = emit::field_table(kind.into());
             let record_kind = record
                 .get("id")
                 .and_then(Value::as_str)
@@ -372,11 +372,10 @@ pub fn accept(input: &str) -> Accepted {
             }
             if errors.is_empty() {
                 let decoded = match kind {
-                    Table::Req => serde_json::from_value(record.clone())
+                    ErrorTable::Req => serde_json::from_value(record.clone())
                         .map(|row| accepted.batch.requirements.push((position, row))),
-                    Table::Dec => serde_json::from_value(record.clone())
+                    ErrorTable::Dec => serde_json::from_value(record.clone())
                         .map(|row| accepted.batch.decisions.push((position, row))),
-                    Table::Both => continue,
                 };
                 if let Err(error) = decoded {
                     errors.push(Error::from_serde(
@@ -387,7 +386,7 @@ pub fn accept(input: &str) -> Accepted {
                 }
             }
             for error in &mut errors {
-                error.table = Some(error_table);
+                error.table = Some(kind);
                 error.record_position = Some(position);
             }
             accepted.errors.extend(errors);

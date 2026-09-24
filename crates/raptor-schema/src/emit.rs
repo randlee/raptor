@@ -1,9 +1,12 @@
-use crate::schema::*;
+use crate::{accept::ErrorTable, schema::*};
 use schemars::{schema::RootSchema, schema_for};
 use serde::Serialize;
 use std::collections::{BTreeMap, BTreeSet};
 
-pub const TABLES: [(&str, Table); 2] = [("requirements", Table::Req), ("decisions", Table::Dec)];
+pub const TABLES: [(&str, ErrorTable); 2] = [
+    ("requirements", ErrorTable::Req),
+    ("decisions", ErrorTable::Dec),
+];
 
 #[derive(Serialize)]
 pub struct FieldMeta {
@@ -119,7 +122,7 @@ pub fn sql_ddl() -> String {
     let mut statements = Vec::new();
     let mut edges = Vec::new();
     for (table, kind) in TABLES {
-        let fields = field_table(kind);
+        let fields = field_table(kind.into());
         let mut seen = BTreeSet::new();
         let columns: Vec<_> = fields
             .iter()

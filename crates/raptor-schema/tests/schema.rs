@@ -153,11 +153,14 @@ fn error_tables_reject_both_and_reveal_identity() {
         (Table::Dec, Some("decisions"), "Some(Dec)"),
         (Table::Both, None, "None"),
     ] {
-        let converted = kind.try_into();
+        let converted: Result<ErrorTable, _> = kind.try_into();
         assert_eq!(converted.is_err(), label.is_none());
         error.table = converted.ok();
         assert_eq!(json!(error.table), json!(label));
         assert_eq!(format!("{:?}", error.table), debug);
+        if let Some(table) = error.table {
+            assert!(Table::from(table) == kind);
+        }
     }
 }
 #[test]
@@ -486,4 +489,22 @@ fn emitted_sql_loads_records_and_keeps_only_supersession_nullable() {
         assert_eq!(count, 1);
     }
     db.execute_batch("COMMIT").unwrap();
+}
+
+#[test]
+fn dangling_reference_wire_matches_695781b() {
+    let mut input = fixture();
+    input["requirements"][0]["dependencies"]["requires"] =
+        json!([{"id": "REQ-FIX-9999", "note": null}]);
+    let result = accept(&input.to_string());
+    assert_eq!(result.errors.len(), 1);
+    let expected = concat!(
+        r#"{"category":"DanglingReference","table":"requirements","record_position":0,"#,
+        r#""field_path":"/dependencies/requires","item_index":0,"#,
+        r#""offending_value":"REQ-FIX-9999","cause":"a referenced record in the batch","#,
+        r#""message":"Found \"REQ-FIX-9999\"; expected a referenced record in the batch.","#,
+        r#""recovery":"Create the referenced record or correct the reference.","#,
+        r#""allowed_values":null,"first_occurrence_record_position":null}"#,
+    );
+    assert_eq!(serde_json::to_vec(&result.errors[0]).unwrap(), expected.as_bytes());
 }
