@@ -143,3 +143,8 @@ def test_b4_group_and_supersession_diagnostics(tmp_path: Path):
         assert extract(root, index, check=False).returncode == 1
         assert any(issue["rule"] == rule for issue in json.loads(index.read_text())["diagnostics"]["issues"])
         file.write_text(original)
+
+def test_thematic_break_is_not_content():
+    tree = split(Path("records.md"), "## REQ-FIX-0009: Record\n### Notes\n**Status:**\n- old record\n- item\n---\n### Consequences\ntext\n"); encoded = json.dumps(tree)
+    assert "---" not in encoded
+    assert [item["text"] for item in tree["records"][0]["sections"][0]["labels"][0]["items"]] == ["old record", "item"]

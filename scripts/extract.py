@@ -42,8 +42,10 @@ def split(path: Path, text: str) -> dict:
             header = True
             pending_header = bool(tree["records"])
             continue
-        if not fenced and (line == "---" or line.startswith("## ")):
+        if not fenced and (re.fullmatch(r"-{3,}", line) or line.startswith("## ")):
             header = False
+        if not fenced and re.fullmatch(r"-{3,}", line):
+            continue
         if not fenced and (match := HEADING.match(line)):
             record = {"id": match.group(1), "title": match.group(2), "line": number, "fields": {}, "sections": []}
             inherited.update(pending)
