@@ -146,21 +146,16 @@ fn serde_error_causes_preserve_real_failures() {
     }
 }
 #[test]
-fn error_tables_reject_both_and_reveal_identity() {
+fn error_tables_reveal_wire_and_debug_identity() {
     let mut error = Error::new(ErrorCategory::TypeMismatch, Value::Null, "a record");
-    for (kind, label, debug) in [
-        (Table::Req, Some("requirements"), "Some(Req)"),
-        (Table::Dec, Some("decisions"), "Some(Dec)"),
-        (Table::Both, None, "None"),
+    for (table, kind, label, debug) in [
+        (ErrorTable::Req, Table::Req, "requirements", "Some(Req)"),
+        (ErrorTable::Dec, Table::Dec, "decisions", "Some(Dec)"),
     ] {
-        let converted: Result<ErrorTable, _> = kind.try_into();
-        assert_eq!(converted.is_err(), label.is_none());
-        error.table = converted.ok();
+        error.table = Some(table);
         assert_eq!(json!(error.table), json!(label));
         assert_eq!(format!("{:?}", error.table), debug);
-        if let Some(table) = error.table {
-            assert!(Table::from(table) == kind);
-        }
+        assert!(Table::from(table) == kind);
     }
 }
 #[test]

@@ -3,11 +3,18 @@ use schemars::{schema::RootSchema, schema_for};
 use serde::Serialize;
 use std::collections::{BTreeMap, BTreeSet};
 
+/// Every `ErrorTable` variant must have exactly one entry in this table.
 pub const TABLES: [(&str, ErrorTable); 2] = [
     ("requirements", ErrorTable::Req),
     ("decisions", ErrorTable::Dec),
 ];
-
+const fn table_count(table: ErrorTable) -> usize {
+    match table {
+        ErrorTable::Req => 1,
+        ErrorTable::Dec => 1,
+    }
+}
+const _: () = assert!(TABLES.len() == table_count(ErrorTable::Req) + table_count(ErrorTable::Dec));
 #[derive(Serialize)]
 pub struct FieldMeta {
     pub name: &'static str,

@@ -77,16 +77,6 @@ impl From<ErrorTable> for Table {
         }
     }
 }
-impl TryFrom<Table> for ErrorTable {
-    type Error = &'static str;
-    fn try_from(table: Table) -> Result<Self, Self::Error> {
-        match table {
-            Table::Req => Ok(Self::Req),
-            Table::Dec => Ok(Self::Dec),
-            Table::Both => Err("a single requirements or decisions table"),
-        }
-    }
-}
 fn recovery(category: &ErrorCategory) -> &'static str {
     use ErrorCategory::*;
     match category {
