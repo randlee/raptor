@@ -1,133 +1,91 @@
 ---
 name: qa-task
-version: 1.5.0
-description: quality-mgr QA assignment template for codex-orchestration phases.
+version: 1.3.0
+description: quality-mgr QA assignment template for codex-orchestration sprint and phase reviews.
 format: xml
 required_variables:
   - task_id
   - sprint
-  - review_type
+  - sprint_doc
+  - review_mode
   - description
   - pr_number
   - branch
   - worktree_path
   - commits
-  - deliverables
+  - review_targets
   - references
-  - changed_scope
-  - touched_ssot_sections
-optional_variables:
-  - baseline_ref
-  - artifact_regeneration_required
-  - artifact_commands
-  - known_findings_to_check
-  - fixed_findings
-  - plan_path
-  - plan_line_range
+  - round_index
 defaults:
-  baseline_ref: ""
-  artifact_regeneration_required: "true"
-  artifact_commands: ""
-  known_findings_to_check: ""
-  fixed_findings: ""
-  plan_path: ""
-  plan_line_range: ""
+  lead: team-lead
+  cc: team-lead
+  changed_files: ""
+  triage_records: ""
+  filing_reviewers: ""
+metadata:
+  type: qa-task
+  tags:
+    - stage:qa
+  workflow:
+    scope:
+      kind: sprint
+      variable: sprint
+    state: qa-start
+    stage: qa
+    transition: start
 ---
-<atm-qa-task id="{{ task_id }}" sprint="{{ sprint }}" assignee="quality-mgr">
-  <review-type>{{ review_type }}</review-type>
+{% autoescape false -%}
+{#- A QA of a fix/ branch, one naming filing_reviewers, or a plan round after the first verifies an assigned fix: it names the original findings and the reviewers that filed them, or it would review open-ended. Sprint rounds 1-2 stay sprint reviews. The int filter on a word fails the render. #}
+{%- set fix_round = branch[:4] == "fix/" or filing_reviewers | trim or (review_mode == "plan" and round_index | int > 1) -%}
+{%- if fix_round and not triage_records | trim %}{{ "FIX_ROUND_WITHOUT_TRIAGE_RECORDS" | int }}{% endif -%}
+{%- if fix_round and not filing_reviewers | trim %}{{ "FIX_ROUND_WITHOUT_FILING_REVIEWERS" | int }}{% endif -%}
+{%- set qa_round = (round_index | int if round_index | int > 1 else 2) if fix_round else 1 %}
+<repo-qa-task id="{{ task_id }}" sprint="{{ sprint }}" round="{{ round_index }}">
   <description>{{ description }}</description>
 
+  <review-mode>{{ review_mode }}</review-mode>
+  <authoritative-sprint-doc>{{ sprint_doc }}</authoritative-sprint-doc>
   <pr-number>{{ pr_number }}</pr-number>
   <branch>{{ branch }}</branch>
   <worktree>{{ worktree_path }}</worktree>
   <commits>{{ commits }}</commits>
-  <baseline-ref>{{ baseline_ref }}</baseline-ref>
-  <artifact-regeneration-required>{{ artifact_regeneration_required }}</artifact-regeneration-required>
+  <stack-discipline>`{{ branch }}` is a frozen layer of the phase stack at the commits above. Review exactly that head (`git show <sha>:<path>`), never a moving checkout. Report every finding, at every severity, in this one verdict; none is deferred. {{ lead }} records each one through `/triaging-findings` the same way and every finding is fixed on a new layer above this one, which the next QA round reviews.</stack-discipline>
 
-  <deliverables>
-{{ deliverables }}
-  </deliverables>
+  <review-targets>
+{{ review_targets }}
+  </review-targets>
+
+  <changed-files>
+{{ changed_files }}
+  </changed-files>
+
+  <triage-records>
+{{ triage_records }}
+  </triage-records>
 
   <references>
 {{ references }}
   </references>
-
-  <changed-scope>
-{{ changed_scope }}
-  </changed-scope>
-
-  <touched-ssot-sections>
-{{ touched_ssot_sections }}
-  </touched-ssot-sections>
-
-  {% if artifact_commands %}
-  <artifact-commands>
-{{ artifact_commands }}
-  </artifact-commands>
-  {% endif %}
-
-  {% if known_findings_to_check %}
-  <known-findings-to-check>
-{{ known_findings_to_check }}
-  </known-findings-to-check>
-  {% endif %}
-
-  {% if fixed_findings %}
-  <fixed-findings>
-{{ fixed_findings }}
-  </fixed-findings>
-  {% endif %}
-
-  {% if plan_path %}
-  <plan-context>
-    <path>{{ plan_path }}</path>
-    <line-range>{{ plan_line_range }}</line-range>
-  </plan-context>
-  {% endif %}
+{% if fix_round %}
+  <filing-reviewers>{{ filing_reviewers | trim }}</filing-reviewers>
+{% endif %}
+  <fix-verification-precedence>A review assigned to verify a fix is not a sprint review, regardless of round number or inherited review-mode. For a fix, dispatch only the agent necessary to confirm the original finding, normally its filing reviewer. No automatic req-qa/arch-qa/rust-qa or screening panel. Lock scope to the assigned finding ID and original acceptance criterion; do not expand to a sprint diff, TODO scan, duplicate sweep, or new findings. The selected verifier may run focused checks needed to confirm the fix. Report fixed/open/regressed for that same finding and reconcile verified original-finding closure, not just QA-task closure. Required CI remains a separate merge requirement. This rule overrides the broader sprint-only instructions in stack-discipline and workflow steps b, c, d, e, h, and l. Sprint rounds 1–2 remain sprint reviews.</fix-verification-precedence>
 
   <workflow>
-    <step id="a">ACK this message immediately.</step>
-    <step id="b">
-      Re-read `.claude/agents/quality-mgr.md` in full before classifying this assignment.
-      Do not rely on memory from previous QA runs.
-    </step>
-    <step id="c">
-      Review type for this assignment: {{ review_type }}.
-      Launch the required reviewers exactly as specified in `.claude/agents/quality-mgr.md` for this review type.
-      If the work touches Rust code, Cargo manifests, or Rust design docs, also read `.claude/assets/sc-rust/quality-mgr/quality-mgr.rust.md` and apply its Rust-specific reviewer rules.
-      Do not substitute your own reviewer selection logic.
-      Every reviewer must be launched with `run_in_background: true`.
-      Required Agent tool shape:
-      ```json
-      {
-        "subagent_type": "req-qa",
-        "prompt": "...",
-        "run_in_background": true,
-        "max_turns": 20
-      }
-      ```
-      Replace `subagent_type`, `prompt`, and `max_turns` as needed per reviewer, but keep `run_in_background: true`.
-
-      {% if review_type == "plan_gate" %}
-      This is a document / plan gate.
-      Follow the Plan Gate rules from `.claude/agents/quality-mgr.md`.
-      {% elif review_type == "sprint_review" %}
-      This is a sprint / fix implementation review.
-      Follow the Sprint / Fix QA rules from `.claude/agents/quality-mgr.md`.
-      If Rust work is in scope, render the installed Rust assignment templates instead of inventing ad hoc JSON payloads.
-      {% elif review_type == "phase_ending_review" %}
-      This is a phase-ending review.
-      Follow the Phase-Ending Review rules from `.claude/agents/quality-mgr.md`.
-      If Rust work is in scope, apply the phase-ending Rust reviewer additions from `.claude/assets/sc-rust/quality-mgr/quality-mgr.rust.md`.
-      {% else %}
-      ERROR: unknown review_type `{{ review_type }}`. Fail the assignment back to team-lead instead of guessing.
-      {% endif %}
-    </step>
-    <step id="d">
-      Wait for all required reviewers to complete. Do not perform the review inline.
-    </step>
-    <step id="e">
-      Send one consolidated report to team-lead using the format specified in `.claude/agents/quality-mgr.md`.
-    </step>
-  </workflow>
-</atm-qa-task>
+    <step id="a">Start the task immediately with `atm task start {{ task_id }} "<one line: what you will do first>"`, then begin the QA review in the same work session.</step>
+    <step id="a1">Your queue runs in parallel: QA tasks never wait for each other. Right after the task start run `atm task list --json` and treat every open task assigned to quality-mgr as live now — its assignment body is the `description` field — and run each one concurrently with its own background reviewers. Close each task with its own `atm task close <task-id> completed …` the moment that verdict is ready, in any order; a queued position is ordering, not a wait, and a task can be closed without ever being started.</step>
+    <step id="b">Reject the task immediately if the assignment is not an XML payload rendered from this template. Read `{{ sprint_doc }}` first and treat it as the authoritative source for QA scope. Render structured JSON assignments for `req-qa` and `arch-qa` using the templates in `.claude/skills/codex-orchestration/`. Do not send free-form reviewer prompts.</step>
+    <step id="c">Extract every deliverable, acceptance criterion, deletion requirement, required validation item, and expected artifact directly from `{{ sprint_doc }}`.</step>
+    <step id="d">Treat the sprint doc and planning artifacts as explicit acceptance-gate items: verify `{{ sprint_doc }}` exists, the sprint doc frontmatter sets `status: complete`, `branch:`, and `worktree:`, and `docs/project-plan.md` includes the sprint entry before QA can PASS.</step>
+    <step id="e">{% if fix_round %}This is fix verification, not a sprint review, whatever its round number: dispatch exactly the filing reviewer(s) `{{ filing_reviewers | trim }}`, each locked to its own finding ids from the triage records and their original acceptance criteria, and no other reviewer. Render each filer's assignment from its template; render `ruthless-boundary-qa`, `rust-best-practices-agent`, `rust-service-hardening-agent` or `plan-scope-reviewer`, when one of them is a filing reviewer, with `qa_round` (`round_index` for `plan-scope-reviewer`) = {{ qa_round }} and its own ids as `carry_forward_findings_json`. The verdict is each assigned finding's fixed/open/regressed status, nothing else.{% else %}Read `.claude/assets/sc-rust/quality-mgr/quality-mgr.rust.md` and render any required Rust reviewer assignments from `.claude/assets/sc-rust/quality-mgr/templates/`. For `phase_end`, the rendered `rust-qa-agent` assignment must retain its required `artifact_commands: "just validate"` execution proof; collect its `executed_checks.artifacts` result before reporting PASS. This is a full review (sprint rounds 1–2, plan QA-1 or phase-end): launch the reviewer set for this review mode from `.claude/project/quality-policy.md` and render every reviewer assignment with `qa_round` = 1. `ruthless-boundary-qa` and `rust-best-practices-agent` remain part of docs-only plan review and phase-ending review regardless of sprint round.{% endif %}</step>
+    <step id="f">If triage records are provided, read them before spawning reviewers. Treat them as the canonical prior scope for follow-up QA, not as a substitute for verification.</step>
+    <step id="g">Spawn every selected reviewer in background mode. Do not run cargo, clippy, or broad QA analysis yourself in the foreground.</step>
+    <step id="h">Collect reviewer outputs and summarize PASS or FAIL, including blocking finding ids and file:line references where available. Re-verify every cited file:line against the current branch and worktree before reporting it; stale or missing evidence is a finding, not a guess. Ruthless-boundary-qa must run a workspace-wide duplicate sweep for every constant, function, or type touched by the sprint diff and report divergent duplicates as boundary findings. For every finding that is a repeatable pattern (missing gate, wrong value, forbidden construct, naming violation), search the entire workspace for other occurrences of the same pattern and include all affected locations in the finding — not just the first one found. A finding is not complete until the full scope is known. For deletion sprints, req-qa must run whole-workspace pattern searches for each removed legacy construct family named in the sprint doc. For observability sprints, req-qa must also verify that every sprint-diff code path that can reach a user-visible failure has an emit call site.</step>
+    <step id="i">When triage records are present, explicitly state whether each rechecked finding is still open, fixed on the reviewed branch, regressed, or requires a new triage pass because the scope changed.</step>
+    <step id="j">If a PR number is present, check stack and CI state with `gh stack view --json` from a worktree checked out on `{{ branch }}` (if it reports the branch is not part of a stack, run `gh stack checkout <stack number shown on the PR page>` there first) and `gh pr checks {{ pr_number }} --json name,state,bucket`. Never use `gh pr checks --watch` or parse its text output. Report a PR with no CI run as conflicting or needs-rebase, with the `gh stack view --json` output.</step>
+    <step id="k">Install the daemon-readable templates with `mkdir -p ~/.atm/templates/quality-management-gh && cp .claude/skills/quality-management-gh/*.j2 ~/.atm/templates/quality-management-gh/`. Append the completed QA report to the PR whenever a PR exists: render `FAIL`/`IN-FLIGHT` with `atm compose --template ~/.atm/templates/quality-management-gh/findings-report.md.j2 --vars <scratch>/qa-<pr>-vars.json | gh pr comment <PR> --body-file -`, or `PASS` with the same command using `~/.atm/templates/quality-management-gh/quality-report.md.j2`. Build vars for this QA run from the selected template's `required_variables` frontmatter; never reuse a previous or sample report's vars. Write the vars file outside the repository working tree (in the session scratchpad or a temp directory); never commit or stage it, and delete it or let it expire after the send. The PR comment remains required.</step>
+    <step id="l">Deliver the final QA verdict by closing this task with the rendered report as the body: `atm task close {{ task_id }} completed --template ~/.atm/templates/quality-management-gh/findings-report.md.j2 --vars <scratch>/qa-<pr>-vars.json` for `FAIL`/`IN-FLIGHT`, or `atm task close {{ task_id }} completed --template ~/.atm/templates/quality-management-gh/quality-report.md.j2 --vars <scratch>/qa-<pr>-vars.json` for `PASS`. The close delivers the report to the assigner (the sender of this message) and frees your queue; a plain `atm send {{ lead }}` leaves `{{ task_id }}` open and the next QA task never starts. A `FAIL` verdict still closes the task as `completed` — the QA round is the task, the code is not; use the same outside-repository scratchpad or temp vars file, never commit or stage it, and delete it or let it expire after the send. Include deliverable completion as `X/Y (Z%)`. PASS requires 100% deliverable completion, a PASS verdict from every required reviewer, an active PR for the branch, and no unresolved blocking findings. {% if cc and cc != lead %}Copy a one-line summary to `{{ cc }}` with a plain `atm send {{ cc }} --stdin`.{% endif %}</step>
+{% if triage_records and triage_records|trim %}    <step id="m">For every triage record in `{{ triage_records }}` (or any other `.triage/*/findings/*.ttl` record in scope for this round) that this round's reviewers confirm is fixed on the reviewed branch, update that record's `triage:status` to `"fixed"` and set `triage:closedAt`/`triage:closedBy "quality-mgr"` before sending the final verdict — per the triaging-findings skill's closure rule that quality-mgr, not {{ lead }}, owns finding closure once follow-up QA confirms the fix. Do not close a record that is still open, regressed, or unverified this round. List every record you closed (finding id + file) in the final verdict message so {{ lead }} can reconcile it.</step>
+{% endif %}  </workflow>
+</repo-qa-task>
+{%- endautoescape %}

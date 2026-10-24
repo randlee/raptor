@@ -1,6 +1,6 @@
 ---
 name: 03-consistency-hardening-task
-version: 1.0.0
+version: 1.2.0
 description: lead assignment template for cross-document consistency and ambiguity hardening after critical plan review.
 format: xml
 required_variables:
@@ -16,12 +16,14 @@ required_variables:
   - round_id
   - round_index
   - replay_nonce
-optional_variables:
-  - lead
-  - cc
 defaults:
   lead: team-lead
   cc: team-lead
+  supersedes_task_id: ""
+  previous_reviewed_commit: ""
+  reviewed_commit: ""
+  questions_or_concerns: ""
+  reviewer_findings_json: ""
 metadata:
   type: plan-consistency-hardening
   tags:
@@ -35,20 +37,21 @@ metadata:
     transition: consistency-hardening
     iteration_variable: round_index
 ---
-<atm-task id="{{ task_id }}" sprint="{{ phase }}" assignee="arch-ctm" mode="plan-hardening-consistency">
+{% autoescape false -%}
+<atm-task id="{{ task_id }}" sprint="{{ phase }}" mode="plan-hardening-consistency">
   <description>{{ description }}</description>
 
   <worktree>{{ worktree_path }}</worktree>
   <branch>{{ branch }}</branch>
   <pr-target>{{ pr_target }}</pr-target>
-  <round id="{{ round_id }}" index="{{ round_index }}" reviewer="quality-mgr" reviewed-commit="{{ reviewed_commit | default('') }}" supersedes="{{ supersedes_task_id | default('') }}"/>
+  <round id="{{ round_id }}" index="{{ round_index }}" reviewer="quality-mgr" reviewed-commit="{{ reviewed_commit }}" supersedes="{{ supersedes_task_id }}"/>
   <replay-nonce>{{ replay_nonce }}</replay-nonce>
 
   <source-of-truth>
 {{ source_of_truth }}
   </source-of-truth>
 
-{% if questions_or_concerns is defined and questions_or_concerns | trim %}
+{% if questions_or_concerns | trim %}
   <questions-or-concerns>
 {{ questions_or_concerns }}
   </questions-or-concerns>
@@ -58,7 +61,7 @@ metadata:
 {{ references }}
   </references>
 
-{% if reviewer_findings_json is defined and reviewer_findings_json | trim %}
+{% if reviewer_findings_json | trim %}
   <reviewer-findings-json>
 <![CDATA[
 {{ reviewer_findings_json }}
@@ -76,7 +79,7 @@ metadata:
       "status": "PASS | FAIL",
       "mode": "critical-plan-review",
       "reviewer": "critical-plan-reviewer",
-      "round_id": "STEP-3-R1",
+      "round_id": "STEP3-R1",
       "round_index": 1,
       "reviewed_commit": "abc1234",
       "previous_reviewed_commit": "",
@@ -107,6 +110,13 @@ metadata:
   </required-input>
 
   <plan-hardening-consistency>
+    Parallelism guard: this pass must not make the plan more serial. Do not
+    add a `must_follow` edge, merge layer sprints, widen a sprint's
+    `owned_paths` across a boundary, or move end-to-end proof into a
+    `contract` or `boundary` sprint to resolve a finding. If the wave table's
+    critical path or width changes in this pass, report both old and new
+    values and the reason in the fenced JSON `parallelism` block.
+
     Read the current plan docs from disk first, using `<source-of-truth>` and
     `<references>`, before doing anything else.
 
@@ -239,12 +249,13 @@ metadata:
         "round_id": "{{ round_id }}",
         "round_index": {{ round_index }},
         "reviewed_commit": "<commit-sha>",
-        "previous_reviewed_commit": "{{ previous_reviewed_commit | default('') }}",
+        "previous_reviewed_commit": "{{ previous_reviewed_commit }}",
         "iterations": 0,
         "findings_resolved": 0,
         "final_finding_count": 0,
         "docs_modified": [],
         "docs_created": [],
+        "parallelism": {"critical_path_before": 0, "critical_path_after": 0, "width_before": 0, "width_after": 0, "reason": ""},
         "ready_for_next_step": true,
         "errors": []
       }
@@ -253,13 +264,14 @@ metadata:
   </plan-hardening-consistency>
 
   <workflow>
-    <step id="a">Start the task immediately with `atm task start {{ task_id }} "&lt;one line on what you will do first&gt;"`. If the required fenced JSON handoff from `critical-plan-reviewer` is missing or malformed, reject the task immediately. If the task includes questions or concerns, report them to the lead before proceeding; if it materially changes the discussed scope, state that consistency hardening is blocked pending user discussion. Make reasonable assumptions and do not ask clarifying questions unless a real blocker prevents execution.</step>
+    <step id="a">Start the task immediately with `atm task start {{ task_id }} "<one line on what you will do first>"`. If the required fenced JSON handoff from `critical-plan-reviewer` is missing or malformed, reject the task immediately. If the task includes questions or concerns, report them to the lead before proceeding; if it materially changes the discussed scope, state that consistency hardening is blocked pending user discussion. Make reasonable assumptions and do not ask clarifying questions unless a real blocker prevents execution.</step>
     <step id="b">Immediately after task start, begin executing the task in the same work session.</step>
     <step id="c">Before editing, update the worktree from the target branch and include prior fixes already merged to that target.</step>
     <step id="d">As soon as the hardening changes are complete and the branch is pushable, commit and push immediately. Send branch name and commit hash right away with a plain `atm send {{ lead }} --stdin` (never close the task on a push) so {{ lead }} critical review can begin in parallel. {% if cc and cc != lead %}Copy a one-line summary to `{{ cc }}` with a plain `atm send {{ cc }} --stdin`.{% endif %}</step>
     <step id="e">After the push report, run the required validation. Do not wait for PR creation before starting validation.</step>
     <step id="f">When validation completes, send a second report with PASS or FAIL, concrete failure details if any, and whether follow-up fixes are required.</step>
-    <step id="g">After the hardening loop converges, ensure all document updates are staged, committed, and pushed. Return fenced JSON only, delivered as the close: `atm task close {{ task_id }} completed --stdin &lt;&lt;'EOF' … EOF` with the PASS/FAIL line and the fenced JSON in the body. Only this close frees your queue: the next assignment stays queued until `{{ task_id }}` is closed, and a plain `atm send` report does not close it. The next step after this pass is codex-orchestration plan QA through `quality-mgr`, not another local plan-hardening review loop. {% if cc and cc != lead %}Copy a one-line summary to `{{ cc }}` with a plain `atm send {{ cc }} --stdin`.{% endif %}</step>
+    <step id="g">After the hardening loop converges, ensure all document updates are staged, committed, and pushed. Return fenced JSON only, delivered as the close: `atm task close {{ task_id }} completed --template .claude/skills/plan-hardening/plan-consistency-hardening-complete.md.j2 --vars <scratch>/plan-consistency-hardening-complete-{{ task_id }}-vars.json`, with `status` the PASS/FAIL line, `result_json` the fenced JSON body verbatim, and `task_id`, `phase` and `round_index` unchanged from this assignment; write the vars file outside the repository. Only this close frees your queue: the next assignment stays queued until `{{ task_id }}` is closed, and a plain `atm send` report does not close it. The next step after this pass is codex-orchestration plan QA through `quality-mgr`, not another local plan-hardening review loop. {% if cc and cc != lead %}Copy a one-line summary to `{{ cc }}` with a plain `atm send {{ cc }} --stdin`.{% endif %}</step>
     <step id="h">After the close, read ATM again: the next queued task starts only now.</step>
   </workflow>
 </atm-task>
+{%- endautoescape %}
