@@ -2,7 +2,7 @@
 # Do not edit: change registry.yaml and rerun the install. Read it through
 # .claude/skills/atm-beads/scripts/repo_config.py (load()).
 bead_prefix: "rap"
-dev_sanity_member: "dev-sanity"
+dev_sanity_member: "rap-sanity"
 qa_member: "quality-mgr"
 team_lead_member: "team-lead"
 worktree_base: "../raptor-worktrees"

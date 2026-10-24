@@ -12,7 +12,7 @@
     },
     {
       "path": ".claude/agents/dev-sanity.md",
-      "sc_sha": "433094fc6ae97dc678b73b6de0e7864132b3f450d48685170de89464f746f008"
+      "sc_sha": "0492a9afe48a2474a4a6c00d82e6e68931b79fdaec416e1bbef3e4b8f2acb747"
     },
     {
       "path": ".claude/agents/parallax.md",
@@ -32,7 +32,7 @@
     },
     {
       "path": ".claude/project/atm-bd-orchestration.yaml",
-      "sc_sha": "76ba0b4cbe56912edcebb95ff0e5e118b1c797adf1a054593d3a2d9d1d2fb3e2"
+      "sc_sha": "dda45e6314253a9e52e783f87ff7ba186c1c46945da0b99a7b8ea6d8f1c8281f"
     },
     {
       "path": ".claude/skills/atm-bd-orchestration/SKILL.md",
@@ -764,7 +764,7 @@
     },
     {
       "path": ".claude/skills/atm-beads/resources/dev-sanity.md",
-      "sc_sha": "095e6c26efa060871d7b06ee4c9a6f9fb2c069a806aadcbf8f70189f78903f6f"
+      "sc_sha": "231ce414f09e95dd8bcc5a8d1849549f41433bda16856eb246598b697ad37a3b"
     },
     {
       "path": ".claude/skills/atm-beads/resources/importing-md-plan.md",

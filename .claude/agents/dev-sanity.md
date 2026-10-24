@@ -15,7 +15,7 @@ outside the repository; never edit code, commit, or push.
 
 | Setting | Where | raptor |
 | --- | --- | --- |
-| member | roles.dev-sanity in registry.yaml | `dev-sanity` |
+| member | roles.dev-sanity in registry.yaml | `rap-sanity` |
 
 ## Startup and pinned content
 
