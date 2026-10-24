@@ -1,5 +1,5 @@
 ---
-id: A.4
+id: a-4
 title: Convert the document templates to sc-compose
 status: planned
 branch: feature/A-4-templates

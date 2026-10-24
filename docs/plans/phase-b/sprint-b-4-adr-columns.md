@@ -1,5 +1,5 @@
 ---
-id: B.4
+id: b-4
 title: ADR columns
 status: planned
 branch: feature/b-4-adr-columns
@@ -21,7 +21,7 @@ the second corpus run and its report.
 - `crates/raptor-schema/src/**`, `crates/raptor-schema/tests/**`
 - `templates/decision.md.j2`, `templates/requirement.md.j2` (header loop only)
 - `tests/fixtures/records.json`, `tests/test_extract.py`, `tests/test_load.py`
-- `docs/phase-b/corpus-run-b4.md` (new)
+- `docs/plans/phase-b/corpus-run-b4.md` (new)
 
 ## Deliverables
 
@@ -83,7 +83,7 @@ an item is `UNKNOWN_LABEL` with `allowed` naming `Decision Date`.
 
 ### Corpus run
 
-As B.3, written to `docs/phase-b/corpus-run-b4.md`, with a second table
+As B.3, written to `docs/plans/phase-b/corpus-run-b4.md`, with a second table
 showing each B.3 group's count then and now.
 
 ## Out of scope

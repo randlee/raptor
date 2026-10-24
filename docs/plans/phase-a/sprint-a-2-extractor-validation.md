@@ -1,5 +1,5 @@
 ---
-id: A.2
+id: a-2
 title: Copy the extractor, run it, validate against the model
 status: planned
 branch: feature/A-2-extractor

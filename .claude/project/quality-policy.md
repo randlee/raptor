@@ -15,8 +15,8 @@ differ.
 - Default comparison branch: `develop`
 - Requirements index: `docs/requirements.md` (REQ ids inline, e.g.
   `REQ-RAP-0001`)
-- Architecture index: `docs/architecture.md`; ADRs are
-  `docs/adr/ADR-NNN-<slug>.md`, indexed by `docs/adr/INDEX.md`
+- Architecture index: `docs/architecture.md`; ADRs are `## ADR-RAP-NNNN:`
+  sections of `docs/adr/adr-rap-product.md` (see Repository Exceptions)
 - Project plan: `docs/project-plan.md`
 - Team protocol: none yet; the `codex-orchestration` and
   `atm-bd-orchestration` skills are the protocol
@@ -117,18 +117,20 @@ mechanics: the `sc-gh-stack` and `sc-gh-stack-view` skills.
 ## Governed Interfaces
 
 Raptor has no governed interfaces yet. When the record schema
-(`crates/raptor-schema`, ADR-004) or the CLI's JSON output contract ships,
+(`crates/raptor-schema`, ADR-RAP-0004) or the CLI's JSON output contract ships,
 add it here with its versioning rule and evidence paths, and retarget
 `schema-reviewer` (`.claude/agents/schema-reviewer.md`, currently written for
 atm-core) to it. Until then `schema-reviewer` is not dispatched.
 
 ## Repository Exceptions
 
-- ADR ids are in file names under `docs/adr/` (`ADR-001-*.md`) and are not
-  `## ADR-...` sections of `docs/architecture.md`; REQ ids are inline in
-  `docs/requirements.md`. `validate-plan` matches an id against document
-  content and file names (manifest `docs.*`). Pre-migration ids
-  `ADR-RAP-NNNN` are listed as aliases in `docs/adr/INDEX.md`.
+- ADRs deliberately differ from atm-core's one-file-per-ADR
+  `docs/adr/ADR-NNN-<slug>.md` form. Raptor's own importer
+  (`scripts/extract.py`) reads ADRs as `## ADR-XXX-NNNN:` H2 sections, and
+  `.raptor/identity.json` imports `docs/adr/adr-rap-product.md` as
+  `DOC-RAP-003`, so raptor's ADRs stay as `## ADR-RAP-NNNN:` sections of that
+  file. REQ ids are inline in `docs/requirements.md`. `validate-plan` matches
+  an id against document content and file names (manifest `docs.*`).
 - Existing sprint docs (phases a and b, before beads orchestration) carry no
   `requirements` / `adrs` front matter lists; do not raise missing-list
   findings for them.

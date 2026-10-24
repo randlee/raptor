@@ -1,5 +1,5 @@
 ---
-id: A.3
+id: a-3
 title: Skills to run the scripts
 status: planned
 branch: feature/A-3-skills

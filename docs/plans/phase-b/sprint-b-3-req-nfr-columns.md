@@ -1,5 +1,5 @@
 ---
-id: B.3
+id: b-3
 title: REQ and NFR columns
 status: planned
 branch: feature/b-3-req-columns
@@ -23,7 +23,7 @@ run.
 - `crates/raptor-schema/src/**`, `crates/raptor-schema/tests/**`
 - `templates/requirement.md.j2`, `templates/decision.md.j2`
 - `tests/fixtures/records.json`, `tests/test_extract.py`, `tests/test_load.py`
-- `docs/phase-b/corpus-run-b3.md` (new)
+- `docs/plans/phase-b/corpus-run-b3.md` (new)
 
 ## Deliverables
 
@@ -117,7 +117,7 @@ Statement, Rationale, Success Criteria. The others are optional.
 ### Corpus run
 
 Run `extract.py` over the consumer repository checkout, read-only. Write
-`docs/phase-b/corpus-run-b3.md`: the consumer commit, file and record
+`docs/plans/phase-b/corpus-run-b3.md`: the consumer commit, file and record
 counts per table, exit code, and the summary groups as a table of rule,
 section, label, count, number of files, `allowed`. No file paths and no
 repository name appear in the file; the full JSON stays untracked and is

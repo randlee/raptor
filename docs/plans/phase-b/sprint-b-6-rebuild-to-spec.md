@@ -1,5 +1,5 @@
 ---
-id: B.6
+id: b-6
 title: Rebuild the crate to specification; Python qualifies
 status: draft
 branch: feature/b-6-rebuild-to-spec
@@ -43,7 +43,7 @@ RAP-B-AUDIT-1 and RAP-B-BASELINE-1.
 - `tests/test_qualify.py` (new); `tests/test_extract.py`, `tests/test_load.py`
 - `tests/fixtures/records.json` only if a shape below requires it
 - `.raptor/aliases.toml` (new, a comment and three empty tables) in Raptor
-- `docs/phase-b/consumer-run-b6.md` (new)
+- `docs/plans/phase-b/consumer-run-b6.md` (new)
 
 ## What is carried over, and nothing else
 
@@ -323,7 +323,7 @@ repository.
 
 ## Plan amendments this sprint needs
 
-Applied to `docs/phase-b/plan-phase-b.md` by the operator with this
+Applied to `docs/plans/phase-b/phase-b-plan.md` by the operator with this
 document: the label-tree section (the crate takes qualified JSON, not the
 tree; the qualifier takes the tree); the "Field attributes" table (the
 stored entry becomes the six attributes name, label, table, level with

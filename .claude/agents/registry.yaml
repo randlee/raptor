@@ -68,7 +68,7 @@ worktree_base: ../raptor-worktrees
 test_command: cargo test && python3 -m pytest -q tests
 lint_command: cargo fmt --check --all && cargo clippy --all-targets --all-features -- -D warnings
 integration_branch_pattern: integrate/phase-{phase}
-plans_dir: docs
+plans_dir: docs/plans
 requirements_globs:
   - docs/requirements.md
 adr_globs:

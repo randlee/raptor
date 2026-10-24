@@ -1,5 +1,5 @@
 ---
-id: B.2
+id: b-2
 title: Python on the crate
 status: planned
 branch: feature/b-2-python-on-crate

@@ -1,5 +1,5 @@
 ---
-id: A.1
+id: a-1
 title: Pydantic model of the record
 status: planned
 branch: feature/A-1-record-model

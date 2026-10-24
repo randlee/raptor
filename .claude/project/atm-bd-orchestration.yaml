@@ -9,7 +9,7 @@ worktree_base: "../raptor-worktrees"
 test_command: "cargo test \u0026\u0026 python3 -m pytest -q tests"
 lint_command: "cargo fmt --check --all \u0026\u0026 cargo clippy --all-targets --all-features -- -D warnings"
 integration_branch_pattern: "integrate/phase-{phase}"
-plans_dir: "docs"
+plans_dir: "docs/plans"
 requirements_globs: ["docs/requirements.md"]
 adr_globs: ["docs/adr/*.md"]
 policy_path: ".claude/project/quality-policy.md"
