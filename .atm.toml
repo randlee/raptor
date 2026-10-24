@@ -27,6 +27,11 @@ alias = "rap-quality-mgr"
 model = "sonnet"
 env = { ATM_IDENTITY = "quality-mgr", ATM_TEAM = "raptor" }
 
+[[rmux.windows.panes]]
+name = "dev-sanity"
+model = "sonnet"
+env = { ATM_IDENTITY = "dev-sanity", ATM_TEAM = "raptor" }
+
 # Window 2: additional workers (luna + astra)
 [[rmux.windows]]
 name = "workers"
@@ -47,3 +52,8 @@ all = ["Read /codex-orchestration SKILL.md"]
 
 [startup.quality-mgr]
 all = ["This is your directive:", "@file:.claude/agents/quality-mgr.md"]
+
+[startup.dev-sanity]
+all = ["Your role is dev-sanity under atm-bd-orchestration: read .claude/agents/dev-sanity.md now (again after every compaction) and run its Startup section",
+       "Use native atm send or atm ack for messages to team-lead",
+       "Use native atm read to read messages from team-members" ]
