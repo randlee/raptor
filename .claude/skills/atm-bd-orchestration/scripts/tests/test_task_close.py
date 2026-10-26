@@ -112,7 +112,7 @@ def test_dev_handoff_is_immediate_and_closes_the_dev_task_as_the_dev(world, monk
             # The hook sends the completion file it wrote, never the lead's dispatch file.
             assert Path(argv[argv.index("--vars") + 1]).name == "completion-vars.json"
     for argv, kwargs in world.calls:
-        if argv[:3] == ["atm", "task", "assign"]:
+        if argv[:3] in (["atm", "task", "assign"], ["atm", "hook", "list"]):   # the lead's team: the sanity dispatch
             assert kwargs["env"]["ATM_TEAM"] == "test-team"
         else:
             assert kwargs["env"].get("ATM_TEAM") == before.get("ATM_TEAM")
@@ -396,7 +396,7 @@ def test_not_reproducible_assigns_runtime_top_without_rewriting_input(world):
     assert assignment["values"]["beads_dir"] == str(world.root / ".beads")
     assert any(argv == ["bd", "where", "--json"] for argv, _kwargs in world.calls)
     assert set(assignment["values"]) == set(world.values) | {"branch", "commit", *contract["derived_variables"],
-                                                          "close_context", "beads_dir"}
+                                                          "close_context", "beads_dir", "sanity_close_mode"}
     assert not any(argv[0] == "gh" for argv, _kwargs in world.calls)
 
 
@@ -845,7 +845,7 @@ def test_each_role_command_order_and_identity(world, role, expected_writes):
         expected_sender = "phase-lead" if argv[:3] == ["atm", "task", "assign"] else "caller"
         assert sender == expected_sender, argv
     for argv, kwargs in world.calls:
-        expected_identity = "phase-lead" if argv[:3] == ["atm", "task", "assign"] else "caller"
+        expected_identity = "phase-lead" if argv[:3] in (["atm", "task", "assign"], ["atm", "hook", "list"]) else "caller"
         assert kwargs["env"]["ATM_IDENTITY"] == expected_identity, argv
 
 
@@ -1023,7 +1023,8 @@ def test_close_from_documented_dispatch_and_result_files_derives_handoff(world, 
     derived = {"commit": world.head, "pr_number": str(world.pr_number),
                "pr_url": f"https://github.com/example/repo/pull/{world.pr_number}",
                "rebased_onto": "b" * 40}
-    assert set(assignment["values"]) == set(dispatch) | set(result) | set(DERIVED) | {"close_context", "beads_dir"}
+    assert set(assignment["values"]) == set(dispatch) | set(result) | set(DERIVED) | {"close_context", "beads_dir",
+                                                                                         "sanity_close_mode"}
     assert {name: assignment["values"][name] for name in derived} == derived
     assert re.fullmatch(r"\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}Z", assignment["values"]["generated_at"])
     update = next(argv for argv, _ in world.writes if argv[:3] == ["bd", "update", dispatch["checked_bead"]])
@@ -1396,3 +1397,51 @@ def test_a_busy_drain_is_waited_for_then_reported(world):
     assert result["err"]["code"] == "BEADS.WRITE_PENDING" and "busy" in result["err"]["message"]
     assert world.sleeps.count(hook.DRAIN_BUSY_SLEEP_S) == hook.DRAIN_TRIES
     assert "ok" in world.run()
+
+
+def sanity_hook_row(**changes):
+    """One `atm hook list --json` row for the phase's sanity task.close registration (SANITY-CLOSE-HOOK.md)."""
+    return {"team": "test-team", "phase": "bj", "hook": "task.close", "active": True, "cwd": "/repo",
+            "module_path": "/repo/.claude/skills/atm-bd-orchestration/scripts/sanity_task_close_hook.py",
+            "custom": {"task_prefix": "atm-bj-", "sanity_agents": ["sanity"]}, "timeout_ms": 2500,
+            "registered_by": "phase-lead", "registered_at": "2026-10-19T00:00:00Z", "disabled_at": None, **changes}
+
+
+def sanity_assignment(world):
+    return next(message for message in world.messages if message["type"] == "dev-sanity-task")
+
+
+def test_sanity_dispatch_is_daemon_mode_when_the_phase_registers_the_sanity_close_hook(world):
+    world.hooks = [sanity_hook_row()]
+    assert "ok" in world.run()
+    assignment = sanity_assignment(world)
+    assert assignment["values"]["sanity_close_mode"] == "daemon"
+    assert 'close-mode="daemon"' in assignment["body"]
+    assert "sanity-task-close.md.j2" in assignment["body"]
+    listed = [kwargs for argv, kwargs in world.calls if argv == ["atm", "hook", "list", "--phase", "bj", "--json"]]
+    assert len(listed) == 1 and listed[0]["env"]["ATM_IDENTITY"] == "phase-lead"
+
+
+@pytest.mark.parametrize("rows", [
+    [],
+    [sanity_hook_row(active=False, disabled_at="2026-10-19T01:00:00Z")],
+    [sanity_hook_row(custom={"task_prefix": "atm-bj-", "sanity_agents": ["someone-else"]})],
+    [sanity_hook_row(module_path="/repo/hooks/other_close_hook.py")],
+    [sanity_hook_row(hook="task.start")],
+    [sanity_hook_row(phase="bk")],
+], ids=["none", "disabled", "other-agent", "other-module", "other-hook", "other-phase"])
+def test_sanity_dispatch_stays_legacy_without_an_active_sanity_close_hook(world, rows):
+    world.hooks = rows
+    assert "ok" in world.run()
+    assignment = sanity_assignment(world)
+    assert assignment["values"]["sanity_close_mode"] == "legacy"
+    assert 'close-mode="legacy"' in assignment["body"]
+
+
+def test_sanity_dispatch_refuses_before_closing_when_hook_list_fails(world):
+    world.overrides[("atm", "hook", "list", "--phase", "bj", "--json")] = (1, "")
+    output = world.run()
+    assert output["err"]["code"] == "COMMAND.FAILED"
+    assert "atm hook list" in output["err"]["fix"]
+    assert world.beads[world.values["checked_bead"]]["status"] == "in_progress"
+    assert not [argv for argv, _identity in world.writes if argv[0] == "atm"]

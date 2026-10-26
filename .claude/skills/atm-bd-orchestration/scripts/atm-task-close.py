@@ -62,6 +62,24 @@ SANITY_CLOSE_CONTEXT = frozenset((
     "reviewers_round1", "round", "sprint_bead", "stack", "stack_bead"))
 
 
+SANITY_CLOSE_HOOK_MODULE = "sanity_task_close_hook.py"
+
+
+def sanity_close_mode(rows, phase, member):
+    """`daemon` when `atm hook list --phase <phase> --json` shows an active task.close registration of the sanity
+    close hook that enables `member` (SANITY-CLOSE-HOOK.md); otherwise `legacy`."""
+    for row in rows if isinstance(rows, list) else []:
+        if not isinstance(row, dict):
+            continue
+        custom = row.get("custom")
+        agents = custom.get("sanity_agents") if isinstance(custom, dict) else None
+        if (row.get("phase") == phase and row.get("hook") == "task.close" and row.get("active") is True
+                and Path(str(row.get("module_path") or "")).name == SANITY_CLOSE_HOOK_MODULE
+                and isinstance(agents, list) and member in agents):
+            return "daemon"
+    return "legacy"
+
+
 def is_terminal(events):
     return bool(events) and events[-1].get("to_state") in TERMINAL_STATES
 
@@ -665,6 +683,9 @@ class Hook:
         close_context = {name: context[name] for name in SANITY_CLOSE_CONTEXT if name in context}
         close_context.update(phase_lead=self.lead, budget=context.get("budget", "full"))
         dispatch = {**context, "close_context": close_context, "beads_dir": self.beads_directory()}
+        phase = str(context.get("phase") or "")
+        rows = self.json(["atm", "hook", "list", "--phase", phase, "--json"], lead=True) if phase else []
+        dispatch["sanity_close_mode"] = sanity_close_mode(rows, phase, self.config["dev_sanity_member"])
         self.render(template, dispatch)
         size = len(json.dumps(dispatch).encode()) + len((TEMPLATES / template).read_bytes())
         if size > ATM_MAX_REQUEST_BYTES:
