@@ -5,7 +5,7 @@ default_team = "raptor"
 [rmux]
 session = "raptor"
 
-# Window 1: core agents (lead + primary codex + QA)
+# Window 1: core agents (lead + primary codex)
 [[rmux.windows]]
 name = "agents"
 layout = "even-horizontal"
@@ -21,17 +21,6 @@ name = "crap"
 command = "codex --no-daemon -c features.hooks=true --model gpt-6.1-terra --yolo"
 env = { ATM_IDENTITY = "crap", ATM_TEAM = "raptor" }
 
-[[rmux.windows.panes]]
-name = "quality-mgr"
-alias = "rap-quality-mgr"
-model = "sonnet"
-env = { ATM_IDENTITY = "quality-mgr", ATM_TEAM = "raptor" }
-
-[[rmux.windows.panes]]
-name = "rap-sanity"
-model = "sonnet"
-env = { ATM_IDENTITY = "rap-sanity", ATM_TEAM = "raptor" }
-
 # Window 2: additional workers (luna + astra)
 [[rmux.windows]]
 name = "workers"
@@ -46,6 +35,22 @@ env = { ATM_IDENTITY = "lrap", ATM_TEAM = "raptor" }
 name = "arap"
 command = "codex --no-daemon -c features.hooks=true --model gpt-6-astra --yolo"
 env = { ATM_IDENTITY = "arap", ATM_TEAM = "raptor" }
+
+# Window 3: quality (review + sanity)
+[[rmux.windows]]
+name = "quality"
+layout = "even-horizontal"
+
+[[rmux.windows.panes]]
+name = "quality-mgr"
+alias = "rap-quality-mgr"
+model = "sonnet"
+env = { ATM_IDENTITY = "quality-mgr", ATM_TEAM = "raptor" }
+
+[[rmux.windows.panes]]
+name = "rap-sanity"
+model = "sonnet"
+env = { ATM_IDENTITY = "rap-sanity", ATM_TEAM = "raptor" }
 
 [startup.team-lead]
 all = ["Read /codex-orchestration SKILL.md"]
