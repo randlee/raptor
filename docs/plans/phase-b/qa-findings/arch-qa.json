@@ -19,15 +19,22 @@
       "duplicates_or_overlaps": [
         "ATM-QA-001"
       ],
-      "status": "pending",
+      "status": "fixed-verified",
       "current_evidence": [],
-      "disposition_note": "No filing-reviewer closure confirmation received.",
-      "verification": null,
+      "disposition_note": "Filing reviewer confirmed fixed; quality-mgr approved whole Phase B and B1-B6 in round10.",
+      "verification": {
+        "commit": "e2dfc3455abaf274a207b5ac0d614832f440158e",
+        "task": "RAP-B-FINAL-ACCEPTANCE-VERIFY-20261030-10",
+        "closed_by": "quality-mgr",
+        "report": "https://github.com/randlee/raptor/pull/85#issuecomment-6540159947",
+        "source_message": "01M68ASGT0TD8P4GD1PHVPNFVQ",
+        "filing_reviewer": "arch-qa"
+      },
       "user_ruling": {
         "date": "2026-10-30",
         "source": "User yes/yes response to two explicit acceptance questions",
         "decision": "Approved narrow Value exception and audited B6 proof replacing missing historical per-group reports, including documented additional parser corrections. Strict duplicate rejection retained.",
-        "verification_status": "Awaiting filing reviewer and quality-manager verification; not automatically closed."
+        "verification_status": "Verified by filing reviewer and quality-mgr; see finding verification."
       }
     },
     {

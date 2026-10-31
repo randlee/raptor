@@ -1,6 +1,7 @@
 # Consumer run B.6 — audited strict duplicate comparison
 
 Runtime proof SHA: `fc961ce19f605a209c9e09650bbacf6d4cf782c8`.
+Proof archive SHA-256: `a2133040de45c3952bf7d1ce1e6f6f01a739adfdc31efb92cc18dfceea4dfb2b`.
 Baseline extractor: `0fd132c50c7fc4f9136e0cea67bdf39865b64025`.
 Document commit: `6be9d2d5eae8d34499785c267cf4d5ae9b3b0236`.
 Fresh source archive, environment, extension and empty build target were used.
@@ -93,7 +94,7 @@ The user accepted this audited B6 before/after proof in place of missing histori
 per-group reports and accepted the documented additional parser corrections on
 2026-10-30 ("yes/yes"). Historical reports are not recreated or relabelled.
 The narrow generated-schema/metadata and diagnostic Value exceptions were also
-approved. Final quality-manager verification remains required; strict duplicate
-rejection and existing per-file limits remain in force.
+approved. Quality-mgr approved B1–B6 and the whole phase in round 10.
+Strict duplicate rejection and existing per-file limits remain in force.
 Evidence summary SHA-256:
 `1b0a61e31d761c0a1d31998369d340c626814bb2096254bfb5e898bb0dc57b26`.

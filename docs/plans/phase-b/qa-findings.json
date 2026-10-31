@@ -98,5 +98,26 @@
       "finding_count": 5
     }
   ],
-  "supplemental_report": "https://github.com/randlee/raptor/pull/84#issuecomment-6538982691"
+  "supplemental_report": "https://github.com/randlee/raptor/pull/84#issuecomment-6538982691",
+  "final_acceptance": {
+    "commit": "e2dfc3455abaf274a207b5ac0d614832f440158e",
+    "task": "RAP-B-FINAL-ACCEPTANCE-VERIFY-20261030-10",
+    "closed_by": "quality-mgr",
+    "report": "https://github.com/randlee/raptor/pull/85#issuecomment-6540159947",
+    "source_message": "01M68ASGT0TD8P4GD1PHVPNFVQ",
+    "verdict": "PASS",
+    "approved_sprints": [
+      "b-1",
+      "b-2",
+      "b-3",
+      "b-4",
+      "b-5",
+      "b-6"
+    ],
+    "finding_status_counts": {
+      "fixed-verified": 78,
+      "rejected-with-reason": 1
+    },
+    "landing_status": "Not merged; requires operator landing instruction."
+  }
 }

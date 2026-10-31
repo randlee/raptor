@@ -19,10 +19,17 @@
       "duplicates_or_overlaps": [
         "ARCH-001"
       ],
-      "status": "pending",
+      "status": "fixed-verified",
       "current_evidence": [],
-      "disposition_note": "No filing-reviewer closure confirmation received.",
-      "verification": null,
+      "disposition_note": "Filing reviewer confirmed fixed; quality-mgr approved whole Phase B and B1-B6 in round10.",
+      "verification": {
+        "commit": "e2dfc3455abaf274a207b5ac0d614832f440158e",
+        "task": "RAP-B-FINAL-ACCEPTANCE-VERIFY-20261030-10",
+        "closed_by": "quality-mgr",
+        "report": "https://github.com/randlee/raptor/pull/85#issuecomment-6540159947",
+        "source_message": "01M68ASGT0TD8P4GD1PHVPNFVQ",
+        "filing_reviewer": "req-qa"
+      },
       "acceptance_source_refs": [
         "docs/plans/phase-b/sprint-b-6-rebuild-to-spec.md:46",
         "docs/plans/phase-b/sprint-b-6-rebuild-to-spec.md:270-286",
@@ -32,15 +39,23 @@
         "date": "2026-10-30",
         "source": "User yes/yes response to two explicit acceptance questions",
         "decision": "Approved narrow Value exception and audited B6 proof replacing missing historical per-group reports, including documented additional parser corrections. Strict duplicate rejection retained.",
-        "verification_status": "Awaiting filing reviewer and quality-manager verification; not automatically closed."
+        "verification_status": "Verified by filing reviewer and quality-mgr; see finding verification."
       },
       "follow_up_findings": [
         {
           "id": "ATM-QA-001-R9-A",
           "severity": "minor",
           "issue": "Report exceeds100lines and has stale title/check status.",
-          "status": "implemented-unverified",
-          "source_message": "01M68AFQ18K7PFTR9H9VSJKRXG"
+          "status": "fixed-verified",
+          "source_message": "01M68AFQ18K7PFTR9H9VSJKRXG",
+          "verification": {
+            "commit": "e2dfc3455abaf274a207b5ac0d614832f440158e",
+            "task": "RAP-B-FINAL-ACCEPTANCE-VERIFY-20261030-10",
+            "closed_by": "quality-mgr",
+            "report": "https://github.com/randlee/raptor/pull/85#issuecomment-6540159947",
+            "source_message": "01M68ASGT0TD8P4GD1PHVPNFVQ",
+            "filing_reviewer": "req-qa"
+          }
         }
       ]
     },
@@ -257,15 +272,23 @@
         "date": "2026-10-30",
         "source": "User yes/yes response to two explicit acceptance questions",
         "decision": "Approved narrow Value exception and audited B6 proof replacing missing historical per-group reports, including documented additional parser corrections. Strict duplicate rejection retained.",
-        "verification_status": "Awaiting filing reviewer and quality-manager verification; not automatically closed."
+        "verification_status": "Verified by filing reviewer and quality-mgr; see finding verification."
       },
       "follow_up_findings": [
         {
           "id": "ATM-QA-007-R9-A",
           "severity": "minor",
           "issue": "B3/B4/B5 acceptance sections need supersession references.",
-          "status": "implemented-unverified",
-          "source_message": "01M68AFQ18K7PFTR9H9VSJKRXG"
+          "status": "fixed-verified",
+          "source_message": "01M68AFQ18K7PFTR9H9VSJKRXG",
+          "verification": {
+            "commit": "e2dfc3455abaf274a207b5ac0d614832f440158e",
+            "task": "RAP-B-FINAL-ACCEPTANCE-VERIFY-20261030-10",
+            "closed_by": "quality-mgr",
+            "report": "https://github.com/randlee/raptor/pull/85#issuecomment-6540159947",
+            "source_message": "01M68ASGT0TD8P4GD1PHVPNFVQ",
+            "filing_reviewer": "req-qa"
+          }
         }
       ]
     },
@@ -599,22 +622,38 @@
         "date": "2026-10-30",
         "source": "User yes/yes response to two explicit acceptance questions",
         "decision": "Approved narrow Value exception and audited B6 proof replacing missing historical per-group reports, including documented additional parser corrections. Strict duplicate rejection retained.",
-        "verification_status": "Awaiting filing reviewer and quality-manager verification; not automatically closed."
+        "verification_status": "Verified by filing reviewer and quality-mgr; see finding verification."
       },
       "follow_up_findings": [
         {
           "id": "ATM-QA-017-R9-A",
           "severity": "minor",
           "issue": "B6 old helper and rg wording must reflect four-file exception.",
-          "status": "implemented-unverified",
-          "source_message": "01M68AFQ18K7PFTR9H9VSJKRXG"
+          "status": "fixed-verified",
+          "source_message": "01M68AFQ18K7PFTR9H9VSJKRXG",
+          "verification": {
+            "commit": "e2dfc3455abaf274a207b5ac0d614832f440158e",
+            "task": "RAP-B-FINAL-ACCEPTANCE-VERIFY-20261030-10",
+            "closed_by": "quality-mgr",
+            "report": "https://github.com/randlee/raptor/pull/85#issuecomment-6540159947",
+            "source_message": "01M68ASGT0TD8P4GD1PHVPNFVQ",
+            "filing_reviewer": "req-qa"
+          }
         },
         {
           "id": "ATM-QA-017-R9-B",
           "severity": "minor",
           "issue": "Value guard must detect brace imports in unapproved files.",
-          "status": "implemented-unverified",
-          "source_message": "01M68AFQ18K7PFTR9H9VSJKRXG"
+          "status": "fixed-verified",
+          "source_message": "01M68AFQ18K7PFTR9H9VSJKRXG",
+          "verification": {
+            "commit": "e2dfc3455abaf274a207b5ac0d614832f440158e",
+            "task": "RAP-B-FINAL-ACCEPTANCE-VERIFY-20261030-10",
+            "closed_by": "quality-mgr",
+            "report": "https://github.com/randlee/raptor/pull/85#issuecomment-6540159947",
+            "source_message": "01M68ASGT0TD8P4GD1PHVPNFVQ",
+            "filing_reviewer": "req-qa"
+          }
         }
       ]
     },
