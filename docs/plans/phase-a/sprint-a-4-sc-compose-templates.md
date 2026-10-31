@@ -1,7 +1,7 @@
 ---
 id: a-4
 title: Convert the document templates to sc-compose
-status: planned
+status: complete
 branch: feature/A-4-templates
 worktree: ../raptor-worktrees/feature/A-4-templates
 target: develop

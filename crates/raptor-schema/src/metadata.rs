@@ -1,27 +1,38 @@
-use crate::{error::ErrorTable, schema::Modal};
+use crate::{
+    error::TableId,
+    schema::{Decision, Id, IdItem, Modal, Requirement},
+};
 use serde::Serialize;
 
-#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize)]
-pub enum Table {
-    Req,
-    Dec,
-    Both,
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum FieldScope {
+    All,
+    Only(TableId),
+}
+impl Serialize for FieldScope {
+    fn serialize<S: serde::Serializer>(&self, serializer: S) -> Result<S::Ok, S::Error> {
+        serializer.serialize_str(match self {
+            Self::All => "Both",
+            Self::Only(TableId::Req) => "Req",
+            Self::Only(TableId::Dec) => "Dec",
+        })
+    }
 }
 #[derive(Clone, Copy, PartialEq, Eq)]
-pub enum Presence {
+pub(crate) enum Presence {
     Required,
     Optional,
     Nullable,
 }
 #[derive(Clone, Copy, PartialEq, Eq)]
-pub enum Level {
+pub(crate) enum Level {
     Header,
     Item,
     Section,
     Label(Section),
 }
 #[derive(Clone, Copy, PartialEq, Eq)]
-pub enum Shape {
+pub(crate) enum Shape {
     Text,
     Date,
     Version,
@@ -38,7 +49,7 @@ pub enum Shape {
     Derived,
 }
 #[derive(Clone, Copy, PartialEq, Eq)]
-pub enum Section {
+pub(crate) enum Section {
     Statement,
     Rationale,
     Success,
@@ -75,19 +86,23 @@ impl Section {
     }
 }
 #[derive(Clone, Copy)]
-pub struct Field {
+pub(crate) enum ReferenceAccess {
+    List {
+        requirement: for<'a> fn(&'a Requirement) -> &'a [IdItem],
+        decision: Option<for<'a> fn(&'a Decision) -> &'a [IdItem]>,
+    },
+    Scalar {
+        requirement: for<'a> fn(&'a Requirement) -> Option<&'a Id>,
+        decision: for<'a> fn(&'a Decision) -> Option<&'a Id>,
+    },
+}
+#[derive(Clone, Copy)]
+pub(crate) struct Field {
     pub name: &'static str,
     pub label: &'static str,
-    pub table: Table,
+    pub table: FieldScope,
     pub level: Level,
     pub shape: Shape,
     pub presence: Presence,
-}
-impl From<ErrorTable> for Table {
-    fn from(table: ErrorTable) -> Self {
-        match table {
-            ErrorTable::Req => Self::Req,
-            ErrorTable::Dec => Self::Dec,
-        }
-    }
+    pub reference: Option<ReferenceAccess>,
 }

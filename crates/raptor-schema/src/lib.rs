@@ -6,14 +6,16 @@ mod error;
 mod fields;
 mod inventory;
 mod metadata;
+mod protocol;
+mod rule;
 mod schema;
 pub use accept::{Accepted, accept};
 pub use batch::Batch;
 pub use emit::{FieldMeta, MetaLevel, MetaShape, Role, field_table, json_schema, sql_ddl};
-pub use error::{Error, ErrorCategory, ErrorTable, ItemIndex, RecordPosition};
-pub use fields::FIELDS;
-pub use inventory::{Rule, Summary};
-pub use metadata::{Field, Level, Presence, Section, Shape, Table};
+pub use error::{Error, ErrorCategory, ItemIndex, RecordPosition, TableId};
+pub use inventory::Summary;
+pub use metadata::FieldScope;
+pub use rule::Rule;
 pub use schema::{
     Alternative, Alternatives, CheckItem, Consequences, Context, Date, Decision, DecisionRationale,
     DecisionSection, Dependencies, Id, IdItem, Identity, ImpactAnalysis, Implementation,
@@ -61,11 +63,8 @@ mod python {
     }
     #[pyfunction]
     fn field_table(py: Python<'_>, table: &str) -> PyResult<String> {
-        match super::ErrorTable::ALL
-            .iter()
-            .find(|kind| kind.name() == table)
-        {
-            Some(kind) => json(py, emit::field_table((*kind).into())),
+        match super::TableId::ALL.iter().find(|kind| kind.name() == table) {
+            Some(kind) => json(py, emit::field_table(*kind)),
             None => fail(
                 py,
                 Error::scalar(

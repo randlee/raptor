@@ -149,8 +149,8 @@ fn dangling_reference_wire_matches_695781b() {
 #[test]
 fn every_metadata_reference_is_checked() {
     for (table_name, table, target) in [
-        ("requirements", Table::Req, "REQ-FIX-9999"),
-        ("decisions", Table::Dec, "ADR-FIX-9999"),
+        ("requirements", TableId::Req, "REQ-FIX-9999"),
+        ("decisions", TableId::Dec, "ADR-FIX-9999"),
     ] {
         let mut input = fixture();
         let fields = field_table(table);
@@ -178,10 +178,10 @@ fn every_metadata_reference_is_checked() {
             .filter(|error| {
                 error.category == ErrorCategory::DanglingReference
                     && error.table
-                        == Some(if table == Table::Req {
-                            ErrorTable::Req
+                        == Some(if table == TableId::Req {
+                            TableId::Req
                         } else {
-                            ErrorTable::Dec
+                            TableId::Dec
                         })
             })
             .map(|error| error.field_path.to_string())

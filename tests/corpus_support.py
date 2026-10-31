@@ -12,15 +12,18 @@ ROOT = Path(__file__).parents[1]
 
 
 def run(script: str, *args: str, cwd: Path = ROOT, check: bool = True):
-    return subprocess.run(
-        [sys.executable, ROOT / "scripts" / script, *args],
-        cwd=cwd,
-        text=True,
-        capture_output=True,
-        check=check,
-        timeout=30,
-        stdin=subprocess.DEVNULL,
-    )
+    try:
+        return subprocess.run(
+            [sys.executable, ROOT / "scripts" / script, *args],
+            cwd=cwd,
+            text=True,
+            capture_output=True,
+            check=check,
+            timeout=30,
+            stdin=subprocess.DEVNULL,
+        )
+    except subprocess.TimeoutExpired as error:
+        pytest.fail(f"Command timed out after {error.timeout}s: {error.cmd!r}", pytrace=False)
 
 
 def project(tmp_path: Path) -> Path:
@@ -53,3 +56,9 @@ def qualify(root, text):
 
 def load_run(*args):
     return run("load_sqlite.py", *args)
+
+
+def replace_present(text, needle, replacement, count=-1):
+    """Refuse a diagnostic mutation that does not target the intended fixture content."""
+    assert needle in text, f"Mutation target is absent from fixture: {needle!r}"
+    return text.replace(needle, replacement, count)

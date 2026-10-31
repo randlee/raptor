@@ -37,7 +37,7 @@ def section_nodes(value, field, specification, schema, fields, table_info):
         for number, group in enumerate(value[collection], 1):
             caption = group[child_roles["caption"]]
             prefix = table_info["group_heading_prefix"]
-            nodes.append({"kind": "group", "body": f"{prefix} {number}: {caption}"})
+            nodes.append({"kind": "subheading", "body": f"{prefix} {number}: {caption}"})
             nodes.extend(section_nodes(group, field, prop, schema, fields, table_info))
         return nodes
     for metadata in fields:
@@ -62,23 +62,24 @@ def document_context(record, table, definitions):
     schema = definitions[table]
     fields = schema["x-raptor-fields"]
     info = schema["x-raptor-tables"][table]
+    heading_roles = schema["x-raptor-protocol"]["heading_roles"]
     headings = {
         field["role"]: record[field["name"]]
         for field in fields
-        if field["role"].startswith("heading_")
+        if field["role"] in heading_roles.values()
     }
     headers, items, sections = [], [], []
     for field in fields:
         key = field["name"]
         if field["level"] == "Header":
             if field["shape"] == "Derived":
-                identifier = headings["heading_id"]
+                identifier = headings[heading_roles["identifier"]]
                 value = identifier + info["range_separator"] + identifier
             else:
                 value = record[key]
             if field["required"] or value:
                 headers.append({"caption": field["label"], "body": value})
-        elif field["level"] == "Item" and not field["role"].startswith("heading_"):
+        elif field["level"] == "Item" and field["role"] not in heading_roles.values():
             items.append({"caption": field["label"], "body": record[key]})
         elif field["level"] == "Section":
             nodes = section_nodes(
@@ -90,6 +91,7 @@ def document_context(record, table, definitions):
         headers=headers,
         item_fields=items,
         sections=sections,
-        **headings,
+        token=headings[heading_roles["identifier"]],
+        caption=headings[heading_roles["caption"]],
     )
-    return headings["heading_id"], document
+    return headings[heading_roles["identifier"]], document

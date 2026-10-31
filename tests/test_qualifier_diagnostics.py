@@ -2,13 +2,13 @@ import raptor_schema
 import json
 
 import pytest
-from corpus_support import document, qualify
+from corpus_support import document, qualify, replace_present
 from corpus_support import ROOT
 
 
 def test_misspelling_keeps_verbatim_value_column_and_allowed(document):
     root, text = document
-    text = text.replace("**Status:** Active", "**Status:** Status")
+    text = replace_present(text, "**Status:** Active", "**Status:** Status")
     result = qualify(root, text)
     issue = next(issue for issue in result.issues if issue["rule"] == "BAD_VALUE")
     assert issue["value"] == "Status  "
@@ -35,12 +35,11 @@ def test_misspelling_keeps_verbatim_value_column_and_allowed(document):
 
 def test_section_level_nested_label_is_diagnostic(document):
     root, _ = document
-    text = (
-        (root / "docs/decisions/ADR-FIX-0001.md")
-        .read_text()
-        .replace(
-            "### Alternatives Considered", "### Alternatives Considered\n**Description:** stray", 1
-        )
+    text = replace_present(
+        (root / "docs/decisions/ADR-FIX-0001.md").read_text(),
+        "### Alternatives Considered",
+        "### Alternatives Considered\n**Description:** stray",
+        1,
     )
     result = qualify(root, text)
     issues = [i for i in result.issues if i["rule"] == "UNKNOWN_LABEL"]
@@ -62,7 +61,7 @@ def test_section_level_nested_label_is_diagnostic(document):
 )
 def test_unknown_names_preserve_source_token_and_column(document, old, new, rule):
     root, text = document
-    result = qualify(root, text.replace(old, new))
+    result = qualify(root, replace_present(text, old, new))
     issue = next(issue for issue in result.issues if issue["rule"] == rule)
     expected = "Unknown Label" if rule == "UNKNOWN_LABEL" else "Unknown Section  "
     assert issue["value"] == expected

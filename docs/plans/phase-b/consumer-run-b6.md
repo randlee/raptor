@@ -1,12 +1,12 @@
-# Consumer run B.6 — provisional comparison
+# Consumer run B.6 — comparison incomplete
 
-Extractor: `d8f1e1174c3f5529e2c6bef999f382bbf6211b47`.
+Extractor: `08865633afd601e7973514c974e82dd6f3fddfd6`.
 Baseline extractor: `0fd132c50c7fc4f9136e0cea67bdf39865b64025`.
 Document commit: `6be9d2d5eae8d34499785c267cf4d5ae9b3b0236`.
-This evidence precedes pending SQL-constraint and diagnostic-section fixes.
-A fresh extension build and pinned rerun are required before final acceptance.
-The pinned document snapshot was read without modifying its checkout.
-Extraction returned 1; SQLite loading and dumping returned 0.
+The validation extension was reinstalled from the exact committed source.
+The external snapshot was byte-verified against all 949 pinned archive files.
+Extraction returned 1; strict SQLite loading and dumping returned 0.
+The consuming checkout and previous evidence bundles were not modified.
 
 | Measure | Baseline | Candidate |
 | --- | ---: | ---: |
@@ -18,27 +18,24 @@ Extraction returned 1; SQLite loading and dumping returned 0.
 | Index decisions | 51 | 42 |
 | Dump requirements | 532 | 311 |
 | Dump decisions | 51 | 42 |
-| Diagnostics | 2243 | 3125 |
-| Summary groups | 634 | 548 |
-| UNKNOWN_LABEL | 1180 | 1102 |
-| MISSING_FIELD | 361 | 1267 |
-| BAD_VALUE | 345 | 395 |
+| Diagnostics | 2243 | 3146 |
+| Summary groups | 634 | 556 |
+| UNKNOWN_LABEL | 1180 | 1114 |
+| MISSING_FIELD | 361 | 1273 |
+| BAD_VALUE | 345 | 399 |
 | UNKNOWN_SECTION | 304 | 304 |
-| MISSING_ID | 40 | 40 |
+| MISSING_ID | 40 | 39 |
 | DUPLICATE_ID | 10 | 2 |
 | DANGLING_REFERENCE | 3 | 15 |
 
-Classification uses the exact directory component `rendered`.
-Zero matching files means the planned rendered corpus is absent; 0 of 0
-provides no consumer round-trip evidence. No aliases were applied.
+Classification uses the exact directory component `rendered`; the planned
+rendered consumer corpus is absent. Zero of zero provides no round-trip
+coverage. No aliases were applied.
 
-Full before-and-after record occurrences and diagnostic groups are retained
-in the external evidence bundle. Source matching uses unique heading identity,
-exact content witnesses for duplicate headings, and bijection after those
-witness assignments for the remaining empty occurrences. Each occurrence is
-qualified independently with its original document header. The resulting
-ordered row arrays exactly equal the emitted index. This avoids attributing
-one duplicate occurrence's diagnostics to another occurrence sharing its id.
+Full objects and source/code witnesses are retained externally, with hashes.
+Unique headings and exact content witnesses bind baseline occurrences to source;
+remaining empty duplicate occurrences are resolved by bijection. Independently
+qualified source occurrences reproduce the ordered candidate row arrays exactly.
 
 | Source-proven index difference mechanism | Occurrences |
 | --- | ---: |
@@ -51,36 +48,48 @@ one duplicate occurrence's diagnostics to another occurrence sharing its id.
 | Malformed placeholder items rejected | 1 |
 | Total changed baseline occurrences | 413 |
 
-The first three mechanisms account for 238 occurrences under the documented
-strict-content, scalar, and whitespace causes. The remaining 175 have known
-source mechanisms but lack complete attribution under the six permitted causes;
-they are not accepted as equivalent. Additional diagnostic categories alone
-would not establish equivalence of the changed record content.
-The 395 BAD_VALUE diagnostics arise from 309 unsupported heading kinds,
-53 scalar failures, 30 detached-prose reports, and 3 malformed-item reports.
-The evidence includes diagnostic-to-code function mappings and artifact hashes.
+The first three mechanisms account for 238 occurrences under documented causes.
+The remaining 175 have source-proven mechanisms but lack complete equivalence
+attribution under the six permitted causes; none is silently accepted.
+There are 408 changed dump rows: required content 206; scalar 15; whitespace 12;
+thematic breaks 107; other content 58; detached prose 8; malformed placeholders 1;
+duplicate winner selection after rejection 1. Both dumps exactly equal the
+last index occurrence for each id. One surviving duplicate explains the
+candidate index/dump requirement count difference; array ordering also changes.
 
-There are 408 changed dump rows. Their source mechanisms are: required content
-206; scalar validation 15; whitespace 12; thematic breaks 107; other content
-reconstruction 58; detached prose 8; malformed placeholders 1; duplicate winner
-selection after rejection 1. Every dumped row exactly equals the last index
-occurrence for its id. One surviving duplicate reduces the candidate requirement
-count by one; replacement also changes array order.
+The 399 BAD_VALUE diagnostics map to 310 unsupported structural headings,
+56 scalar validation failures, 30 detached-prose reports, and 3 item-grammar
+reports. All diagnostics have source and producer/adapter code mappings.
+All 980 changed full summary groups are verified against their complete
+constituent diagnostic objects, counts, locations, and section attribution.
+A source-code explanation does not itself establish permitted-cause equivalence.
 
-At this source revision, section grouping is incomplete; group sections are null.
-All 299 changed summary groups are backed by complete diagnostic occurrence
-lists and source references. Both old and new group counts and location lists
-were verified exactly against their constituent diagnostic objects. Vocabulary,
-label scope, item validation, row rejection, and source location changes remain
-visible; full permitted-cause attribution of these group deltas is incomplete.
+Against `d8f1e1174c3f5529e2c6bef999f382bbf6211b47`, every accepted row is
+identical in exact order, including duplicates. Of its diagnostic occurrences,
+1470 remain identical, 1637 gain only section attribution, 15 gain section plus
+inventory wording, and 2 change only inventory wording. Three newly recognized
+structural headings produce 22 additional diagnostics and replace one file-level
+MISSING_ID report. Full differential objects and source witnesses are retained.
 
-Rendered text reconstruction defects discovered during comparison were corrected:
-scalar bullets and paragraph gaps are preserved, fenced syntax stays literal,
-and list continuations retain their parent item. Templates now indent multiline
-list continuations, distinguishing their paragraphs and code from detached prose.
-The Python suite passes 49 tests, including the new round-trip regressions.
+A separate derived corpus renders all 354 accepted occurrences into distinct
+ordinal directories. All 354 documents qualify without source diagnostics;
+full qualified and accepted arrays equal the original index in exact order.
+The entire acceptance result is identical, including the existing 2 duplicate
+and 15 dangling-reference errors. No new source or shape diagnostic appears.
+This derived proof covers accepted rows only; the original rendered count is 0.
 
-Acceptance remains incomplete: the rendered consumer corpus is absent, 175 index
-occurrences still require acceptance treatment, and the 299 changed diagnostic
-groups require completed causal attribution. Existing evidence was preserved;
-this report does not claim a passing consumer comparison.
+Scalar bullets, paragraph spacing, literal fenced content, nested items, and
+multiline list paragraphs/code have regression proof. Canonical list indentation
+distinguishes rendered continuations from detached prose. The reported Python
+validation has 59 passes and one unresolved source-boundary policy failure;
+Rust tests, doctest, formatting, and Clippy pass. This is not an all-green claim.
+
+The historical pre-B.4 rule summary also has a classification discrepancy:
+the preserved detailed table separates two rule families that its later summary
+combined. Their total agrees. That historical summary is not an attribution
+oracle and does not replace the full pinned baseline used here.
+
+Acceptance remains incomplete: rendered consumer coverage is absent, 175 record
+occurrences lack complete permitted-cause attribution, changed diagnostic groups
+need contract acceptance, and the source-boundary policy check remains unresolved.
+Additional error codes can describe more sources but do not prove equivalence.

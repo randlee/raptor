@@ -121,7 +121,7 @@ pub fn validate_scalar(kind: &str, text: &str) -> Result<(), Error> {
         Some(kind) => validate_typed_scalar(kind, text),
         None => Err(Error::scalar(
             ErrorCategory::UnknownVariant,
-            text,
+            kind,
             "one of Id, Version, or Date",
         )),
     }
@@ -191,13 +191,25 @@ pub enum RecordKind {
 }
 
 impl RecordKind {
-    pub fn from_id(value: &str) -> Option<Self> {
-        match value.split_once('-')?.0 {
-            "REQ" => Some(Self::Req),
-            "NFR" => Some(Self::Nfr),
-            "ADR" => Some(Self::Adr),
-            _ => None,
+    pub const ALL: [Self; 3] = [Self::Req, Self::Nfr, Self::Adr];
+    pub const fn prefix(self) -> &'static str {
+        match self {
+            Self::Req => "REQ-",
+            Self::Nfr => "NFR-",
+            Self::Adr => "ADR-",
         }
+    }
+    pub fn from_id(value: &str) -> Option<Self> {
+        Self::ALL
+            .into_iter()
+            .find(|kind| value.starts_with(kind.prefix()))
+    }
+}
+
+pub(crate) fn record_kinds(table: crate::error::TableId) -> &'static [RecordKind] {
+    match table {
+        crate::error::TableId::Req => &[RecordKind::Req, RecordKind::Nfr],
+        crate::error::TableId::Dec => &[RecordKind::Adr],
     }
 }
 

@@ -1,7 +1,7 @@
 import json
 
 import pytest
-from corpus_support import ROOT, document, qualify
+from corpus_support import ROOT, document, qualify, replace_present
 
 
 def test_normalization_of_labels_sections_status_and_modal(document):
@@ -12,7 +12,7 @@ def test_normalization_of_labels_sections_status_and_modal(document):
         ("Active", "aCtIvE  :  "),
         ("MUST NOT statements", "mUsT   nOt  StAtEmEnTs : "),
     ]:
-        text = text.replace(old, new)
+        text = replace_present(text, old, new)
     result = qualify(root, text)
     expected = json.loads((ROOT / "tests/fixtures/records.json").read_text())["requirements"][0]
     assert result.issues == []
@@ -28,11 +28,11 @@ def test_normalization_of_labels_sections_status_and_modal(document):
 )
 def test_malformed_links_and_id_items_reject_the_record(document, old, new):
     root, text = document
-    result = qualify(root, text.replace(old, new))
+    result = qualify(root, replace_present(text, old, new))
     issue = next(issue for issue in result.issues if issue["rule"] == "BAD_VALUE")
     assert new in issue["value"]
     assert (
-        text.replace(old, new)
+        replace_present(text, old, new)
         .splitlines()[issue["line"] - 1][issue["column"] - 1 :]
         .startswith(new)
     )
@@ -41,8 +41,10 @@ def test_malformed_links_and_id_items_reject_the_record(document, old, new):
 
 def test_statement_order_follows_source_labels(document):
     root, text = document
-    text = text.replace("MUST statements", "TEMP").replace("SHOULD statements", "MUST statements")
-    result = qualify(root, text.replace("TEMP", "SHOULD statements"))
+    text = replace_present(
+        replace_present(text, "MUST statements", "TEMP"), "SHOULD statements", "MUST statements"
+    )
+    result = qualify(root, replace_present(text, "TEMP", "SHOULD statements"))
     statements = result.rows["requirements"][0]["requirement_statement"]["statements"]
     assert [item["modal"] for item in statements] == ["Should", "Must", "MustNot"]
     assert [item["text"] for item in statements] == [
@@ -64,7 +66,7 @@ def test_new_document_header_carries_to_its_later_records(document):
 
 def test_empty_required_content_is_missing(document):
     root, text = document
-    result = qualify(root, text.replace("A durable record is necessary.", ""))
+    result = qualify(root, replace_present(text, "A durable record is necessary.", ""))
     assert any(
         issue["rule"] == "MISSING_FIELD" and issue["label"] == "Rationale"
         for issue in result.issues

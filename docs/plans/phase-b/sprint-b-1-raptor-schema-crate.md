@@ -1,7 +1,7 @@
 ---
 id: b-1
 title: The raptor-schema crate
-status: planned
+status: in_progress
 branch: feature/b-1-schema-crate
 worktree: ../raptor-worktrees/feature/b-1-schema-crate
 target: integrate/phase-b

@@ -1,7 +1,7 @@
 ---
 id: b-4
 title: ADR columns
-status: planned
+status: in_progress
 branch: feature/b-4-adr-columns
 worktree: ../raptor-worktrees/feature/b-4-adr-columns
 target: feature/b-3-req-columns

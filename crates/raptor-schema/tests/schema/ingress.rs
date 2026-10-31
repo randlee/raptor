@@ -104,13 +104,13 @@ fn serde_error_causes_preserve_real_failures() {
 fn error_tables_reveal_wire_and_debug_identity() {
     let mut error = Error::new(ErrorCategory::TypeMismatch, Value::Null, "a record");
     for (table, kind, label, debug) in [
-        (ErrorTable::Req, Table::Req, "requirements", "Some(Req)"),
-        (ErrorTable::Dec, Table::Dec, "decisions", "Some(Dec)"),
+        (TableId::Req, TableId::Req, "requirements", "Some(Req)"),
+        (TableId::Dec, TableId::Dec, "decisions", "Some(Dec)"),
     ] {
         error.table = Some(table);
         assert_eq!(json!(error.table), json!(label));
         assert_eq!(format!("{:?}", error.table), debug);
-        assert!(Table::from(table) == kind);
+        assert!(table == kind);
     }
 }
 #[test]
@@ -296,8 +296,23 @@ fn validated_ids_cache_kind_and_preserve_string_wire_format() {
 #[test]
 fn errors_keep_typed_positions_and_bounded_size() {
     assert!(std::mem::size_of::<Error>() <= 128);
-    let error =
-        Error::new(ErrorCategory::TypeMismatch, json!(3), "a string").at("/items/0", Some(0));
+    let error = Error::new(ErrorCategory::TypeMismatch, json!(3), "a string")
+        .at("/items/0", Some(ItemIndex(0)));
     assert_eq!(error.item_index(), Some(ItemIndex(0)));
     assert_eq!(serde_json::to_value(error).unwrap()["item_index"], 0);
+}
+
+#[test]
+fn supersession_check_accumulates_with_other_invalid_fields() {
+    let mut input = fixture();
+    input["requirements"][0]["title"] = Value::Null;
+    input["requirements"][0]["supersedes"] = json!("ADR-FIX-0001");
+    let result = accept(&input.to_string());
+    assert_eq!(result.batch.requirements().count(), 0);
+    assert_eq!(result.errors.len(), 2);
+    assert_eq!(result.errors[0].category, ErrorCategory::NullNotAllowed);
+    assert_eq!(
+        result.errors[1].category,
+        ErrorCategory::CrossKindSupersession
+    );
 }

@@ -1,7 +1,7 @@
 ---
 id: a-3
 title: Skills to run the scripts
-status: planned
+status: complete
 branch: feature/A-3-skills
 worktree: ../raptor-worktrees/feature/A-3-skills
 target: develop

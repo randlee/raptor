@@ -119,13 +119,20 @@
       ],
       "source_report": "arch-qa.md",
       "duplicates_or_overlaps": [],
-      "status": "implemented-unverified",
+      "status": "fixed-verified",
       "current_evidence": [
         "Current candidate refactor; exact committed head and filing-reviewer closure pending.",
         "Developer reports: raptor-rust-qa-api-migration.md, raptor-python-qa-fixes.md, raptor-qa-tooling-report.txt."
       ],
-      "disposition_note": "Implementation supplied; this is not a verified closure. Aggregate-budget, Value-boundary and final corpus acceptance remain separate open gates.",
-      "verification": null
+      "disposition_note": "Verified fixed by filing reviewer and recorded by quality-mgr in round2.",
+      "verification": {
+        "reviewer": "arch-qa",
+        "quality_manager": "quality-mgr",
+        "round": 2,
+        "commit": "08865633afd601e7973514c974e82dd6f3fddfd6",
+        "report": "https://github.com/randlee/raptor/pull/84",
+        "closure_artifact": "qa-round2-closures-0886563.json"
+      }
     },
     {
       "id": "ARCH-007",
@@ -142,13 +149,20 @@
         "RBP-F001",
         "RBQA-F009"
       ],
-      "status": "implemented-unverified",
+      "status": "fixed-verified",
       "current_evidence": [
         "Current candidate refactor; exact committed head and filing-reviewer closure pending.",
         "Developer reports: raptor-rust-qa-api-migration.md, raptor-python-qa-fixes.md, raptor-qa-tooling-report.txt."
       ],
-      "disposition_note": "Implementation supplied; this is not a verified closure. Aggregate-budget, Value-boundary and final corpus acceptance remain separate open gates.",
-      "verification": null
+      "disposition_note": "Verified fixed by filing reviewer and recorded by quality-mgr in round2.",
+      "verification": {
+        "reviewer": "arch-qa",
+        "quality_manager": "quality-mgr",
+        "round": 2,
+        "commit": "08865633afd601e7973514c974e82dd6f3fddfd6",
+        "report": "https://github.com/randlee/raptor/pull/84",
+        "closure_artifact": "qa-round2-closures-0886563.json"
+      }
     },
     {
       "id": "ARCH-008",
@@ -165,13 +179,20 @@
         "ATM-QA-013",
         "RBQA-F007"
       ],
-      "status": "implemented-unverified",
+      "status": "fixed-verified",
       "current_evidence": [
         "Current candidate refactor; exact committed head and filing-reviewer closure pending.",
         "Developer reports: raptor-rust-qa-api-migration.md, raptor-python-qa-fixes.md, raptor-qa-tooling-report.txt."
       ],
-      "disposition_note": "Implementation supplied; this is not a verified closure. Aggregate-budget, Value-boundary and final corpus acceptance remain separate open gates.",
-      "verification": null
+      "disposition_note": "Verified fixed by filing reviewer and recorded by quality-mgr in round2.",
+      "verification": {
+        "reviewer": "arch-qa",
+        "quality_manager": "quality-mgr",
+        "round": 2,
+        "commit": "08865633afd601e7973514c974e82dd6f3fddfd6",
+        "report": "https://github.com/randlee/raptor/pull/84",
+        "closure_artifact": "qa-round2-closures-0886563.json"
+      }
     },
     {
       "id": "ARCH-009",
@@ -187,13 +208,20 @@
       "duplicates_or_overlaps": [
         "RBQA-F011"
       ],
-      "status": "implemented-unverified",
+      "status": "fixed-verified",
       "current_evidence": [
         "Current candidate refactor; exact committed head and filing-reviewer closure pending.",
         "Developer reports: raptor-rust-qa-api-migration.md, raptor-python-qa-fixes.md, raptor-qa-tooling-report.txt."
       ],
-      "disposition_note": "Implementation supplied; this is not a verified closure. Aggregate-budget, Value-boundary and final corpus acceptance remain separate open gates.",
-      "verification": null
+      "disposition_note": "Verified fixed by filing reviewer and recorded by quality-mgr in round2.",
+      "verification": {
+        "reviewer": "arch-qa",
+        "quality_manager": "quality-mgr",
+        "round": 2,
+        "commit": "08865633afd601e7973514c974e82dd6f3fddfd6",
+        "report": "https://github.com/randlee/raptor/pull/84",
+        "closure_artifact": "qa-round2-closures-0886563.json"
+      }
     },
     {
       "id": "ARCH-010",
@@ -210,13 +238,20 @@
         "ATM-QA-019",
         "QA-002"
       ],
-      "status": "implemented-unverified",
+      "status": "fixed-verified",
       "current_evidence": [
         "Current candidate refactor; exact committed head and filing-reviewer closure pending.",
         "Developer reports: raptor-rust-qa-api-migration.md, raptor-python-qa-fixes.md, raptor-qa-tooling-report.txt."
       ],
-      "disposition_note": "Implementation supplied; this is not a verified closure. Aggregate-budget, Value-boundary and final corpus acceptance remain separate open gates.",
-      "verification": null
+      "disposition_note": "Verified fixed by filing reviewer and recorded by quality-mgr in round2.",
+      "verification": {
+        "reviewer": "arch-qa",
+        "quality_manager": "quality-mgr",
+        "round": 2,
+        "commit": "08865633afd601e7973514c974e82dd6f3fddfd6",
+        "report": "https://github.com/randlee/raptor/pull/84",
+        "closure_artifact": "qa-round2-closures-0886563.json"
+      }
     },
     {
       "id": "ARCH-011",
@@ -230,13 +265,20 @@
       ],
       "source_report": "arch-qa.md",
       "duplicates_or_overlaps": [],
-      "status": "implemented-unverified",
+      "status": "fixed-verified",
       "current_evidence": [
         "Current candidate refactor; exact committed head and filing-reviewer closure pending.",
         "Developer reports: raptor-rust-qa-api-migration.md, raptor-python-qa-fixes.md, raptor-qa-tooling-report.txt."
       ],
-      "disposition_note": "Implementation supplied; this is not a verified closure. Aggregate-budget, Value-boundary and final corpus acceptance remain separate open gates.",
-      "verification": null
+      "disposition_note": "Verified fixed by filing reviewer and recorded by quality-mgr in round2.",
+      "verification": {
+        "reviewer": "arch-qa",
+        "quality_manager": "quality-mgr",
+        "round": 2,
+        "commit": "08865633afd601e7973514c974e82dd6f3fddfd6",
+        "report": "https://github.com/randlee/raptor/pull/84",
+        "closure_artifact": "qa-round2-closures-0886563.json"
+      }
     },
     {
       "id": "ARCH-012",
@@ -292,13 +334,20 @@
       ],
       "source_report": "arch-qa.md",
       "duplicates_or_overlaps": [],
-      "status": "implemented-unverified",
+      "status": "fixed-verified",
       "current_evidence": [
         "Current candidate refactor; exact committed head and filing-reviewer closure pending.",
         "Developer reports: raptor-rust-qa-api-migration.md, raptor-python-qa-fixes.md, raptor-qa-tooling-report.txt."
       ],
-      "disposition_note": "Implementation supplied; this is not a verified closure. Aggregate-budget, Value-boundary and final corpus acceptance remain separate open gates.",
-      "verification": null
+      "disposition_note": "Verified fixed by filing reviewer and recorded by quality-mgr in round2.",
+      "verification": {
+        "reviewer": "arch-qa",
+        "quality_manager": "quality-mgr",
+        "round": 2,
+        "commit": "08865633afd601e7973514c974e82dd6f3fddfd6",
+        "report": "https://github.com/randlee/raptor/pull/84",
+        "closure_artifact": "qa-round2-closures-0886563.json"
+      }
     },
     {
       "id": "ARCH-015",
@@ -314,13 +363,20 @@
       "duplicates_or_overlaps": [
         "RBP-F012"
       ],
-      "status": "implemented-unverified",
+      "status": "fixed-verified",
       "current_evidence": [
         "Current candidate refactor; exact committed head and filing-reviewer closure pending.",
         "Developer reports: raptor-rust-qa-api-migration.md, raptor-python-qa-fixes.md, raptor-qa-tooling-report.txt."
       ],
-      "disposition_note": "Implementation supplied; this is not a verified closure. Aggregate-budget, Value-boundary and final corpus acceptance remain separate open gates.",
-      "verification": null
+      "disposition_note": "Verified fixed by filing reviewer and recorded by quality-mgr in round2.",
+      "verification": {
+        "reviewer": "arch-qa",
+        "quality_manager": "quality-mgr",
+        "round": 2,
+        "commit": "08865633afd601e7973514c974e82dd6f3fddfd6",
+        "report": "https://github.com/randlee/raptor/pull/84",
+        "closure_artifact": "qa-round2-closures-0886563.json"
+      }
     }
   ]
 }

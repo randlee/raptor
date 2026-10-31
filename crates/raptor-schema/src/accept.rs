@@ -1,7 +1,7 @@
 use crate::{
     batch::Batch,
     emit,
-    error::{Error, ErrorCategory, ErrorTable, RecordPosition},
+    error::{Error, ErrorCategory, ItemIndex, RecordPosition, TableId},
     schema::*,
 };
 use serde::{Deserialize, Serialize, Serializer};
@@ -31,6 +31,77 @@ impl Serialize for Accepted {
     }
 }
 
+fn walk_target(
+    value: &Value,
+    schema: &schemars::schema::Schema,
+    definitions: &schemars::Map<String, schemars::schema::Schema>,
+    path: &str,
+    item: Option<ItemIndex>,
+) -> Vec<Error> {
+    match schema {
+        schemars::schema::Schema::Object(object) => walk(value, object, definitions, path, item),
+        schemars::schema::Schema::Bool(_) => Vec::new(),
+    }
+}
+
+fn walk_object(
+    object: &serde_json::Map<String, Value>,
+    properties: &schemars::Map<String, schemars::schema::Schema>,
+    definitions: &schemars::Map<String, schemars::schema::Schema>,
+    path: &str,
+    item: Option<ItemIndex>,
+) -> Vec<Error> {
+    let mut errors = Vec::new();
+    for (name, found) in object
+        .iter()
+        .filter(|(name, _)| !properties.contains_key(*name))
+    {
+        errors.push(
+            Error::new(ErrorCategory::UnknownKey, found.clone(), "a declared key")
+                .at(&format!("{path}/{name}"), item),
+        );
+    }
+    for (name, specification) in properties {
+        let field_path = format!("{path}/{name}");
+        if let Some(found) = object.get(name) {
+            errors.extend(walk_target(
+                found,
+                specification,
+                definitions,
+                &field_path,
+                item,
+            ));
+        } else {
+            errors.push(
+                Error::new(ErrorCategory::MissingKey, Value::Null, "an explicit key")
+                    .at(&field_path, item),
+            );
+        }
+    }
+    errors
+}
+
+fn walk_array(
+    items: &[Value],
+    specification: &schemars::schema::Schema,
+    definitions: &schemars::Map<String, schemars::schema::Schema>,
+    path: &str,
+) -> Vec<Error> {
+    items
+        .iter()
+        .enumerate()
+        .flat_map(|(index, found)| {
+            walk_target(
+                found,
+                specification,
+                definitions,
+                &format!("{path}/{index}"),
+                Some(ItemIndex(index)),
+            )
+        })
+        .collect()
+}
+
 // This ingress walker implements the emitted schema subset: references, nullable
 // anyOf, instance types, enums, object properties, and array items. It requires
 // every declared property explicitly, even when a nullable source field is absent.
@@ -39,16 +110,12 @@ fn walk(
     schema: &schemars::schema::SchemaObject,
     definitions: &schemars::Map<String, schemars::schema::Schema>,
     path: &str,
-    item: Option<usize>,
+    item: Option<ItemIndex>,
 ) -> Vec<Error> {
     use ErrorCategory::*;
     use schemars::schema::{InstanceType, Schema, SingleOrVec};
     let error = |category, found: &Value, cause: &str, path: &str| {
         Error::new(category, found.clone(), cause).at(path, item)
-    };
-    let recurse = |value: &Value, target: &Schema, path: &str, item| match target {
-        Schema::Object(target) => walk(value, target, definitions, path, item),
-        Schema::Bool(_) => Vec::new(),
     };
     if let Some(reference) = &schema.reference {
         let name = reference.trim_start_matches("#/definitions/");
@@ -67,7 +134,7 @@ fn walk(
                     path,
                 )]
             },
-            |target| recurse(value, target, path, item),
+            |target| walk_target(value, target, definitions, path, item),
         );
     }
     if let Some(choices) = schema
@@ -85,7 +152,7 @@ fn walk(
             is_null == value.is_null()
         })
     {
-        return recurse(value, choice, path, item);
+        return walk_target(value, choice, definitions, path, item);
     }
     let types: Vec<_> = match &schema.instance_type {
         Some(SingleOrVec::Single(kind)) => vec![kind.as_ref()],
@@ -135,46 +202,68 @@ fn walk(
     }
     let mut errors = Vec::new();
     if let (Some(object), Some(specification)) = (value.as_object(), schema.object.as_ref()) {
-        let properties = &specification.properties;
-        for (name, found) in object
-            .iter()
-            .filter(|(name, _)| !properties.contains_key(*name))
-        {
-            errors.push(error(
-                UnknownKey,
-                found,
-                "a declared key",
-                &format!("{path}/{name}"),
-            ));
-        }
-        for (name, specification) in properties {
-            let field_path = format!("{path}/{name}");
-            if let Some(found) = object.get(name) {
-                errors.extend(recurse(found, specification, &field_path, item));
-            } else {
-                errors.push(error(
-                    MissingKey,
-                    &Value::Null,
-                    "an explicit key",
-                    &field_path,
-                ));
-            }
-        }
+        errors.extend(walk_object(
+            object,
+            &specification.properties,
+            definitions,
+            path,
+            item,
+        ));
     }
     if let (Some(items), Some(SingleOrVec::Single(specification))) = (
         value.as_array(),
         schema.array.as_ref().and_then(|array| array.items.as_ref()),
     ) {
-        for (index, found) in items.iter().enumerate() {
-            errors.extend(recurse(
-                found,
-                specification,
-                &format!("{path}/{index}"),
-                Some(index),
-            ));
+        errors.extend(walk_array(items, specification, definitions, path));
+    }
+    errors
+}
+
+fn check_record(
+    record: &Value,
+    schema: &schemars::schema::RootSchema,
+    fields: &[emit::FieldMeta],
+) -> Vec<Error> {
+    let mut errors = walk(record, &schema.schema, &schema.definitions, "", None);
+    let record_kind = record.get("id").and_then(Value::as_str).and_then(|text| {
+        Id::try_from(text.to_owned())
+            .ok()
+            .map(|id| id.kind())
+            .or_else(|| RecordKind::from_id(text))
+    });
+    for field in fields.iter().filter(|field| field.supersession) {
+        if let Some(target) = record.get(field.name).and_then(Value::as_str)
+            && let Some((source_kind, target_kind)) = record_kind.zip(
+                Id::try_from(target.to_owned())
+                    .ok()
+                    .map(|id| id.kind())
+                    .or_else(|| RecordKind::from_id(target)),
+            )
+            && let Some(error) = crate::inventory::cross_kind(
+                source_kind,
+                target_kind,
+                target,
+                &format!("/{}", field.name),
+            )
+        {
+            errors.push(error);
         }
     }
     errors
+}
+
+fn decode_record(
+    kind: TableId,
+    record: &Value,
+    position: usize,
+    batch: &mut Batch,
+) -> Result<(), serde_json::Error> {
+    match kind {
+        TableId::Req => {
+            Requirement::deserialize(record).map(|row| batch.add_requirement(position, row))
+        }
+        TableId::Dec => Decision::deserialize(record).map(|row| batch.add_decision(position, row)),
+    }
 }
 
 pub fn accept(input: &str) -> Accepted {
@@ -193,8 +282,8 @@ pub fn accept(input: &str) -> Accepted {
         }
     };
     let shape = input.as_object().filter(|object| {
-        object.len() == ErrorTable::ALL.len()
-            && ErrorTable::ALL
+        object.len() == TableId::ALL.len()
+            && TableId::ALL
                 .iter()
                 .all(|table| object.get(table.name()).is_some_and(Value::is_array))
     });
@@ -202,7 +291,7 @@ pub fn accept(input: &str) -> Accepted {
         let unknown = input.as_object().is_some_and(|object| {
             object
                 .keys()
-                .any(|key| !ErrorTable::ALL.iter().any(|table| key == table.name()))
+                .any(|key| !TableId::ALL.iter().any(|table| key == table.name()))
         });
         let category = if unknown { UnknownKey } else { TypeMismatch };
         accepted.errors.push(Error::new(
@@ -214,14 +303,20 @@ pub fn accept(input: &str) -> Accepted {
     };
     static REQUIREMENTS: OnceLock<schemars::schema::RootSchema> = OnceLock::new();
     static DECISIONS: OnceLock<schemars::schema::RootSchema> = OnceLock::new();
-    for kind in ErrorTable::ALL {
+    static REQUIREMENT_FIELDS: OnceLock<Vec<emit::FieldMeta>> = OnceLock::new();
+    static DECISION_FIELDS: OnceLock<Vec<emit::FieldMeta>> = OnceLock::new();
+    for kind in TableId::ALL {
         let table = kind.name();
         let cache = match kind {
-            ErrorTable::Req => &REQUIREMENTS,
-            ErrorTable::Dec => &DECISIONS,
+            TableId::Req => &REQUIREMENTS,
+            TableId::Dec => &DECISIONS,
         };
         let schema = cache.get_or_init(|| emit::table_schema(kind));
-        let fields = emit::field_table(kind.into());
+        let field_cache = match kind {
+            TableId::Req => &REQUIREMENT_FIELDS,
+            TableId::Dec => &DECISION_FIELDS,
+        };
+        let fields = field_cache.get_or_init(|| emit::field_table(kind));
         for (position, record) in object
             .get(table)
             .and_then(Value::as_array)
@@ -229,41 +324,15 @@ pub fn accept(input: &str) -> Accepted {
             .flatten()
             .enumerate()
         {
-            let mut errors = walk(record, &schema.schema, &schema.definitions, "", None);
-            let record_kind = record
-                .get("id")
-                .and_then(Value::as_str)
-                .and_then(RecordKind::from_id);
-            for field in fields.iter().filter(|field| field.supersession) {
-                if let Some(target) = record.get(field.name).and_then(Value::as_str)
-                    && let Some((source_kind, target_kind)) =
-                        record_kind.zip(RecordKind::from_id(target))
-                    && source_kind != target_kind
-                {
-                    errors.push(
-                        Error::new(
-                            CrossKindSupersession,
-                            json!(target),
-                            &format!("a {source_kind:?} identifier, not {target_kind:?}"),
-                        )
-                        .at(&format!("/{}", field.name), None),
-                    );
-                }
-            }
-            if errors.is_empty() {
-                let decoded = match kind {
-                    ErrorTable::Req => Requirement::deserialize(record)
-                        .map(|row| accepted.batch.add_requirement(position, row)),
-                    ErrorTable::Dec => Decision::deserialize(record)
-                        .map(|row| accepted.batch.add_decision(position, row)),
-                };
-                if let Err(error) = decoded {
-                    errors.push(Error::from_serde(
-                        record.clone(),
-                        &format!("a valid {table} record"),
-                        error,
-                    ));
-                }
+            let mut errors = check_record(record, schema, fields);
+            if errors.is_empty()
+                && let Err(error) = decode_record(kind, record, position, &mut accepted.batch)
+            {
+                errors.push(Error::from_serde(
+                    record.clone(),
+                    &format!("a valid {table} record"),
+                    error,
+                ));
             }
             for error in &mut errors {
                 error.table = Some(kind);

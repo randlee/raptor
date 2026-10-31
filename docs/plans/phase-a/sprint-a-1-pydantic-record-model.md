@@ -1,7 +1,7 @@
 ---
 id: a-1
 title: Pydantic model of the record
-status: planned
+status: complete
 branch: feature/A-1-record-model
 worktree: ../raptor-worktrees/feature/A-1-record-model
 target: develop

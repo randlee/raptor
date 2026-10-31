@@ -1,5 +1,5 @@
-use raptor_schema::{MetaLevel, MetaShape, Table, field_table, json_schema};
-use serde_json::Value;
+use raptor_schema::{MetaLevel, MetaShape, TableId, field_table, json_schema};
+use serde_json::{Value, json};
 
 #[test]
 fn exported_roles_resolve_to_declared_properties() {
@@ -17,7 +17,7 @@ fn exported_roles_resolve_to_declared_properties() {
             }
         }
     }
-    for field in field_table(Table::Req)
+    for field in field_table(TableId::Req)
         .into_iter()
         .filter(|field| field.modal.is_some())
     {
@@ -29,7 +29,7 @@ fn exported_roles_resolve_to_declared_properties() {
 fn root_properties_match_declared_stored_fields() {
     use std::collections::BTreeSet;
     let schemas = json_schema();
-    for (name, table) in [("requirements", Table::Req), ("decisions", Table::Dec)] {
+    for (name, table) in [("requirements", TableId::Req), ("decisions", TableId::Dec)] {
         let schema = serde_json::to_value(&schemas[name]).unwrap();
         let properties: BTreeSet<_> = schema["properties"]
             .as_object()
@@ -49,7 +49,7 @@ fn root_properties_match_declared_stored_fields() {
 #[test]
 fn each_nested_field_has_a_schema_property_in_its_section() {
     let schemas = json_schema();
-    for (name, table) in [("requirements", Table::Req), ("decisions", Table::Dec)] {
+    for (name, table) in [("requirements", TableId::Req), ("decisions", TableId::Dec)] {
         let schema = serde_json::to_value(&schemas[name]).unwrap();
         let fields = field_table(table);
         for label in fields
@@ -88,7 +88,7 @@ fn source_optional_fields_still_require_explicit_canonical_keys() {
     use super::common::fixture;
     use raptor_schema::{ErrorCategory, accept};
     let schema = serde_json::to_value(&json_schema()["requirements"]).unwrap();
-    let fields = field_table(Table::Req);
+    let fields = field_table(TableId::Req);
     let dependencies = fields
         .iter()
         .find(|field| field.name == "dependencies")
@@ -130,7 +130,7 @@ fn source_optional_fields_still_require_explicit_canonical_keys() {
 
 #[test]
 fn top_level_storage_nullability_matches_field_metadata() {
-    for (name, table) in [("requirements", Table::Req), ("decisions", Table::Dec)] {
+    for (name, table) in [("requirements", TableId::Req), ("decisions", TableId::Dec)] {
         let schema = serde_json::to_value(&json_schema()[name]).unwrap();
         for field in field_table(table)
             .iter()
@@ -176,7 +176,7 @@ fn every_error_category_has_exactly_one_source_rule() {
 #[test]
 fn nested_section_properties_are_exposed_by_metadata() {
     use std::collections::BTreeSet;
-    for (name, table) in [("requirements", Table::Req), ("decisions", Table::Dec)] {
+    for (name, table) in [("requirements", TableId::Req), ("decisions", TableId::Dec)] {
         let schema = serde_json::to_value(&json_schema()[name]).unwrap();
         let fields = field_table(table);
         for section in fields
@@ -218,4 +218,149 @@ fn nested_section_properties_are_exposed_by_metadata() {
             assert_eq!(names, labels, "{name}: {}", section.name);
         }
     }
+}
+
+#[test]
+fn heading_prefixes_match_table_kinds_and_scalar_validation() {
+    use raptor_schema::{RecordKind, validate_scalar};
+    let schemas = json_schema();
+    for (table, expected) in [
+        ("requirements", vec![RecordKind::Req, RecordKind::Nfr]),
+        ("decisions", vec![RecordKind::Adr]),
+    ] {
+        let schema = serde_json::to_value(&schemas[table]).unwrap();
+        let prefixes = schema["x-raptor-tables"][table]["id_prefixes"]
+            .as_array()
+            .unwrap();
+        assert_eq!(prefixes.len(), expected.len());
+        for (prefix, kind) in prefixes.iter().zip(expected) {
+            assert_eq!(prefix.as_str(), Some(kind.prefix()));
+            let id = format!("{}FIX-0001", kind.prefix());
+            assert!(validate_scalar("Id", &id).is_ok());
+            assert_eq!(RecordKind::from_id(&id), Some(kind));
+        }
+    }
+}
+
+#[test]
+fn source_only_rules_are_exported_without_rust_error_categories() {
+    use std::collections::BTreeSet;
+    let schemas = json_schema();
+    for schema in schemas.values() {
+        let schema = serde_json::to_value(schema).unwrap();
+        let rules = schema["x-raptor-rules"].as_object().unwrap();
+        let source = [
+            "MISSING_ID",
+            "MISSING_FIELD",
+            "UNKNOWN_SECTION",
+            "UNKNOWN_LABEL",
+        ];
+        let rust = ["BAD_VALUE", "DUPLICATE_ID", "DANGLING_REFERENCE"];
+        let expected: BTreeSet<_> = source.into_iter().chain(rust).collect();
+        let actual: BTreeSet<_> = rules.keys().map(String::as_str).collect();
+        assert_eq!(actual, expected);
+        for rule in source {
+            assert!(rules[rule]["categories"].as_array().unwrap().is_empty());
+        }
+        for rule in rust {
+            assert!(!rules[rule]["categories"].as_array().unwrap().is_empty());
+        }
+    }
+}
+
+#[test]
+fn protocol_vocabulary_and_heading_partition_are_pinned() {
+    use std::collections::BTreeSet;
+    let schemas = json_schema();
+    let mut seen_semantic = BTreeSet::new();
+    for (table, kind) in [("requirements", TableId::Req), ("decisions", TableId::Dec)] {
+        let schema = serde_json::to_value(&schemas[table]).unwrap();
+        let protocol = &schema["x-raptor-protocol"];
+        assert_eq!(
+            protocol["levels"],
+            json!(["Header", "Item", "Section", "Label"])
+        );
+        assert_eq!(
+            protocol["shapes"],
+            json!([
+                "Text",
+                "Date",
+                "Version",
+                "Status",
+                "Id",
+                "IdList",
+                "TextList",
+                "StatementList",
+                "Checklist",
+                "LinkList",
+                "Group",
+                "Derived"
+            ])
+        );
+        assert_eq!(
+            protocol["roles"],
+            json!([
+                "heading_id",
+                "heading_title",
+                "item_label",
+                "header_label",
+                "section_label",
+                "group",
+                "section_prose"
+            ])
+        );
+        assert_eq!(
+            protocol["heading_roles"],
+            json!({
+                "identifier": "heading_id", "caption": "heading_title"
+            })
+        );
+        assert_eq!(
+            protocol["semantic_roles"],
+            json!([
+                "content",
+                "selection",
+                "identifier",
+                "destination",
+                "annotation",
+                "modality",
+                "caption",
+                "collection"
+            ])
+        );
+        let all_roles: BTreeSet<_> = protocol["roles"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .map(|value| value.as_str().unwrap())
+            .collect();
+        let headings: BTreeSet<_> = protocol["heading_roles"]
+            .as_object()
+            .unwrap()
+            .values()
+            .map(|value| value.as_str().unwrap())
+            .collect();
+        assert_eq!(headings.len(), 2);
+        assert!(headings.is_subset(&all_roles));
+        for field in field_table(kind) {
+            let field = serde_json::to_value(field).unwrap();
+            assert!(all_roles.contains(field["role"].as_str().unwrap()));
+            if headings.contains(field["role"].as_str().unwrap()) {
+                assert_eq!(field["level"], "Item");
+            }
+        }
+        for definition in schema["definitions"].as_object().unwrap().values() {
+            if let Some(roles) = definition.get("x-raptor-roles").and_then(Value::as_object) {
+                seen_semantic.extend(roles.keys().cloned());
+            }
+        }
+    }
+    let schema = serde_json::to_value(&schemas["requirements"]).unwrap();
+    let declared: BTreeSet<_> = schema["x-raptor-protocol"]["semantic_roles"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .map(|value| value.as_str().unwrap().to_owned())
+        .collect();
+    assert_eq!(seen_semantic, declared);
 }

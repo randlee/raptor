@@ -20,13 +20,20 @@
         "ARCH-007",
         "RBQA-F009"
       ],
-      "status": "implemented-unverified",
+      "status": "fixed-verified",
       "current_evidence": [
         "Current candidate refactor; exact committed head and filing-reviewer closure pending.",
         "Developer reports: raptor-rust-qa-api-migration.md, raptor-python-qa-fixes.md, raptor-qa-tooling-report.txt."
       ],
-      "disposition_note": "Implementation supplied; this is not a verified closure. Aggregate-budget, Value-boundary and final corpus acceptance remain separate open gates.",
-      "verification": null
+      "disposition_note": "Verified fixed by filing reviewer and recorded by quality-mgr in round2.",
+      "verification": {
+        "reviewer": "rust-best-practices-agent",
+        "quality_manager": "quality-mgr",
+        "round": 2,
+        "commit": "08865633afd601e7973514c974e82dd6f3fddfd6",
+        "report": "https://github.com/randlee/raptor/pull/84",
+        "closure_artifact": "qa-round2-closures-0886563.json"
+      }
     },
     {
       "id": "RBP-F002",
@@ -42,13 +49,20 @@
       "duplicates_or_overlaps": [
         "ATM-QA-022"
       ],
-      "status": "implemented-unverified",
+      "status": "fixed-verified",
       "current_evidence": [
         "Current candidate refactor; exact committed head and filing-reviewer closure pending.",
         "Developer reports: raptor-rust-qa-api-migration.md, raptor-python-qa-fixes.md, raptor-qa-tooling-report.txt."
       ],
-      "disposition_note": "Implementation supplied; this is not a verified closure. Aggregate-budget, Value-boundary and final corpus acceptance remain separate open gates.",
-      "verification": null
+      "disposition_note": "Verified fixed by filing reviewer and recorded by quality-mgr in round2.",
+      "verification": {
+        "reviewer": "rust-best-practices-agent",
+        "quality_manager": "quality-mgr",
+        "round": 2,
+        "commit": "08865633afd601e7973514c974e82dd6f3fddfd6",
+        "report": "https://github.com/randlee/raptor/pull/84",
+        "closure_artifact": "qa-round2-closures-0886563.json"
+      }
     },
     {
       "id": "RBP-F003",
@@ -84,13 +98,20 @@
       "duplicates_or_overlaps": [
         "ARCH-012"
       ],
-      "status": "implemented-unverified",
+      "status": "fixed-verified",
       "current_evidence": [
         "Current candidate refactor; exact committed head and filing-reviewer closure pending.",
         "Developer reports: raptor-rust-qa-api-migration.md, raptor-python-qa-fixes.md, raptor-qa-tooling-report.txt."
       ],
-      "disposition_note": "Implementation supplied; this is not a verified closure. Aggregate-budget, Value-boundary and final corpus acceptance remain separate open gates.",
-      "verification": null
+      "disposition_note": "Verified fixed by filing reviewer and recorded by quality-mgr in round2.",
+      "verification": {
+        "reviewer": "rust-best-practices-agent",
+        "quality_manager": "quality-mgr",
+        "round": 2,
+        "commit": "08865633afd601e7973514c974e82dd6f3fddfd6",
+        "report": "https://github.com/randlee/raptor/pull/84",
+        "closure_artifact": "qa-round2-closures-0886563.json"
+      }
     },
     {
       "id": "RBP-F005",
@@ -129,10 +150,17 @@
       ],
       "source_report": "rust-best-practices-agent.md",
       "duplicates_or_overlaps": [],
-      "status": "pending",
+      "status": "fixed-verified",
       "current_evidence": [],
-      "disposition_note": "No filing-reviewer closure confirmation received.",
-      "verification": null
+      "disposition_note": "Verified fixed by filing reviewer and recorded by quality-mgr in round2.",
+      "verification": {
+        "reviewer": "rust-best-practices-agent",
+        "quality_manager": "quality-mgr",
+        "round": 2,
+        "commit": "08865633afd601e7973514c974e82dd6f3fddfd6",
+        "report": "https://github.com/randlee/raptor/pull/84",
+        "closure_artifact": "qa-round2-closures-0886563.json"
+      }
     },
     {
       "id": "RBP-F007",
@@ -171,13 +199,20 @@
         "ARCH-004",
         "RBQA-F008"
       ],
-      "status": "implemented-unverified",
+      "status": "fixed-verified",
       "current_evidence": [
         "Current candidate refactor; exact committed head and filing-reviewer closure pending.",
         "Developer reports: raptor-rust-qa-api-migration.md, raptor-python-qa-fixes.md, raptor-qa-tooling-report.txt."
       ],
-      "disposition_note": "Implementation supplied; this is not a verified closure. Aggregate-budget, Value-boundary and final corpus acceptance remain separate open gates.",
-      "verification": null
+      "disposition_note": "Verified fixed by filing reviewer and recorded by quality-mgr in round2.",
+      "verification": {
+        "reviewer": "rust-best-practices-agent",
+        "quality_manager": "quality-mgr",
+        "round": 2,
+        "commit": "08865633afd601e7973514c974e82dd6f3fddfd6",
+        "report": "https://github.com/randlee/raptor/pull/84",
+        "closure_artifact": "qa-round2-closures-0886563.json"
+      }
     },
     {
       "id": "RBP-F009",
@@ -231,13 +266,20 @@
       ],
       "source_report": "rust-best-practices-agent.md",
       "duplicates_or_overlaps": [],
-      "status": "implemented-unverified",
+      "status": "fixed-verified",
       "current_evidence": [
         "Current candidate refactor; exact committed head and filing-reviewer closure pending.",
         "Developer reports: raptor-rust-qa-api-migration.md, raptor-python-qa-fixes.md, raptor-qa-tooling-report.txt."
       ],
-      "disposition_note": "Implementation supplied; this is not a verified closure. Aggregate-budget, Value-boundary and final corpus acceptance remain separate open gates.",
-      "verification": null
+      "disposition_note": "Verified fixed by filing reviewer and recorded by quality-mgr in round2.",
+      "verification": {
+        "reviewer": "rust-best-practices-agent",
+        "quality_manager": "quality-mgr",
+        "round": 2,
+        "commit": "08865633afd601e7973514c974e82dd6f3fddfd6",
+        "report": "https://github.com/randlee/raptor/pull/84",
+        "closure_artifact": "qa-round2-closures-0886563.json"
+      }
     },
     {
       "id": "RBP-F012",

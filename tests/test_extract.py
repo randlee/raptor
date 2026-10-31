@@ -2,7 +2,7 @@ import json
 from pathlib import Path
 
 from scripts.extract import split
-from corpus_support import ROOT, extract, project
+from corpus_support import ROOT, extract, project, replace_present
 
 
 def test_round_trip_and_project_root(tmp_path: Path):
@@ -24,7 +24,7 @@ def test_round_trip_and_project_root(tmp_path: Path):
 
 def test_binder_diagnostics_and_row_effects(tmp_path: Path):
     root, index = project(tmp_path), tmp_path / "index.json"
-    file = next((root / "docs/requirements").glob("REQ*.md"))
+    file = root / "docs/requirements/REQ-FIX-0001.md"
     for part, needle, replacement, rule, records in [
         (0, "**Version:** 1.0.0", "", "MISSING_FIELD", 3),
         (0, "**Created:** 2026-01-01", "**Created:** 2026-02-30", "BAD_VALUE", 3),
@@ -34,7 +34,7 @@ def test_binder_diagnostics_and_row_effects(tmp_path: Path):
     ]:
         original = file.read_text()
         pieces = original.split("## ", 1)
-        pieces[part] = pieces[part].replace(needle, replacement, 1)
+        pieces[part] = replace_present(pieces[part], needle, replacement, 1)
         file.write_text("## ".join(pieces))
         result = extract(root, index, check=False)
         payload = json.loads(index.read_text())
@@ -56,9 +56,9 @@ def test_document_level_label_after_record_does_not_crash(tmp_path: Path):
 
 def test_duplicate_and_missing_id(tmp_path: Path):
     root, index = project(tmp_path), tmp_path / "index.json"
-    requirement = next((root / "docs/requirements").glob("REQ*.md"))
+    requirement = root / "docs/requirements/REQ-FIX-0001.md"
     requirement.write_text(
-        requirement.read_text() + next((root / "docs/decisions").glob("ADR*.md")).read_text()
+        requirement.read_text() + (root / "docs/decisions/ADR-FIX-0002.md").read_text()
     )
     result = extract(root, index, check=False)
     payload = json.loads(index.read_text())
@@ -67,7 +67,7 @@ def test_duplicate_and_missing_id(tmp_path: Path):
     assert [
         record
         for record in split(requirement, requirement.read_text())["records"]
-        if record["heading_id"] == "ADR-FIX-0002"
+        if record["token"] == "ADR-FIX-0002"
     ][-1]["fields"]["Decision Date"]["value"].strip() == "2026-01-07"
     assert len(payload["requirements"]) + len(payload["decisions"]) == 5
     (root / "docs/empty.md").write_text("# Empty\n")
@@ -81,7 +81,7 @@ def test_duplicate_and_missing_id(tmp_path: Path):
 
 def test_extractor_ignores_file_level_labels_outside_records(tmp_path: Path):
     root, index = project(tmp_path), tmp_path / "index.json"
-    file = next((root / "docs" / "requirements").glob("REQ*.md"))
+    file = root / "docs/requirements/REQ-FIX-0001.md"
     file.write_text(file.read_text() + "\n## Appendix\n**Unmapped:** prose\n- item\n")
     assert extract(root, index).returncode == 0
 

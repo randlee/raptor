@@ -26,10 +26,27 @@ class Qualifier:
         self.fields = {
             table: json.loads(raptor_schema.field_table(table)) for table in self.schemas
         }
-        self.kinds = {
-            kind.upper(): table
+        self.protocol = next(iter(self.schemas.values()))["x-raptor-protocol"]
+        self.heading_roles = self.protocol["heading_roles"]
+        heading_fields = {}
+        for table, fields in self.fields.items():
+            headings = [
+                field for field in fields if field["role"] == self.heading_roles["identifier"]
+            ]
+            if len(headings) != 1:
+                raise ValueError("Each schema table must declare one heading identifier")
+            [heading] = headings
+            heading_fields[table] = heading
+        scalar_kinds = {
+            self.schemas[table]["properties"][field["name"]]["$ref"].rsplit("/", 1)[-1]
+            for table, field in heading_fields.items()
+        }
+        if len(scalar_kinds) != 1:
+            raise ValueError("Schema heading identifiers must share one scalar definition")
+        self.identifier_kind = scalar_kinds.pop()
+        self.table_prefixes = {
+            table: schema["x-raptor-tables"][table]["id_prefixes"]
             for table, schema in self.schemas.items()
-            for kind in schema["x-raptor-kinds"]
         }
         self.rows = {table: [] for table in self.schemas}
         self.sources = {table: [] for table in self.schemas}
@@ -49,10 +66,27 @@ class Qualifier:
             context.issue("MISSING_ID", {}, "", allowed=["a record heading"])
         for record in tree["records"]:
             context = RecordContext(self, tree["path"], lines, record)
-            context.table = self.kinds.get(record["heading_id"].partition("-")[0])
-            if context.table is None:
-                context.issue("BAD_VALUE", record, record["heading_id"], allowed=list(self.kinds))
-                continue
+            identifier = record["token"]
+            try:
+                raptor_schema.validate_scalar(self.identifier_kind, identifier)
+            except raptor_schema.SchemaError as error:
+                context.issue(
+                    "BAD_VALUE",
+                    record,
+                    identifier,
+                    allowed=error.allowed_values,
+                    message=f"{error.category}: {error.message}",
+                )
+            matches = [
+                table
+                for table, prefixes in self.table_prefixes.items()
+                if any(identifier.startswith(prefix) for prefix in prefixes)
+            ]
+            if len(matches) != 1:
+                if context.bad:
+                    continue
+                raise ValueError("Validated heading has no unique schema table routing")
+            context.table = matches[0]
             context.schema = self.schemas[context.table]
             result = self.qualify_record(context, tree["header"] | record["fields"])
             if not context.bad:
@@ -76,16 +110,24 @@ class Qualifier:
             for field in fields
             if field["level"] in ("Header", "Item") and field["shape"] != "Derived"
         }
+        heading_values = {
+            self.heading_roles["identifier"]: context.record["token"],
+            self.heading_roles["caption"]: context.record["caption"],
+        }
         for field in top.values():
             key = field["name"]
-            if field["role"].startswith("heading_"):
-                node = dict(context.record, value=context.record[field["role"]])
+            if field["role"] in self.heading_roles.values():
+                node = dict(context.record, value=heading_values[field["role"]])
             else:
                 node = supplied.get(field["label"])
             if node is not None and node["value"].strip():
                 context.locations[f"/{key}"] = (node, node["value"], field["label"])
                 prop = context.schema["properties"][key]
-                result[key] = context.scalar(node["value"], prop, node)
+                result[key] = (
+                    node["value"]
+                    if field["role"] == self.heading_roles["identifier"]
+                    else context.scalar(node["value"], prop, node)
+                )
             elif field["required"]:
                 context.issue("MISSING_FIELD", context.record, "", field["label"])
         self.qualify_sections(context, result, fields)

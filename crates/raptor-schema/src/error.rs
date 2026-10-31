@@ -63,12 +63,15 @@ struct ErrorDetail {
 }
 
 /// Describes a rejected value, its location, and how to correct it.
+///
+/// Rare diagnostic details share one allocation to keep this error small when
+/// returned by value, while common scalar errors do not allocate that detail.
 #[derive(Clone, Debug, PartialEq)]
 pub struct Error {
     /// The reason this value was rejected.
     pub category: ErrorCategory,
     /// The containing table, or None for a batch-level error.
-    pub table: Option<ErrorTable>,
+    pub table: Option<TableId>,
     /// Zero-based record position in the original table, before rejection filtering.
     pub record_position: Option<RecordPosition>,
     /// JSON pointer to the invalid field, or empty for a root error.
@@ -85,7 +88,7 @@ pub struct Error {
 }
 /// Identifies exactly one table containing a rejected record.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash, Serialize)]
-pub enum ErrorTable {
+pub enum TableId {
     /// The requirements table, including nonfunctional requirements.
     #[serde(rename = "requirements")]
     Req,
@@ -93,7 +96,7 @@ pub enum ErrorTable {
     #[serde(rename = "decisions")]
     Dec,
 }
-impl ErrorTable {
+impl TableId {
     pub const ALL: [Self; 2] = [Self::Req, Self::Dec];
     pub const fn name(self) -> &'static str {
         match self {
@@ -174,10 +177,10 @@ impl Error {
             &format!("{expected} ({error})"),
         )
     }
-    pub fn at(mut self, path: &str, item: Option<usize>) -> Self {
+    pub fn at(mut self, path: &str, item: Option<ItemIndex>) -> Self {
         self.field_path = path.into();
         if let Some(item) = item {
-            self.details.get_or_insert_with(Default::default).item_index = Some(ItemIndex(item));
+            self.details.get_or_insert_with(Default::default).item_index = Some(item);
         }
         self
     }

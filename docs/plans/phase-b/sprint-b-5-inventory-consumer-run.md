@@ -1,7 +1,7 @@
 ---
 id: b-5
 title: Own inventory; consumer run
-status: planned
+status: in_progress
 branch: feature/b-5-own-inventory
 worktree: ../raptor-worktrees/feature/b-5-own-inventory
 target: feature/b-4-adr-columns

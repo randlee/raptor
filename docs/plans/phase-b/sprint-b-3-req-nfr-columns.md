@@ -1,7 +1,7 @@
 ---
 id: b-3
 title: REQ and NFR columns
-status: planned
+status: in_progress
 branch: feature/b-3-req-columns
 worktree: ../raptor-worktrees/feature/b-3-req-columns
 target: feature/b-2-python-on-crate

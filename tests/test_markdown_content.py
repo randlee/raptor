@@ -4,7 +4,7 @@ import json
 
 import pytest
 
-from corpus_support import ROOT, project, run
+from corpus_support import ROOT, project, run, replace_present
 from corpus_support import document, qualify
 
 
@@ -94,7 +94,7 @@ def test_round_trip_preserves_multiline_content(tmp_path, table, path, value):
 )
 def test_detached_prose_is_not_absorbed_into_a_list_item(document, needle):
     root, text = document
-    changed = text.replace(needle, needle + "\n\nUnrelated prose.", 1)
+    changed = replace_present(text, needle, needle + "\n\nUnrelated prose.", 1)
     result = qualify(root, changed)
     issue = next(issue for issue in result.issues if issue["rule"] == "BAD_VALUE")
     assert issue["value"] == "Unrelated prose."

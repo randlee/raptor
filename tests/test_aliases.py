@@ -3,7 +3,7 @@ from scripts.qualify import Qualifier
 import json
 
 import pytest
-from corpus_support import document, qualify
+from corpus_support import document, qualify, replace_present
 from corpus_support import ROOT
 
 
@@ -14,10 +14,14 @@ def test_declared_aliases_apply_after_normalization_and_are_counted(document):
         '[sections]\nStatement = "Requirement Statement"\n'
         '[values]\nReady = "Active"\nSHALL = "Must"\n'
     )
-    text = text.replace("Acceptance Criteria", " aCcEpTaNcE : ").replace(
-        "### Requirement Statement", "### Statement"
+    text = replace_present(
+        replace_present(text, "Acceptance Criteria", " aCcEpTaNcE : "),
+        "### Requirement Statement",
+        "### Statement",
     )
-    text = text.replace("Active", "Ready").replace("MUST statements", "SHALL statements")
+    text = replace_present(
+        replace_present(text, "Active", "Ready"), "MUST statements", "SHALL statements"
+    )
     result = qualify(root, text)
     assert result.issues == []
     assert result.counts == {

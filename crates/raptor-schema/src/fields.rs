@@ -3,7 +3,7 @@ mod requirements;
 use crate::metadata::Field;
 
 /// Field catalog in canonical emission order.
-pub static FIELDS: [Field; requirements::FIELDS.len() + decisions::FIELDS.len()] = {
+pub(crate) static FIELDS: [Field; requirements::FIELDS.len() + decisions::FIELDS.len()] = {
     let mut fields =
         [requirements::FIELDS[0]; requirements::FIELDS.len() + decisions::FIELDS.len()];
     let mut index = 0;

@@ -94,13 +94,20 @@
       ],
       "source_report": "req-qa.md",
       "duplicates_or_overlaps": [],
-      "status": "implemented-unverified",
+      "status": "fixed-verified",
       "current_evidence": [
         "Current candidate refactor; exact committed head and filing-reviewer closure pending.",
         "Developer reports: raptor-rust-qa-api-migration.md, raptor-python-qa-fixes.md, raptor-qa-tooling-report.txt."
       ],
-      "disposition_note": "Implementation supplied; this is not a verified closure. Aggregate-budget, Value-boundary and final corpus acceptance remain separate open gates.",
-      "verification": null,
+      "disposition_note": "Verified fixed by filing reviewer and recorded by quality-mgr in round2.",
+      "verification": {
+        "reviewer": "req-qa",
+        "quality_manager": "quality-mgr",
+        "round": 2,
+        "commit": "08865633afd601e7973514c974e82dd6f3fddfd6",
+        "report": "https://github.com/randlee/raptor/pull/84",
+        "closure_artifact": "qa-round2-closures-0886563.json"
+      },
       "acceptance_source_refs": [
         "docs/plans/phase-b/sprint-b-1-raptor-schema-crate.md:111-114",
         "docs/plans/phase-b/sprint-b-6-rebuild-to-spec.md:152-159"
@@ -199,13 +206,20 @@
       ],
       "source_report": "req-qa.md",
       "duplicates_or_overlaps": [],
-      "status": "implemented-unverified",
+      "status": "fixed-verified",
       "current_evidence": [
         "Current candidate refactor; exact committed head and filing-reviewer closure pending.",
         "Developer reports: raptor-rust-qa-api-migration.md, raptor-python-qa-fixes.md, raptor-qa-tooling-report.txt."
       ],
-      "disposition_note": "Implementation supplied; this is not a verified closure. Aggregate-budget, Value-boundary and final corpus acceptance remain separate open gates.",
-      "verification": null,
+      "disposition_note": "Verified fixed by filing reviewer and recorded by quality-mgr in round2.",
+      "verification": {
+        "reviewer": "req-qa",
+        "quality_manager": "quality-mgr",
+        "round": 2,
+        "commit": "08865633afd601e7973514c974e82dd6f3fddfd6",
+        "report": "https://github.com/randlee/raptor/pull/84",
+        "closure_artifact": "qa-round2-closures-0886563.json"
+      },
       "acceptance_source_refs": [
         "docs/plans/phase-b/phase-b-plan.md:118-121"
       ]
@@ -249,13 +263,20 @@
       "duplicates_or_overlaps": [
         "RBQA-F013"
       ],
-      "status": "implemented-unverified",
+      "status": "fixed-verified",
       "current_evidence": [
         "Current candidate refactor; exact committed head and filing-reviewer closure pending.",
         "Developer reports: raptor-rust-qa-api-migration.md, raptor-python-qa-fixes.md, raptor-qa-tooling-report.txt."
       ],
-      "disposition_note": "Implementation supplied; this is not a verified closure. Aggregate-budget, Value-boundary and final corpus acceptance remain separate open gates.",
-      "verification": null,
+      "disposition_note": "Verified fixed by filing reviewer and recorded by quality-mgr in round2.",
+      "verification": {
+        "reviewer": "req-qa",
+        "quality_manager": "quality-mgr",
+        "round": 2,
+        "commit": "08865633afd601e7973514c974e82dd6f3fddfd6",
+        "report": "https://github.com/randlee/raptor/pull/84",
+        "closure_artifact": "qa-round2-closures-0886563.json"
+      },
       "acceptance_source_refs": [
         "docs/plans/phase-b/sprint-b-2-python-on-crate.md:115-116"
       ]
@@ -273,13 +294,20 @@
       ],
       "source_report": "req-qa.md",
       "duplicates_or_overlaps": [],
-      "status": "implemented-unverified",
+      "status": "fixed-verified",
       "current_evidence": [
         "Current candidate refactor; exact committed head and filing-reviewer closure pending.",
         "Developer reports: raptor-rust-qa-api-migration.md, raptor-python-qa-fixes.md, raptor-qa-tooling-report.txt."
       ],
-      "disposition_note": "Implementation supplied; this is not a verified closure. Aggregate-budget, Value-boundary and final corpus acceptance remain separate open gates.",
-      "verification": null,
+      "disposition_note": "Verified fixed by filing reviewer and recorded by quality-mgr in round2.",
+      "verification": {
+        "reviewer": "req-qa",
+        "quality_manager": "quality-mgr",
+        "round": 2,
+        "commit": "08865633afd601e7973514c974e82dd6f3fddfd6",
+        "report": "https://github.com/randlee/raptor/pull/84",
+        "closure_artifact": "qa-round2-closures-0886563.json"
+      },
       "acceptance_source_refs": [
         "docs/plans/phase-b/sprint-b-6-rebuild-to-spec.md:146-148",
         "docs/plans/phase-b/phase-b-plan.md:119-121",
@@ -356,13 +384,20 @@
       "duplicates_or_overlaps": [
         "RBQA-F004"
       ],
-      "status": "implemented-unverified",
+      "status": "fixed-verified",
       "current_evidence": [
         "Current candidate refactor; exact committed head and filing-reviewer closure pending.",
         "Developer reports: raptor-rust-qa-api-migration.md, raptor-python-qa-fixes.md, raptor-qa-tooling-report.txt."
       ],
-      "disposition_note": "Implementation supplied; this is not a verified closure. Aggregate-budget, Value-boundary and final corpus acceptance remain separate open gates.",
-      "verification": null,
+      "disposition_note": "Verified fixed by filing reviewer and recorded by quality-mgr in round2.",
+      "verification": {
+        "reviewer": "req-qa",
+        "quality_manager": "quality-mgr",
+        "round": 2,
+        "commit": "08865633afd601e7973514c974e82dd6f3fddfd6",
+        "report": "https://github.com/randlee/raptor/pull/84",
+        "closure_artifact": "qa-round2-closures-0886563.json"
+      },
       "acceptance_source_refs": [
         "docs/plans/phase-b/sprint-b-6-rebuild-to-spec.md:177-178",
         "docs/plans/phase-b/sprint-b-6-rebuild-to-spec.md:112-113"
@@ -405,13 +440,20 @@
       ],
       "source_report": "req-qa.md",
       "duplicates_or_overlaps": [],
-      "status": "implemented-unverified",
+      "status": "fixed-verified",
       "current_evidence": [
         "Current candidate refactor; exact committed head and filing-reviewer closure pending.",
         "Developer reports: raptor-rust-qa-api-migration.md, raptor-python-qa-fixes.md, raptor-qa-tooling-report.txt."
       ],
-      "disposition_note": "Implementation supplied; this is not a verified closure. Aggregate-budget, Value-boundary and final corpus acceptance remain separate open gates.",
-      "verification": null,
+      "disposition_note": "Verified fixed by filing reviewer and recorded by quality-mgr in round2.",
+      "verification": {
+        "reviewer": "req-qa",
+        "quality_manager": "quality-mgr",
+        "round": 2,
+        "commit": "08865633afd601e7973514c974e82dd6f3fddfd6",
+        "report": "https://github.com/randlee/raptor/pull/84",
+        "closure_artifact": "qa-round2-closures-0886563.json"
+      },
       "acceptance_source_refs": [
         "docs/plans/phase-b/sprint-b-6-rebuild-to-spec.md:292-293",
         "docs/plans/phase-b/sprint-b-5-inventory-consumer-run.md:55-57"

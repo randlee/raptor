@@ -1,7 +1,7 @@
 ---
 id: a-2
 title: Copy the extractor, run it, validate against the model
-status: planned
+status: complete
 branch: feature/A-2-extractor
 worktree: ../raptor-worktrees/feature/A-2-extractor
 target: develop

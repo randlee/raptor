@@ -1,7 +1,36 @@
 //! Schema extensions used by source-language adapters.
 use serde_json::{Value, json};
 
-fn categories(rule: crate::inventory::Rule) -> Value {
+const SEMANTIC_ROLES: [(&str, &str); 8] = [
+    ("content", "text"),
+    ("selection", "checked"),
+    ("identifier", "id"),
+    ("destination", "href"),
+    ("annotation", "note"),
+    ("modality", "modal"),
+    ("caption", "name"),
+    ("collection", "groups"),
+];
+pub(crate) fn semantic_role(property: &str) -> Option<&'static str> {
+    SEMANTIC_ROLES
+        .iter()
+        .find(|(_, field)| *field == property)
+        .map(|(role, _)| *role)
+}
+pub(crate) fn protocol() -> Value {
+    use crate::protocol::{MetaLevel as L, MetaShape as S, Role as R};
+    json!({
+        "levels": [L::Header, L::Item, L::Section, L::Label],
+        "shapes": [S::Text, S::Date, S::Version, S::Status, S::Id, S::IdList, S::TextList,
+                   S::StatementList, S::Checklist, S::LinkList, S::Group, S::Derived],
+        "roles": [R::HeadingId, R::HeadingTitle, R::ItemLabel, R::HeaderLabel,
+                  R::SectionLabel, R::Group, R::SectionProse],
+        "heading_roles": {"identifier": R::HeadingId, "caption": R::HeadingTitle},
+        "semantic_roles": SEMANTIC_ROLES.iter().map(|(role, _)| *role).collect::<Vec<_>>()
+    })
+}
+
+fn categories(rule: crate::rule::Rule) -> Value {
     Value::Array(
         crate::error::ErrorCategory::ALL
             .into_iter()
@@ -11,7 +40,7 @@ fn categories(rule: crate::inventory::Rule) -> Value {
     )
 }
 pub(crate) fn rules() -> Value {
-    use crate::inventory::Rule;
+    use crate::rule::Rule;
     json!({
         "MISSING_ID": {
             "rejects_record": true, "remedy": "Add the required field.",
@@ -49,14 +78,24 @@ pub(crate) fn tables() -> Value {
         .iter()
         .find(|field| field.shape == crate::metadata::Shape::Derived)
         .map(|field| field.label);
+    let req_prefixes = crate::schema::record_kinds(crate::error::TableId::Req)
+        .iter()
+        .map(|kind| kind.prefix())
+        .collect::<Vec<_>>();
+    let dec_prefixes = crate::schema::record_kinds(crate::error::TableId::Dec)
+        .iter()
+        .map(|kind| kind.prefix())
+        .collect::<Vec<_>>();
     json!({
         "requirements": {
             "template": "record", "heading_label": "Requirement", "heading_range_label": range,
-            "group_heading_prefix": "Alternative", "range_separator": " through "
+            "group_heading_prefix": "Alternative", "range_separator": " through ",
+            "id_prefixes": req_prefixes
         },
         "decisions": {
             "template": "record", "heading_label": "Decision", "heading_range_label": range,
-            "group_heading_prefix": "Alternative", "range_separator": " through "
+            "group_heading_prefix": "Alternative", "range_separator": " through ",
+            "id_prefixes": dec_prefixes
         }
     })
 }

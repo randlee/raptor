@@ -2,7 +2,6 @@ use super::common::fixture;
 use raptor_schema::*;
 use rusqlite::{Connection, params_from_iter};
 use serde_json::{Value, json};
-use std::collections::BTreeSet;
 
 fn insert_row(db: &Connection, table: &str, row: &Value) -> rusqlite::Result<()> {
     let object = row.as_object().expect("fixture rows are objects");
@@ -31,47 +30,9 @@ fn foreign_key_violations(db: &Connection) -> Vec<String> {
 }
 
 #[test]
-fn field_exports_cover_all_63_entries_with_derived_attributes() {
-    let mut exported = BTreeSet::new();
-    for table in [Table::Req, Table::Dec] {
-        let fields = field_table(table);
-        let stored: Vec<_> = FIELDS
-            .iter()
-            .filter(|entry| entry.table == table || entry.table == Table::Both)
-            .collect();
-        assert_eq!(fields.len(), stored.len());
-        for (field, stored) in fields.iter().zip(stored) {
-            assert_eq!((field.name, field.label), (stored.name, stored.label));
-            assert_eq!(field.required, stored.presence == Presence::Required);
-            assert_eq!(
-                field.nullable,
-                matches!(field.name, "supersedes" | "superseded_by")
-            );
-            assert_eq!(field.sql_type, "TEXT");
-            let scope = match stored.table {
-                Table::Req => "Req",
-                Table::Dec => "Dec",
-                Table::Both => "Both",
-            };
-            assert_eq!(serde_json::to_value(field.table).unwrap(), scope);
-            assert_eq!(field.section.is_some(), field.level == MetaLevel::Label);
-            exported.insert(serde_json::to_string(field).unwrap());
-        }
-    }
-    assert_eq!(exported.len(), 63);
-    let modals: BTreeSet<_> = field_table(Table::Req)
-        .iter()
-        .filter_map(|field| field.modal)
-        .map(|modal| format!("{modal:?}"))
-        .collect();
-    let expected = ["Must", "Should", "MustNot"].map(String::from).into();
-    assert_eq!(modals, expected);
-}
-
-#[test]
 fn emitted_json_schema_accepts_good_rows_and_rejects_wrong_types_and_enums() {
     let schemas = json_schema();
-    for (table, kind) in [("requirements", Table::Req), ("decisions", Table::Dec)] {
+    for (table, kind) in [("requirements", TableId::Req), ("decisions", TableId::Dec)] {
         let schema = serde_json::to_value(&schemas[table]).unwrap();
         assert_eq!(
             schema["x-raptor-fields"],

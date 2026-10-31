@@ -5,16 +5,20 @@ import raptor_schema
 
 from scripts.extract import split
 from scripts.qualify import Qualifier
-from corpus_support import extract, project
+from corpus_support import extract, project, replace_present
 
 
 def test_groups_same_label_by_canonical_section_and_preserves_root(tmp_path):
     root, index = project(tmp_path), tmp_path / "index.json"
     file = root / "docs/requirements/REQ-FIX-0001.md"
-    text = file.read_text().replace("### Requirement Statement", "### rEqUiReMeNt StAtEmEnT")
-    text = text.replace("### rEqUiReMeNt StAtEmEnT", "### rEqUiReMeNt StAtEmEnT\n**Typo:** first")
-    text = text.replace("### Success Criteria", "### Success Criteria\n**Typo:** second")
-    text = text.replace("**Status:** Active", "**Status:** Active\n**Typo:** header")
+    text = replace_present(
+        file.read_text(), "### Requirement Statement", "### rEqUiReMeNt StAtEmEnT"
+    )
+    text = replace_present(
+        text, "### rEqUiReMeNt StAtEmEnT", "### rEqUiReMeNt StAtEmEnT\n**Typo:** first"
+    )
+    text = replace_present(text, "### Success Criteria", "### Success Criteria\n**Typo:** second")
+    text = replace_present(text, "**Status:** Active", "**Status:** Active\n**Typo:** header")
     file.write_text(text)
     assert extract(root, index, check=False).returncode == 1
     diagnostics = json.loads(index.read_text())["diagnostics"]
@@ -37,7 +41,7 @@ def test_groups_same_label_by_canonical_section_and_preserves_root(tmp_path):
 def test_mapped_inventory_and_typed_errors_use_schema_sections(tmp_path):
     root = project(tmp_path)
     text = (root / "docs/requirements/REQ-FIX-0001.md").read_text()
-    text = text.replace("NFR-FIX-0001 — quality prerequisite", "NFR-FIX-9999")
+    text = replace_present(text, "NFR-FIX-0001 — quality prerequisite", "NFR-FIX-9999")
     qualifier = Qualifier(root)
     qualifier.qualify(split(Path("record.md"), text), text)
     accepted = json.loads(raptor_schema.accept(json.dumps(qualifier.rows)))
@@ -64,7 +68,7 @@ def test_mapped_inventory_and_typed_errors_use_schema_sections(tmp_path):
 def test_missing_required_section_and_unknown_section_context(tmp_path):
     root = project(tmp_path)
     text = (root / "docs/requirements/REQ-FIX-0001.md").read_text()
-    text = text.replace("### Rationale", "### Unknown Section")
+    text = replace_present(text, "### Rationale", "### Unknown Section")
     qualifier = Qualifier(root)
     qualifier.qualify(split(Path("record.md"), text), text)
     assert next(i for i in qualifier.issues if i["rule"] == "UNKNOWN_SECTION")["section"] is None

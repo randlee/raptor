@@ -17,13 +17,18 @@
       ],
       "source_report": "PR84 quality-mgr round-1 final comment",
       "duplicates_or_overlaps": [],
-      "status": "implemented-unverified",
+      "status": "fixed-verified",
       "current_evidence": [
         "Current candidate refactor; exact committed head and filing-reviewer closure pending.",
         "Developer reports: raptor-rust-qa-api-migration.md, raptor-python-qa-fixes.md, raptor-qa-tooling-report.txt."
       ],
-      "disposition_note": "Implementation supplied; this is not a verified closure. Aggregate-budget, Value-boundary and final corpus acceptance remain separate open gates.",
-      "verification": null
+      "disposition_note": "Quality manager verified snapshot fixes; prior failure was caused by stale primary-checkout templates.",
+      "verification": {
+        "reviewer": "quality-mgr",
+        "commit": "08865633afd601e7973514c974e82dd6f3fddfd6",
+        "message_id": "01M680HVD80RT6YFZ3CWN2HERV",
+        "evidence": "Pinned snapshot templates render valid JSON; next QA must load snapshot policy and setup commands."
+      }
     },
     {
       "id": "QM-2",
@@ -74,13 +79,18 @@
       ],
       "source_report": "PR84 quality-mgr round-1 final comment",
       "duplicates_or_overlaps": [],
-      "status": "implemented-unverified",
+      "status": "fixed-verified",
       "current_evidence": [
         "Current candidate refactor; exact committed head and filing-reviewer closure pending.",
         "Developer reports: raptor-rust-qa-api-migration.md, raptor-python-qa-fixes.md, raptor-qa-tooling-report.txt."
       ],
-      "disposition_note": "Implementation supplied; this is not a verified closure. Aggregate-budget, Value-boundary and final corpus acceptance remain separate open gates.",
-      "verification": null
+      "disposition_note": "Quality manager verified snapshot fixes; prior failure was caused by stale primary-checkout templates.",
+      "verification": {
+        "reviewer": "quality-mgr",
+        "commit": "08865633afd601e7973514c974e82dd6f3fddfd6",
+        "message_id": "01M680HVD80RT6YFZ3CWN2HERV",
+        "evidence": "Pinned snapshot templates render valid JSON; next QA must load snapshot policy and setup commands."
+      }
     }
   ]
 }

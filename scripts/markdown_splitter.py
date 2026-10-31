@@ -55,8 +55,8 @@ def split(path: Path, text: str) -> dict:
             continue
         if not fenced and (match := HEADING.match(line)):
             record = {
-                "heading_id": match.group(1),
-                "heading_title": match.group(2),
+                "token": match.group(1),
+                "caption": match.group(2),
                 "line": number,
                 "fields": {},
                 "sections": [],

@@ -46,7 +46,7 @@ RAP-B-AUDIT-1 and RAP-B-BASELINE-1.
 - `templates/requirement.md.j2`, `templates/decision.md.j2`: indent multiline list continuations so rendered paragraphs and code are unambiguous
 - `tests/fixtures/records.json` only if a shape below requires it
 - `.raptor/aliases.toml` (new, a comment and three empty tables) in Raptor
-- `rustfmt.toml` at the repository root (new, one line: `fn_call_width = 100`)
+- `rustfmt.toml` at the repository root (`max_width = 100`; default call formatting)
 - `docs/plans/phase-b/consumer-run-b6.md` (new)
 
 ### Corrective refactor boundaries
@@ -62,8 +62,11 @@ validates canonical rows and never fills missing fields independently.
 
 The content helper owns raw source reconstruction and list continuation grouping;
 the qualifier retains schema interpretation. Metadata is separated as one cohesive
-module, `crates/raptor-schema/src/metadata.rs`, from the record models and scalar
-validation. Integration tests are grouped by ingress, inventory and emission with
+module family under `crates/raptor-schema/src/fields/` and `metadata.rs`,
+from the record models and scalar validation. A typed reference accessor binds
+reference metadata to validated row members; it adds no record column or schema
+policy. This implementation binding is distinct from the six semantic field
+attributes, and completeness tests require every reference shape to have one. Integration tests are grouped by ingress, inventory and emission with
 a shared fixture module. These splits preserve all checks and do not establish
 compliance with aggregate size budgets; those remain measured acceptance items.
 
@@ -159,8 +162,8 @@ and the reference is dangling in its own right; the qualifier still knows
 the source line of both. An input that is not the batch shape yields an empty batch and one `Error`
 at the root path with no record position. `Id`, `Version` and `Date`
 expose `as_str()` and do not implement `Deref`. Before typed
-deserialization it walks the value against the
-field table: unknown key anywhere, missing key, JSON type mismatch, `null`
+deserialization it walks the value against the emitted JSON Schema: unknown
+key anywhere, missing key, JSON type mismatch, `null`
 in a non-nullable field, and an absent key where `null` is the meaning are
 each an `Error`. This check exists because serde `flatten` and
 `deny_unknown_fields` cannot be combined on the row types;
@@ -187,7 +190,8 @@ input-dependent path returns `Result`.
 `inventory.rs`, operate on an accepted batch and report record position
 and item index; Python maps those to file and line. `accept` calls
 `check_inventory` last and nothing else calls it. The seven `Rule`
-variants are unchanged and are the key of the summary's counts:
+variants also cover Python-only source diagnostics. The exported rule table
+is their shared taxonomy; Rust summaries use only typed/inventory rules:
 `DuplicateId` and `DanglingReference` map to the `Rule` of the same name
 and every other category maps to `BadValue`, in one exhaustive `match` in
 `summarize`. `Rule` is the vocabulary the qualifier's diagnostics and the
@@ -291,13 +295,10 @@ completion message.
 ## Ceilings
 
 Measured on `cargo fmt` output with zero `rustfmt::skip` and no line over
-100 characters. The formatter reads `rustfmt.toml` with `fn_call_width =
-100` and nothing else: rustfmt's default of 60 breaks every field-table
-tuple wider than 60 characters onto six lines, turning the 63 entries into
-about 380 lines; at 100 each entry stays on one line, which is what the
-width measurement above and the estimate below assume. This is the only
-formatter setting; it is not a skip and it is not packing. Crate `src/`
-1,000 lines total, no file over 450. Crate
+100 characters. `rustfmt.toml` sets only `max_width = 100`; call formatting
+uses rustfmt defaults. No override may compress calls to meet a line budget.
+The original tuple-based estimate below is historical and does not establish
+current compliance. Crate `src/` 1,000 lines total, no file over 450. Crate
 tests 400. `extract.py` 150, `qualify.py` 250, `load_sqlite.py` 60, `render.py`
 36 (unchanged). `tests/test_qualify.py` 150, `tests/test_extract.py` 150.
 `markdown_content.py` 150 and `tests/test_markdown_content.py` 150.
@@ -383,7 +384,7 @@ repository.
   file path and no repository name.
 - Every ceiling measured on formatted code and listed in the completion
   message, with the `rustfmt::skip` count, which is zero.
-- `cat rustfmt.toml` prints exactly `fn_call_width = 100`, and no other
+- `cat rustfmt.toml` prints exactly `max_width = 100`, and no other
   rustfmt configuration file exists in the repository.
 - Neutrality gate before every commit.
 

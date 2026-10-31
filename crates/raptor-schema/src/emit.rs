@@ -1,46 +1,19 @@
-use crate::{error::ErrorTable, fields::FIELDS, metadata::*, schema::*};
+use crate::{error::TableId, fields::FIELDS, metadata::*, schema::*};
 use schemars::{JsonSchema, schema::RootSchema, schema_for};
 use serde::Serialize;
 use std::collections::{BTreeMap, BTreeSet};
 
-#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize)]
-pub enum MetaLevel {
-    Header,
-    Item,
-    Section,
-    Label,
-}
-#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize)]
-pub enum MetaShape {
-    Text,
-    Date,
-    Version,
-    Status,
-    Id,
-    IdList,
-    TextList,
-    StatementList,
-    Checklist,
-    LinkList,
-    Group,
-    Derived,
-}
-#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize)]
-#[serde(rename_all = "snake_case")]
-pub enum Role {
-    HeadingId,
-    HeadingTitle,
-    ItemLabel,
-    HeaderLabel,
-    SectionLabel,
-    Group,
-    SectionProse,
-}
+pub use crate::protocol::{MetaLevel, MetaShape, Role};
+/// Public projection of a field; the backing catalog is crate-internal.
+///
+/// ```compile_fail
+/// use raptor_schema::FIELDS;
+/// ```
 #[derive(Serialize)]
 pub struct FieldMeta {
     pub name: &'static str,
     pub label: &'static str,
-    pub table: Table,
+    pub table: FieldScope,
     pub level: MetaLevel,
     pub shape: MetaShape,
     pub section: Option<&'static str>,
@@ -90,10 +63,10 @@ fn binding(level: Level, shape: Shape) -> (Role, MetaShape, Option<Modal>) {
     (role, shape_name, modal)
 }
 
-pub fn field_table(table: Table) -> Vec<FieldMeta> {
+pub fn field_table(table: TableId) -> Vec<FieldMeta> {
     FIELDS
         .iter()
-        .filter(|field| field.table == Table::Both || field.table == table)
+        .filter(|field| field.table == FieldScope::All || field.table == FieldScope::Only(table))
         .map(|field| {
             let Field {
                 name,
@@ -102,6 +75,7 @@ pub fn field_table(table: Table) -> Vec<FieldMeta> {
                 level,
                 shape,
                 presence,
+                reference: _,
             } = *field;
             let shape_source = shape;
             let (role, shape, modal) = binding(level, shape);
@@ -132,9 +106,9 @@ pub fn field_table(table: Table) -> Vec<FieldMeta> {
 
 fn field_json(field: &FieldMeta) -> serde_json::Value {
     let table = match field.table {
-        Table::Req => "Req",
-        Table::Dec => "Dec",
-        Table::Both => "Both",
+        FieldScope::Only(TableId::Req) => "Req",
+        FieldScope::Only(TableId::Dec) => "Dec",
+        FieldScope::All => "Both",
     };
     let level = match field.level {
         MetaLevel::Header => "Header",
@@ -179,14 +153,6 @@ fn field_json(field: &FieldMeta) -> serde_json::Value {
     })
 }
 
-fn record_kinds(table: Table) -> &'static [RecordKind] {
-    match table {
-        Table::Req => &[RecordKind::Req, RecordKind::Nfr],
-        Table::Dec => &[RecordKind::Adr],
-        Table::Both => &[],
-    }
-}
-
 fn enum_values<T: JsonSchema>() -> Vec<String> {
     schema_for!(T)
         .schema
@@ -213,11 +179,11 @@ fn sql_check(values: &[String], expression: impl FnOnce(&str) -> String) -> Stri
     }
 }
 
-pub(crate) fn table_schema(kind: ErrorTable) -> RootSchema {
-    let table = kind.into();
+pub(crate) fn table_schema(kind: TableId) -> RootSchema {
+    let table = kind;
     let mut schema = match kind {
-        ErrorTable::Req => schema_for!(Requirement),
-        ErrorTable::Dec => schema_for!(Decision),
+        TableId::Req => schema_for!(Requirement),
+        TableId::Dec => schema_for!(Decision),
     };
     schema.schema.extensions.insert(
         "x-raptor-fields".into(),
@@ -248,6 +214,10 @@ pub(crate) fn table_schema(kind: ErrorTable) -> RootSchema {
         .schema
         .extensions
         .insert("x-raptor-tables".into(), crate::boundary::tables());
+    schema
+        .schema
+        .extensions
+        .insert("x-raptor-protocol".into(), crate::boundary::protocol());
     for definition in schema.definitions.values_mut() {
         if let schemars::schema::Schema::Object(object) = definition
             && let Some(properties) = &object.object
@@ -256,17 +226,7 @@ pub(crate) fn table_schema(kind: ErrorTable) -> RootSchema {
                 .properties
                 .keys()
                 .filter_map(|key| {
-                    let role = match key.as_str() {
-                        "text" => "content",
-                        "checked" => "selection",
-                        "id" => "identifier",
-                        "href" => "destination",
-                        "note" => "annotation",
-                        "modal" => "modality",
-                        "name" => "caption",
-                        "groups" => "collection",
-                        _ => return None,
-                    };
+                    let role = crate::boundary::semantic_role(key)?;
                     Some((role.to_owned(), serde_json::Value::String(key.clone())))
                 })
                 .collect();
@@ -279,7 +239,7 @@ pub(crate) fn table_schema(kind: ErrorTable) -> RootSchema {
 }
 
 pub fn json_schema() -> BTreeMap<&'static str, RootSchema> {
-    ErrorTable::ALL
+    TableId::ALL
         .into_iter()
         .map(|kind| (kind.name(), table_schema(kind)))
         .collect()
@@ -289,17 +249,12 @@ pub fn sql_ddl() -> String {
     let mut statements = Vec::new();
     let mut edges = Vec::new();
     let status_values = enum_values::<Status>();
-    for kind in ErrorTable::ALL {
+    for kind in TableId::ALL {
         let table = kind.name();
-        let fields = field_table(kind.into());
-        let id_prefixes = record_kinds(kind.into())
+        let fields = field_table(kind);
+        let id_prefixes = record_kinds(kind)
             .iter()
-            .filter_map(|kind| {
-                serde_json::to_value(kind)
-                    .ok()
-                    .and_then(|value| value.as_str().map(str::to_owned))
-                    .map(|value| format!("{}-", value.to_ascii_uppercase()))
-            })
+            .map(|kind| kind.prefix().to_owned())
             .collect::<Vec<_>>();
         let prefix_width = id_prefixes
             .iter()
@@ -360,4 +315,67 @@ pub fn sql_ddl() -> String {
         edges.join(" UNION ALL ")
     ));
     statements.join("\n")
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use std::collections::BTreeSet;
+    #[test]
+    fn reference_shapes_have_typed_accessors() {
+        for field in FIELDS {
+            let valid = match (field.shape, field.reference) {
+                (Shape::IdList, Some(ReferenceAccess::List { decision, .. }))
+                    if matches!(field.level, Level::Label(_)) =>
+                {
+                    field.table != FieldScope::All || decision.is_some()
+                }
+                (Shape::Supersession, Some(ReferenceAccess::Scalar { .. })) => true,
+                (Shape::IdList, None) if matches!(field.level, Level::Section) => true,
+                (Shape::IdList | Shape::Supersession, _) | (_, Some(_)) => false,
+                _ => true,
+            };
+            assert!(valid, "invalid reference accessor for {}", field.name);
+        }
+    }
+
+    #[test]
+    fn field_exports_cover_all_63_entries_with_derived_attributes() {
+        let mut exported = BTreeSet::new();
+        for table in [TableId::Req, TableId::Dec] {
+            let fields = field_table(table);
+            let stored: Vec<_> = FIELDS
+                .iter()
+                .filter(|entry| {
+                    entry.table == FieldScope::Only(table) || entry.table == FieldScope::All
+                })
+                .collect();
+            assert_eq!(fields.len(), stored.len());
+            for (field, stored) in fields.iter().zip(stored) {
+                assert_eq!((field.name, field.label), (stored.name, stored.label));
+                assert_eq!(field.required, stored.presence == Presence::Required);
+                assert_eq!(
+                    field.nullable,
+                    matches!(field.name, "supersedes" | "superseded_by")
+                );
+                assert_eq!(field.sql_type, "TEXT");
+                let scope = match stored.table {
+                    FieldScope::Only(TableId::Req) => "Req",
+                    FieldScope::Only(TableId::Dec) => "Dec",
+                    FieldScope::All => "Both",
+                };
+                assert_eq!(serde_json::to_value(field.table).unwrap(), scope);
+                assert_eq!(field.section.is_some(), field.level == MetaLevel::Label);
+                exported.insert(serde_json::to_string(field).unwrap());
+            }
+        }
+        assert_eq!(exported.len(), 63);
+        let modals: BTreeSet<_> = field_table(TableId::Req)
+            .iter()
+            .filter_map(|field| field.modal)
+            .map(|modal| format!("{modal:?}"))
+            .collect();
+        let expected = ["Must", "Should", "MustNot"].map(String::from).into();
+        assert_eq!(modals, expected);
+    }
 }

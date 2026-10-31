@@ -37,7 +37,7 @@ class RecordContext:
                 line=line,
                 column=column,
                 rule=rule,
-                id=self.record.get("heading_id"),
+                id=self.record.get("token"),
                 section=self.section,
                 label=label,
                 value=value,

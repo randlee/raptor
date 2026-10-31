@@ -1,142 +1,169 @@
 use crate::{
     batch::Batch,
-    emit::{FieldMeta, MetaLevel, MetaShape, field_table},
-    error::{Error, ErrorCategory, ErrorTable, RecordPosition},
+    error::{Error, ErrorCategory, ItemIndex, RecordPosition, TableId},
+    fields::FIELDS,
+    metadata::{FieldScope, Level, ReferenceAccess},
+    rule::Rule,
     schema::*,
 };
 use serde::Serialize;
 use std::collections::BTreeMap;
 
-#[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord, Serialize)]
-#[serde(rename_all = "SCREAMING_SNAKE_CASE")]
-pub enum Rule {
-    MissingId,
-    MissingField,
-    UnknownSection,
-    UnknownLabel,
-    BadValue,
-    DuplicateId,
-    DanglingReference,
+struct Reference<'a> {
+    path: String,
+    item: Option<ItemIndex>,
+    target: &'a Id,
+}
+struct InventoryRow<'a> {
+    table: TableId,
+    position: RecordPosition,
+    identity: &'a Identity,
+    targets: Vec<Reference<'a>>,
 }
 
-impl ErrorCategory {
-    pub(crate) fn rule(self) -> Rule {
-        match self {
-            ErrorCategory::DuplicateId => Rule::DuplicateId,
-            ErrorCategory::DanglingReference => Rule::DanglingReference,
-            ErrorCategory::UnknownKey
-            | ErrorCategory::MissingKey
-            | ErrorCategory::TypeMismatch
-            | ErrorCategory::NullNotAllowed
-            | ErrorCategory::InvalidId
-            | ErrorCategory::InvalidDate
-            | ErrorCategory::InvalidVersion
-            | ErrorCategory::UnknownVariant
-            | ErrorCategory::CrossKindSupersession => Rule::BadValue,
-        }
-    }
+pub(crate) fn cross_kind(
+    source: RecordKind,
+    target: RecordKind,
+    text: &str,
+    path: &str,
+) -> Option<Error> {
+    (source != target).then(|| {
+        Error::scalar(
+            ErrorCategory::CrossKindSupersession,
+            text,
+            &format!("a {source:?} identifier, not {target:?}"),
+        )
+        .at(path, None)
+    })
 }
 
-fn references<'a>(
-    fields: &[FieldMeta],
-    lifecycle: &'a Lifecycle,
-    related: &'a RelatedDocuments,
-    dependencies: Option<&'a Dependencies>,
-) -> Vec<(String, Option<usize>, &'a Id)> {
+enum Source<'a> {
+    Requirement(&'a Requirement),
+    Decision(&'a Decision),
+}
+
+fn references(source: Source<'_>, table: TableId) -> Vec<Reference<'_>> {
     let mut references = Vec::new();
-    // Traverse later sections first, retaining each section's label order and
-    // handling supersession links after list references, as in the original wire order.
-    let mut ordered: Vec<_> = fields
+    let mut fields: Vec<_> = FIELDS
         .iter()
         .enumerate()
         .filter(|(_, field)| {
-            field.supersession
-                || (field.level == MetaLevel::Label && field.shape == MetaShape::IdList)
+            field.reference.is_some()
+                && (field.table == FieldScope::All || field.table == FieldScope::Only(table))
         })
         .collect();
-    ordered.sort_by_key(|(index, field)| {
-        let section = fields
-            .iter()
-            .position(|parent| {
-                parent.level == MetaLevel::Section && Some(parent.label) == field.section
-            })
-            .unwrap_or(0);
-        (field.supersession, std::cmp::Reverse(section), *index)
+    fields.sort_by_key(|(index, field)| {
+        let section = match field.level {
+            Level::Label(section) => FIELDS
+                .iter()
+                .position(|parent| {
+                    parent.level == Level::Section && parent.label == section.heading()
+                })
+                .unwrap_or(0),
+            _ => 0,
+        };
+        (
+            matches!(field.reference, Some(ReferenceAccess::Scalar { .. })),
+            std::cmp::Reverse(section),
+            *index,
+        )
     });
-    for (_, field) in ordered {
-        if field.supersession {
-            let target = match field.name {
-                "supersedes" => lifecycle.supersedes.as_ref(),
-                "superseded_by" => lifecycle.superseded_by.as_ref(),
-                _ => None,
-            };
-            if let Some(target) = target {
-                references.push((format!("/{}", field.name), None, target));
-            }
-        } else if field.level == MetaLevel::Label
-            && field.shape == MetaShape::IdList
-            && let Some(parent) = fields.iter().find(|parent| {
-                Some(parent.label) == field.section && parent.level == MetaLevel::Section
-            })
-        {
-            let items = match (parent.name, field.name) {
-                ("related_documents", "requirements") => Some(related.requirements.as_slice()),
-                ("related_documents", "architecture_decisions") => {
-                    Some(related.architecture_decisions.as_slice())
+    for (_, field) in fields {
+        match (field.reference, &source) {
+            (Some(ReferenceAccess::Scalar { requirement, .. }), Source::Requirement(row)) => {
+                if let Some(target) = requirement(row) {
+                    references.push(Reference {
+                        path: format!("/{}", field.name),
+                        item: None,
+                        target,
+                    });
                 }
-                ("dependencies", "requires") => dependencies.map(|value| value.requires.as_slice()),
-                ("dependencies", "related") => dependencies.map(|value| value.related.as_slice()),
-                _ => None,
-            };
-            if let Some(items) = items {
-                let path = format!("/{}/{}", parent.name, field.name);
-                references.extend(
-                    items
-                        .iter()
-                        .enumerate()
-                        .map(|(index, item)| (path.clone(), Some(index), &item.id)),
-                );
             }
+            (Some(ReferenceAccess::Scalar { decision, .. }), Source::Decision(row)) => {
+                if let Some(target) = decision(row) {
+                    references.push(Reference {
+                        path: format!("/{}", field.name),
+                        item: None,
+                        target,
+                    });
+                }
+            }
+            (Some(ReferenceAccess::List { requirement, .. }), Source::Requirement(row)) => {
+                append_list(&mut references, field, requirement(row));
+            }
+            (
+                Some(ReferenceAccess::List {
+                    decision: Some(decision),
+                    ..
+                }),
+                Source::Decision(row),
+            ) => {
+                append_list(&mut references, field, decision(row));
+            }
+            _ => {}
         }
     }
     references
 }
 
+fn append_list<'a>(
+    references: &mut Vec<Reference<'a>>,
+    field: &crate::metadata::Field,
+    items: &'a [IdItem],
+) {
+    if let Level::Label(section) = field.level
+        && let Some(parent) = FIELDS
+            .iter()
+            .find(|parent| parent.level == Level::Section && parent.label == section.heading())
+    {
+        let path = format!("/{}/{}", parent.name, field.name);
+        references.extend(items.iter().enumerate().map(|(index, item)| Reference {
+            path: path.clone(),
+            item: Some(ItemIndex(index)),
+            target: &item.id,
+        }));
+    }
+}
+
 pub fn check_inventory(batch: &Batch) -> Vec<Error> {
-    let requirement_fields = field_table(ErrorTable::Req.into());
-    let decision_fields = field_table(ErrorTable::Dec.into());
     let requirements = batch.requirements().map(|(position, row)| {
-        let targets = references(
-            &requirement_fields,
-            &row.lifecycle,
-            &row.related_documents,
-            Some(&row.dependencies),
-        );
-        (ErrorTable::Req, position, &row.identity, targets)
+        let targets = references(Source::Requirement(row), TableId::Req);
+        InventoryRow {
+            table: TableId::Req,
+            position: RecordPosition(position),
+            identity: &row.identity,
+            targets,
+        }
     });
     let decisions = batch.decisions().map(|(position, row)| {
-        let targets = references(
-            &decision_fields,
-            &row.lifecycle,
-            &row.related_documents,
-            None,
-        );
-        (ErrorTable::Dec, position, &row.identity, targets)
+        let targets = references(Source::Decision(row), TableId::Dec);
+        InventoryRow {
+            table: TableId::Dec,
+            position: RecordPosition(position),
+            identity: &row.identity,
+            targets,
+        }
     });
     let rows: Vec<_> = requirements.chain(decisions).collect();
     let mut counts = BTreeMap::new();
-    for (_, position, identity, _) in &rows {
+    for row in &rows {
         let entry = counts
-            .entry(identity.id.as_str())
-            .or_insert((*position, 0usize));
+            .entry(row.identity.id.as_str())
+            .or_insert((row.position.0, 0usize));
         entry.1 += 1;
     }
     let mut errors = Vec::new();
-    for (table, position, identity, targets) in rows {
+    for InventoryRow {
+        table,
+        position,
+        identity,
+        targets,
+    } in rows
+    {
         let error = |category, text, cause: String, path: &str, item| {
             let mut error = Error::scalar(category, text, &cause).at(path, item);
             error.table = Some(table);
-            error.record_position = Some(RecordPosition(position));
+            error.record_position = Some(position);
             error
         };
         if let Some((first_position, count)) = counts.get(identity.id.as_str())
@@ -155,7 +182,7 @@ pub fn check_inventory(batch: &Batch) -> Vec<Error> {
             duplicate.set_first_occurrence(RecordPosition(*first_position));
             errors.push(duplicate);
         }
-        for (path, item, target) in targets {
+        for Reference { path, item, target } in targets {
             if !counts.contains_key(target.as_str()) {
                 errors.push(error(
                     ErrorCategory::DanglingReference,
