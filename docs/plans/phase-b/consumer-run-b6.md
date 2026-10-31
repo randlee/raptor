@@ -1,100 +1,97 @@
-# Consumer run B.6 — comparison incomplete
+# Consumer run B.6 — strict duplicate comparison incomplete
 
-Extractor and handoff SHA: `226910fb99f090fb9f5b3c8e7d15c52103b47bcd`.
+Runtime proof SHA: `fc961ce19f605a209c9e09650bbacf6d4cf782c8`.
 Baseline extractor: `0fd132c50c7fc4f9136e0cea67bdf39865b64025`.
 Document commit: `6be9d2d5eae8d34499785c267cf4d5ae9b3b0236`.
-The exact source archive used a fresh environment, extension build, and target.
-The external snapshot was byte-verified against all 949 pinned archive files.
-Extraction returned 1; strict SQLite loading and dumping returned 0.
-The consuming checkout and previous evidence bundles were not modified.
+Fresh source archive, environment, extension and empty build target were used.
+All 949 pinned document files were byte-verified; the checkout was read-only.
 
-| Measure | Baseline | Candidate |
+| Measure | Historical baseline | Candidate |
 | --- | ---: | ---: |
 | Scanned files | 157 | 157 |
-| Rendered files | — | 0 |
+| Original rendered files | — | 0 |
 | Hand-written files | — | 157 |
-| Rendered with zero diagnostics | — | 0 of 0 |
-| Index requirements | 537 | 312 |
-| Index decisions | 51 | 42 |
-| Dump requirements | 532 | 311 |
-| Dump decisions | 51 | 42 |
-| Diagnostics | 2243 | 3146 |
+| Index requirements | 537 | 308 |
+| Index decisions | 51 | 30 |
+| Raw index load exit | 0 | 1 |
+| Raw dump requirements | 532 | not attempted |
+| Raw dump decisions | 51 | not attempted |
+| Derived unique subset dump requirements | — | 308 |
+| Derived unique subset dump decisions | — | 30 |
+| Diagnostics | 2243 | 3207 |
 | Summary groups | 634 | 555 |
 | UNKNOWN_LABEL | 1180 | 1114 |
 | MISSING_FIELD | 361 | 1273 |
 | BAD_VALUE | 345 | 399 |
 | UNKNOWN_SECTION | 304 | 304 |
 | MISSING_ID | 40 | 39 |
-| DUPLICATE_ID | 10 | 2 |
-| DANGLING_REFERENCE | 3 | 15 |
+| DUPLICATE_ID | 10 | 64 |
+| DANGLING_REFERENCE | 3 | 14 |
 
-Classification uses the exact directory component `rendered`; no original files
-match. This count is observational; review withdrew a nonzero-count requirement.
-The derived round-trip proof below covers accepted rows. No aliases were applied.
+Extraction exits 1. The baseline SQL counts describe historical behavior only;
+they do not authorize selecting a duplicate winner. No raw dump was fabricated.
+Original rendered classification uses the exact directory component `rendered`.
+Its zero count is observational; a nonzero requirement was withdrawn.
+No aliases were applied.
 
-Full objects and source/code witnesses are retained externally, with hashes.
-Unique headings and exact content witnesses bind baseline occurrences to source;
-remaining empty duplicate occurrences are resolved by bijection. Independently
-qualified source occurrences reproduce the ordered candidate row arrays exactly.
+Source inventory detects 30 duplicated identifiers across 64 valid headings,
+including 48 occurrences already rejected for content. Every occurrence reports;
+all matching rows are omitted. Against `226910f`, exactly 16 previously accepted
+rows disappear: 4 requirements and 12 decisions. Before duplicate finalization,
+qualified rows equal that prior index exactly. Every retained full object and
+its relative order is unchanged. Complete removed-row and sibling witnesses exist.
+Rust separately rejects both occurrences of the submitted duplicate sample.
 
-| Source-proven index difference mechanism | Occurrences |
+The raw duplicate-bearing index fails loading before database connection:
+a new database remains absent; an existing fixture database remains byte- and
+mtime-identical, with no journal created. There is no first/last projection.
+A separately labelled unique retained subset loads and dumps all 338 rows exactly,
+without editing values. A unique fixture update preserves rowids and updates
+its intended value. These derived successes do not validate the raw index.
+
+All 3129 non-inventory diagnostics equal `226910f` as full occurrence multisets.
+Its 2 duplicate reports become 64 source reports. Two dangling reports disappear
+with an omitted row; one new report targets an omitted identifier, leaving 14.
+Four full summary-group objects differ; their counts and locations re-aggregate
+exactly from the source-backed diagnostics. All changes have duplicate-policy
+witnesses; no unrelated retained-data or parser drift is accepted.
+
+| Current baseline occurrence difference mechanism | Count |
 | --- | ---: |
-| Required content rejection | 210 |
-| Invalid reference identifier rejected by scalar validation | 15 |
-| Whitespace only | 13 |
-| Hyphen thematic break removed from captured text | 107 |
-| Other source content reconstruction changes | 59 |
-| Detached list prose rejected | 8 |
-| Malformed placeholder items rejected | 1 |
-| Total changed baseline occurrences | 413 |
+| Required content rejection | 199 |
+| Scalar validation rejection | 15 |
+| Whitespace only | 9 |
+| Strict duplicate policy | 27 |
+| Hyphen thematic break removal | 107 |
+| Other content reconstruction | 48 |
+| Detached list prose rejection | 8 |
+| Malformed placeholder rejection | 1 |
+| Total changed baseline occurrences | 414 |
 
-The first three mechanisms account for 238 occurrences under documented causes.
-The remaining 175 have source-proven mechanisms but lack complete equivalence
-attribution under the six permitted causes; none is silently accepted.
-There are 408 changed dump rows: required content 206; scalar 15; whitespace 12;
-thematic breaks 107; other content 58; detached prose 8; malformed placeholders 1;
-duplicate winner selection after rejection 1. Both dumps exactly equal the
-last index occurrence for each id. One surviving duplicate explains the
-candidate index/dump requirement count difference; array ordering also changes.
+The duplicate category includes 11 previously content-rejected occurrences and
+16 newly excluded accepted rows. Current nonduplicate unresolved mechanisms total
+164; the original 175 unapproved parser corrections remain a separate historical
+gate. Duplicate exclusion of 11 such cases does not approve their parser changes.
+All 978 changed full baseline groups retain complete before/after occurrence proof.
+There is no candidate raw-dump delta because the raw load is correctly rejected.
 
-The 399 BAD_VALUE diagnostics map to 366 Rust scalar failures, 30 detached-prose
-reports, and 3 item-grammar reports. All have source and producer/code mappings.
-All 979 changed full summary groups are verified against their complete
-constituent diagnostic objects, counts, locations, and section attribution.
-A source-code explanation does not itself establish permitted-cause equivalence.
+A derived corpus renders each of the 338 unique retained occurrences separately.
+All 338 documents qualify without source diagnostics; full ordered qualified and
+accepted arrays equal their input. Entire acceptance results match, with only
+the same 14 dangling-reference errors and no duplicate errors. This covers
+retained rows only, while original rendered-file count remains 0.
 
-At `0886563`, accepted rows equal `d8f1e11` exactly. Diagnostic differences are
-1637 section-only, 15 section plus wording, 2 wording-only, and 1470 unchanged;
-three newly recognized headings add 22 reports and replace one MISSING_ID.
-From `0886563` to `44c75e6`, 310 heading diagnostics change only message and allowed
-values: Rust InvalidId replaces Python prefix choices. Their group merges into
-an existing group of 2, yielding 312 and reducing 556 groups to 555.
-From `44c75e6` to `1caac05`, all output objects match except generation time.
-From `1caac05` to `0d98a89`, 1273 MISSING_FIELD columns move from 1 to 4 at the
-identifier token; six also reorder. Other fields, rows, groups, and dumps match.
-From `0d98a89` to this handoff, all consumer output objects match except time.
-Separate API proof: all 24 object schemas require every canonical key and reject
-unknown keys recursively; nullability is unchanged. Wrong-table root IDs reject
-with InvalidId at /id; scalar descriptions delegate validation to Rust.
-SQL emission is byte-identical. These changes do not alter pinned corpus output.
+Earlier evidence preserves structural-heading recognition, section attribution,
+Rust-owned heading validation, exact source offsets, and stricter schema contracts.
+The detailed historical pre-B.4 rule table disagrees with its later classification
+summary but agrees in total; it is not an attribution oracle.
+Reported checks: 101 Python passes plus one literal Value guard failure;
+58 Rust tests and 5 doctests pass. The official 0.8.0 pure function audit finds
+no advisories or violations; source/test file caps pass. A pre-existing CLI line
+is 108 characters; no integrated lint enforcement is claimed.
 
-A separate derived corpus renders all 354 accepted occurrences into distinct
-ordinal directories. All 354 documents qualify without source diagnostics;
-full qualified and accepted arrays equal the original index in exact order.
-The entire acceptance result is identical, including the existing 2 duplicate
-and 15 dangling-reference errors. No new source or shape diagnostic appears.
-This derived proof covers accepted rows only; the original rendered count is 0.
-
-Regression proof covers scalar/list paragraphs, literal fences, and nested items.
-Reported Python validation has 90 passes and one literal Value guard failure;
-its source-boundary policy remains unresolved. Rust checks pass.
-
-The historical pre-B.4 detailed table separates two rule families later combined
-by its summary; their total agrees. This historical discrepancy is not an
-attribution oracle and does not replace the pinned full-object baseline.
-
-Acceptance remains incomplete: 175 record occurrences lack approved cause
-attribution, changed diagnostic groups need contract acceptance, and the literal
-Value guard remains unresolved. No additional cause taxonomy is waived.
+Acceptance remains incomplete: the original 175 parser corrections and changed
+historical diagnostic contracts lack approval; the literal Value guard is open.
+No cause waiver or whole-crate size limit is inferred from the duplicate decision.
 Evidence summary SHA-256:
-`96ea564bf6b79a0e47163337f928a3e139debf07cbc7c4d1f4d283307b38e222`.
+`1b0a61e31d761c0a1d31998369d340c626814bb2096254bfb5e898bb0dc57b26`.

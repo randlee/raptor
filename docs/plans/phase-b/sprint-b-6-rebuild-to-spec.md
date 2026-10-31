@@ -353,29 +353,8 @@ baseline allowances are authorized. Raptor does not yet configure the native
 consumer integration; record the official parser audit without claiming it
 runs in CI. This is a function limit, not a whole-crate budget.
 
-The historical estimate of 1,000 was reconciled against RAP-B-ANALYSIS-2 as
-follows. That report's disposition table (report lines 7 to 20) keeps 463
-of today's 1,212 lines; its size table (line 77) says those 463 become
-1,305 lines once the skips are removed, and line 81 says the field table
-alone accounts for 569 of them (8 printed lines today). So the retained
-code other than the field table is 455 lines today and 736 formatted, a
-growth of 1.62. Two things differ here. The field table is re-encoded as
-six-element tuples with the section inside the level; every entry fits
-one line (measured above), so it is 63 entries, the `Section` enum and
-the declaration, about 90 lines rather than 569. And the retained set
-includes `REQUIREMENT_SCOPE`, `label_for` and `table_fields` (report line
-13, `lib.rs` 269 to 312, 44 lines), which this sprint deletes because the
-table attribute replaces them: 44 at 1.62 is 71. Applying the report's
-own ratio: 736 less 71 is 665 for retained code, plus 90 for the table,
-plus the report's own strict-ingress allowance of 195 (line 78, which is
-line 80's 1,500 less line 77's 1,305), gives 950.
-
-The item-by-item estimate, counted as `cargo fmt` output: 25 types and
-enums with derives at about 8 lines each, 200; field table, 90; scalar
-rules, 40; emission, 120; presence walk and typed acceptance, 170;
-inventory and summary, 80; pyo3 module, 60; about 760. The two methods
-gave 760 and 950. These figures explain the earlier estimate only. They do
-not establish a whole-crate ceiling or authorize larger individual files.
+The earlier tuple-based whole-crate estimates are preserved in Git history.
+They are not approved constraints and do not govern acceptance.
 
 ## Baseline and test corpus
 
