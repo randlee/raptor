@@ -33,7 +33,9 @@ def list_entries(node):
             entry["line"] == previous_line + 1 or entry["text"][:1].isspace()
         ):
             gap = "\n" * (entry["line"] - previous_line)
-            entries[-1]["text"] += gap + entry["text"]
+            # Templates indent continuation lines by the two-character list marker width.
+            continuation = entry["text"][2:] if entry["text"].startswith("  ") else entry["text"]
+            entries[-1]["text"] += gap + continuation
         else:
             detached.append(entry)
             previous_line = None
