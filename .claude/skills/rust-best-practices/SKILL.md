@@ -11,7 +11,7 @@ depends_on:
 
 # Rust Best Practices
 
-This skill is the canonical source of truth for structural Rust pattern review in raptor. It complements `rust-development` by focusing on type-system-driven correctness, API-boundary design, and the lifecycle stage where each pattern should be enforced.
+This skill is the canonical source of truth for structural Rust pattern review in Synaptic Canvas. It complements `rust-development` by focusing on type-system-driven correctness, API-boundary design, and the lifecycle stage where each pattern should be enforced.
 
 ## Scope
 

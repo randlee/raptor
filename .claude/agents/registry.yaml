@@ -58,3 +58,22 @@ skills:
       rust-code-reviewer: 0.x
       rust-code-explorer: 0.x
       rust-qa-agent: 0.x
+# atm-bd-orchestration configuration (read by its install.py; no defaults)
+roles:
+  lead: team-lead
+  dev-sanity: rap-sanity
+  quality-mgr: quality-mgr
+bead_prefix: rap
+worktree_base: ../raptor-worktrees
+test_command: cargo test && python3 -m pytest -q tests
+lint_command: cargo fmt --check --all && cargo clippy --all-targets --all-features -- -D warnings
+integration_branch_pattern: integrate/phase-{phase}
+plans_dir: docs/plans
+requirements_globs:
+  - docs/requirements.md
+adr_globs:
+  - docs/adr/*.md
+policy_path: .claude/project/quality-policy.md
+reviewers_round1:
+  - req-qa
+  - arch-qa

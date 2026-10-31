@@ -1,0 +1,443 @@
+---
+id: b-6
+title: Rebuild the crate to specification; Python qualifies
+status: complete
+branch: chore/phase-b-completion
+worktree: ../raptor-worktrees/chore/phase-b-completion
+target: integrate/phase-b
+depends_on: [b-5]
+relation: must_follow the merge of stack #46 into integrate/phase-b
+---
+
+# Sprint B.6 — Rebuild the crate to specification; Python qualifies
+
+B.1 to B.5 delivered a crate that does not meet the specification. Its
+`bind_file` parses Markdown fragments (links, checkbox prefixes, heading
+text) that the splitter passes through verbatim, which is 599 of 1,212
+lines; the 700-line ceiling was met with 40 `#[rustfmt::skip]` attributes
+and lines up to 3,015 characters. The specification is: a REQ or ADR is
+information; that information maps to a schema in SQL and JSON; SQL and
+JSON map to each other mechanically; JSON to Markdown is mechanical through
+the template; only Markdown to JSON is parsed, and that parsing is Python's
+job. Everything handed to Rust is already fully qualified. Rust reads a
+great deal and writes very strictly.
+
+This sprint rebuilds the crate to that specification from the schema
+outward, with the schema definition as the only code carried over, and
+writes the Python qualifier against the rebuilt crate. Markdown ingress is
+a one-time import per repository, so the qualifier is an import script
+with exact diagnostics, not a product: its size and its tests are sized
+accordingly. The rebuild is judged as new code, formatted by `cargo fmt`,
+not as a diff against the old file. Evidence: RAP-B-ANALYSIS-2,
+RAP-B-AUDIT-1 and RAP-B-BASELINE-1.
+
+## Exact Targets
+
+- `crates/raptor-schema/src/lib.rs` replaced by: `lib.rs` (pyo3 module and
+  nothing else), `schema.rs` (row types, nested shapes, enums, scalar rules,
+  the field table), `emit.rs` (SQL DDL, JSON Schema, field table export),
+  `accept.rs` (strict ingress and the error type), `inventory.rs`
+  (`check_inventory`, `summarize`)
+- `crates/raptor-schema/tests/schema.rs` rewritten
+- `scripts/qualify.py` (new); `scripts/extract.py`, `scripts/load_sqlite.py`
+- `tests/test_qualify.py` (new); `tests/test_extract.py`, `tests/test_load.py`
+- `scripts/diagnostics.py` and `tests/test_diagnostic_sections.py`: source diagnostics and section-aware grouping
+- `scripts/markdown_content.py` and `tests/test_markdown_content.py`: cohesive source-content reconstruction and its round-trip regressions
+- `templates/requirement.md.j2`, `templates/decision.md.j2`: indent multiline list continuations so rendered paragraphs and code are unambiguous
+- `tests/fixtures/records.json` only if a shape below requires it
+- `.raptor/aliases.toml` (new, a comment and three empty tables) in Raptor
+- `rustfmt.toml` at the repository root (`max_width = 100`; default call formatting)
+- `docs/plans/phase-b/consumer-run-b6.md` (new)
+
+### Corrective refactor boundaries
+
+Round-one review fixes preserve the five-operation Python interface. JSON Schema
+exports rule remedies, rejection/category policy, table rendering metadata and
+neutral semantic property roles; Python consumes those exports rather than
+copying canonical field names. The generic record template replaces duplicated
+table-specific rendering blocks. Source qualification uses explicit per-record
+context and separate schema, alias, content and diagnostic helpers. The loader
+validates canonical rows and never fills missing fields independently.
+
+
+The content helper owns raw source reconstruction and list continuation grouping;
+the qualifier retains schema interpretation. Metadata is separated as one cohesive
+module family under `crates/raptor-schema/src/fields/` and `metadata.rs`,
+from the record models and scalar validation. A typed reference accessor binds
+reference metadata to validated row members; it adds no record column or schema
+policy. This implementation binding is distinct from the six semantic field
+attributes, and completeness tests require every reference shape to have one. Integration tests are grouped by ingress, inventory and emission with
+a shared fixture module. These splits preserve all checks and do not establish
+permission to enlarge files. Crate totals are informational; the per-file
+limits below remain binding.
+
+The corrective targets also include the leaf Rust `error.rs`, `rule.rs`,
+`batch.rs`, `protocol.rs` and `boundary.rs` modules, plus the error/metadata
+contract integration tests. Python's cohesive helper targets are `aliases.py`,
+`schema_json.py`, `record_context.py`, `shape_content.py`, `markdown_splitter.py`,
+`import_corpus.py`, `sqlite_records.py`, `render_context.py` and
+`markdown_renderer.py`; rendering uses `templates/record.md.j2`. Focused boundary,
+protocol, loader, alias, heading and diagnostic tests and shared test helpers
+cover those modules. These are refactor boundaries, not increased ceilings:
+new Python helpers and tests stay within 150 lines each, Rust source files within
+450, and Rust test files within 400. Original narrower file ceilings still apply.
+The JSON fixture is normally indented data, with unchanged decoded values.
+The ingress walker shares one context for schema definitions and validated IDs;
+raw traversal remains in `accept.rs`. `emit.rs` owns compiled schema/field-cache
+provisioning. `scripts/source_inventory.py` checks valid source-heading identities
+before canonical submission. Source locations and rejection reasons are retained
+without selecting duplicate winners.
+
+## What is carried over, and nothing else
+
+The schema definition is information, and it is unchanged: the `Status`,
+`RecordKind` and `Modal` enums with their spellings; the `Identity` and
+`Lifecycle` shapes; the nine requirement sections and nine decision
+sections with their nested shapes (`Statement`, `CheckItem`, `IdItem`,
+`LinkItem`, `Alternative`); the 63 field entries as information (each
+entry's name, label, level, shape, section, required flag and SQL type are
+kept; the entry shape they are written in is defined below and is new);
+the id, version and date rules (the date rule corrected to read the full
+year); the fixture.
+Tests in `tests/schema.rs` that assert emitted DDL, JSON Schema or field
+table content are kept where they still hold. No other line of the old
+file is copied. The following do not come back in any form: `bind_file`,
+the old `bind_file` JSON tree helpers, `id_items`, `links`, the checklist
+prefix parser, heading text handling, the case-insensitive tree lookups
+(`same`, `named`, `string`, `label`, `section`), document-context
+diagnostics built from tree lines, `Field::modal` by table position, the
+`REQUIREMENT_SCOPE` sentinel, `#[rustfmt::skip]`.
+
+## Deliverables
+
+### Rust: schema and emission (`schema.rs`, `emit.rs`)
+
+The field table is a plain `const` array of tuples, one entry per line,
+each entry carrying, in this order: name, label, table (`Req`, `Dec`,
+`Both`), level, shape, presence (`Required`, `Optional`, `Nullable`).
+Nothing derivable is stored. The section a label belongs to is part of
+its level, `Label(Related)`, where the payload is a closed `Section` enum
+of fourteen variants named by the first word of the section heading
+(`Statement`, `Rationale`, `Success`, `Dependencies`, `Product`,
+`ImplNotes`, `Test`, `Related`, `Context`, `Decision`, `Consequences`,
+`Alternatives`, `Implementation`, `Impact`); the heading text is one
+exhaustive `match` on that enum. `Rationale` is one variant used by both
+tables with the same heading text in each, so the match needs no table
+input; the entry's table attribute says which table an entry belongs to.
+The fold is safe because a label has exactly one section and a header,
+item or section has none, so the type cannot express a label without a
+section or a section with one. The level's payload therefore differs by
+variant: `Label` carries its section, the other three carry nothing. The
+modal is part of the shape the same way, `Statements(MustNot)`, with the
+closed `Modal` enum as payload. The SQL type is `TEXT` for every
+one of today's 63 entries and is emitted from the shape. What the
+qualifier needs to know about a field (heading id, heading title, header
+label, section prose, section label, group) is one exhaustive `match` on
+level and shape with no fallback arm; every payload is a closed enum, so
+a new variant anywhere fails to compile until it is placed. The `Item`
+and `Section` arms of that `match` name every shape, so a new `Shape`
+variant fails to compile there; the `Header` and `Label(_)` arms, whose
+result does not depend on the shape, may leave it unnamed, `(Header, _)`.
+
+All 63 entries were written out in this encoding from the current table
+and measured at the standard four-space indent: the widest is 97
+characters and none exceeds 100. The two widest:
+
+```rust
+("integration_points", "Integration Points", Dec, Label(Implementation), TextList, Optional),
+("architecture_decisions", "Architecture Decisions", Both, Label(Related), IdList, Optional),
+```
+
+`Nullable` is the presence of `supersedes` and `superseded_by` only;
+`Optional` means the canonical empty value when the source has nothing.
+`field_table(table)` exports per table the `FieldMeta` the B.1 export
+already carries (name, label, level, shape, section, modal, required,
+sql_type) plus `table` and `nullable`, all derived from the six stored
+attributes. `json_schema()` is emitted per table with `Status`
+and `Modal` choices resolvable from the schema and `x-raptor-fields`
+attached per table. `validate_scalar(kind, text) -> Result<(), Error>` is
+the single implementation of the id, version and date rules; Python calls
+it and holds no second policy. The exported JSON Schema is the structural
+contract; its named Id, Version and Date references rely on `validate_scalar`
+and `accept` for scalar semantics rather than a duplicate pattern or format.
+Field `shape` describes source interpretation; the stored structure comes from
+the emitted JSON Schema property. No field is added, renamed or removed.
+
+### Rust: strict ingress (`accept.rs`)
+
+`accept(json) -> Accepted` is the only way a record enters the crate.
+`Accepted` is a plain struct with two readable fields, `batch: Batch` and
+`errors: Vec<Error>`; there is no `Result`, because acceptance is per
+record: a record with any error is excluded whole, every other record is
+accepted, and every error is reported. `Batch` has private fields and no
+public constructor, so a `Batch` value proves every record in it passed
+`accept`. Last, `accept` runs `check_inventory` (below) over the accepted
+records and appends its errors to the same `errors`, so `DUPLICATE_ID` and
+`DANGLING_REFERENCE` come out of the same call. A reference to a rejected
+record is dangling in the loaded batch and is reported as such, naming
+the target id; the crate does not link it to the rejection, because the
+qualifier built the batch and holds the id of every record it submitted
+by position, so it joins the target id to the rejected record's position
+in `errors` itself and needs no second list from the crate. Where the
+rejected record's own id was malformed, no record of that id can exist
+and the reference is dangling in its own right; the qualifier still knows
+the source line of both. An input that is not the batch shape yields an empty batch and one `Error`
+at the root path with no record position. `Id`, `Version` and `Date`
+expose `as_str()` and do not implement `Deref`. Before typed
+deserialization it walks the value against the emitted JSON Schema: unknown
+key anywhere, missing key, JSON type mismatch, `null`
+in a non-nullable field, and an absent key where `null` is the meaning are
+each an `Error`. This check exists because serde `flatten` and
+`deny_unknown_fields` cannot be combined on the row types;
+`deny_unknown_fields` is set on every nested type that is not flattened.
+`Id`, `Version` and `Date` deserialize only through validated
+constructors. Enum text is matched exactly against canonical spellings.
+Supersession must name a same-kind id. A record that fails does not enter
+the batch; the batch reports every failure, not the first.
+
+One `Error` type: category, table, record position, JSON field path,
+item index, offending value, cause, message. The category enum is
+`UnknownKey`, `MissingKey`, `TypeMismatch`, `NullNotAllowed`,
+`InvalidId`, `InvalidVersion`, `InvalidDate`, `UnknownVariant`,
+`CrossKindSupersession`, `DuplicateId`, `DanglingReference`; variants may
+be added, never renamed or removed, and Python matches on the name. Scalar validation raises a structured Python exception with the same members.
+Batch acceptance returns structured errors beside accepted records, so one
+rejected record does not prevent the others from being accepted. No `unwrap`, `expect`,
+`panic!`, slice index or arithmetic on input data outside tests; every
+input-dependent path returns `Result`.
+
+### Rust: inventory (`inventory.rs`) and boundary (`lib.rs`)
+
+`check_inventory(&Batch) -> Vec<Error>` and `summarize` live in
+`inventory.rs`, operate on an accepted batch and report record position
+and item index; Python maps those to file and line. A typed duplicate index in
+this module receives submitted identities from ingress before admission.
+Every repeated identity is reported at every occurrence, and all its rows are
+rejected; malformed neighboring rows cannot select a winner. Dangling checks
+run against the admitted unique records. `accept` calls `check_inventory` last
+and nothing else calls it. Python checks all valid source-heading identities,
+including records rejected before submission, with the shared duplicate rule.
+The loader rejects any duplicate input or carried duplicate diagnostic before
+opening SQLite. A unique input can be replayed through an explicit update of
+its existing rows; duplicate input never overwrites an earlier occurrence.
+The seven `Rule`
+variants also cover Python-only source diagnostics. The exported rule table
+is their shared taxonomy; Rust summaries use only typed/inventory rules:
+`DuplicateId` and `DanglingReference` map to the `Rule` of the same name
+and every other category maps to `BadValue`, in one exhaustive `match` in
+`summarize`. `Rule` is the vocabulary the qualifier's diagnostics and the
+summary share with Python; the category is the crate's exact cause. Both
+exist because Python reports rules and fixes causes. `lib.rs`
+contains the pyo3 module only: `sql_ddl`, `json_schema`, `field_table`,
+`validate_scalar`, `accept`. `check_inventory` and `summarize` are
+crate-internal, because `Batch` is sealed and Python cannot hand one
+back; `accept`'s Python return is the `Accepted` value serialised with a
+`summary` member from `summarize` beside `batch` and `errors`.
+Acceptance check for the whole crate:
+`rg -n 'rustfmt::skip|\]\(|\*\*|- \[|serde_json::Value' crates/raptor-schema/src/`
+prints nothing except approved JSON boundary uses: `accept.rs` inspects submitted
+records; `emit.rs` and `boundary.rs` construct generated schemas/metadata;
+`error.rs` carries diagnostic payloads. The user approved these narrow exceptions
+on 2026-10-30 ("yes/yes"). Accepted records remain typed; these exceptions do
+not permit raw record traversal outside `accept.rs`.
+
+### SQL
+
+Every column is `NOT NULL` except `supersedes` and `superseded_by`, which
+keep their deferred same-table foreign keys. The nine section columns that
+`required: false` makes nullable today become `NOT NULL` with the canonical
+empty value. `CheckItem.checked` keeps its three states in JSON.
+`load_sqlite.py` inserts the canonical empty value, never `NULL`, for those
+columns.
+
+### Python: the qualifier (`qualify.py`)
+
+`qualify.py` turns the splitter's tree into qualified JSON for `accept`. It
+reads `field_table` and `json_schema` at start and contains no field name,
+section name, label or enum spelling of its own; the existing architecture
+test is extended to it. For every label, section heading, enum value and
+modal word, in this order:
+
+1. normalise: trim, collapse internal whitespace to one space, drop a
+   trailing colon, casefold;
+2. apply the consuming repository's aliases (below);
+3. match against the canonical choices casefolded; emit the canonical
+   spelling;
+4. otherwise emit a diagnostic carrying the `allowed` list. No fuzzy match,
+   no edit distance, no correction the repository did not declare.
+
+Ids, versions and dates are trimmed and passed to `validate_scalar`. Links
+and id items are tokenised here (`[text](href) note`); the href of an id
+item is discarded as the plan says. Missing optional content becomes the
+canonical empty value of its shape; missing required content is
+`MISSING_FIELD` and the record is not submitted. Every field the schema
+names is present in the qualified object, `null` only in the two nullable
+columns. `extract.py` keeps the splitter and the file walk and calls
+`qualify` then `accept`; it grows by no more than the call sites.
+
+### Aliases in `.raptor/`
+
+`<repo>/.raptor/aliases.toml` declares consistent differences once:
+
+```toml
+[labels]     # bold label as written  = canonical label
+"Acceptance" = "Acceptance Criteria"
+[sections]   # ### heading as written = canonical section
+[values]     # enum or modal text as written = canonical text
+```
+
+A `[values]` alias whose canonical target is a modal also applies inside a
+statement-list label. The qualifier combines the alias key with the field's
+Rust-exported `modal_label_suffix`, normalizes that complete label, and matches
+only fields with that target modal and a label valid at the current level.
+For example, `shall = "Must"` also recognizes `shall statements` where the
+exported suffix is ` statements`. A complete `[labels]` alias takes precedence.
+Each such use increments the `[values]` alias count once; no arbitrary word
+replacement or suffix inference is performed.
+
+Keys are matched after step 1 above. An alias may only map to a canonical
+choice; an alias to an unknown target is a configuration error reported
+before any file is read, with the file and line of the alias. Each applied
+alias is counted in the summary under `aliases`
+(`{"labels": {"Acceptance -> Acceptance Criteria": 37}}`). Alias
+application is not a diagnostic and does not affect the exit code. Raptor's
+own file declares nothing. Whether `SHALL` → `MUST` belongs in the
+consumer's file is decided by the operator from the baseline groups, not in
+this sprint.
+
+### Diagnostics at compiler grade
+
+Every diagnostic, from the qualifier or mapped from Rust, carries `section`
+(the canonical enclosing section or null), `file`,
+`line`, `column` (1-based, of the offending token), `rule`, `id`, `label`,
+`value` (the offending text verbatim), `allowed`, `message`, `remedy`. The
+message names what was found and what was expected in one sentence, so the
+fix can be made from the message alone. `column` and `value` are the two
+additions to the plan's diagnostic object. Inventory diagnostics report
+every occurrence at its own line; id-item diagnostics report the item's
+line. Both are intentional location corrections and appear in the expected
+delta.
+
+Rule ownership, which the plan's diagnostics section leaves with the
+crate, is now split. The qualifier raises `MISSING_ID`, `MISSING_FIELD`
+for absent source content, `UNKNOWN_SECTION`, `UNKNOWN_LABEL`, and
+`BAD_VALUE` for text that does not tokenise or does not match a canonical
+choice. The crate raises `BAD_VALUE` for a scalar its typed constructors
+refuse, and `DUPLICATE_ID` and `DANGLING_REFERENCE` from `check_inventory`,
+which `accept` runs last. Every other `accept` error maps to `BAD_VALUE`
+with its category in `message`.
+
+## Out of scope
+
+Any new column or field; any ADR; any change to `render.py`; any template
+change beyond generic metadata-driven rendering and preserving multiline list content; any edit to a consumer document; auto-correction of source
+files; an alias mechanism beyond the three tables above; fuzzy matching;
+Dolt; a configuration system, plugin or derive macro of our own. A choice
+this document does not make stops the sprint with the choice stated in the
+completion message.
+
+## Ceilings
+
+Measured on `cargo fmt` output with zero `rustfmt::skip` and no line over
+100 characters. `rustfmt.toml` sets only `max_width = 100`; call formatting
+uses rustfmt defaults. No override may compress calls to meet a line budget.
+No Rust source file exceeds 450 lines; no Rust test file exceeds 400.
+The user clarified: "I didn't approve a crate limit." The original whole-crate
+source/test figures were unapproved estimates, not acceptance limits; report
+totals for information only. `extract.py` 150, `qualify.py` 250, `load_sqlite.py` 60, `render.py`
+36 (unchanged). `tests/test_qualify.py` 150, `tests/test_extract.py` 150.
+`markdown_content.py` 150 and `tests/test_markdown_content.py` 150.
+`consumer-run-b6.md` 100. `aliases.toml` 6. A sprint that needs more stops
+and reports the number; it does not pack lines.
+
+Production Rust functions follow the released sc-lint 0.8.0 function-length
+algorithm: 70–79 code lines are advisory; 80 or more fail. Comments, blank lines
+and test functions are excluded by that algorithm. No new or increased
+baseline allowances are authorized. Raptor does not yet configure the native
+consumer integration; record the official parser audit without claiming it
+runs in CI. This is a function limit, not a whole-crate budget.
+
+The earlier tuple-based whole-crate estimates are preserved in Git history.
+They are not approved constraints and do not govern acceptance.
+
+## Baseline and test corpus
+
+RAP-B-BASELINE-1 pinned, at the stack head and the recorded consumer
+commit: extractor SHA, toolchains, the raw index JSON, the SQLite dump, and
+every diagnostic and summary group as full objects. Acceptance compares
+full objects against that bundle, not counts.
+
+Of the consumer repository's Markdown files, about four in five are
+records Raptor itself rendered from the template in an earlier run. The
+classification is by path: a file whose path contains a directory named
+`rendered` is a rendered file; every other file is hand-written. The
+consumer run reports the two counts. Those rendered files are the
+qualifier's round-trip test corpus: a file the template wrote must qualify
+and accept with no diagnostic, and a rule that fails on one of them is a
+defect in the rule. The hand-written files are the diagnostic corpus: they
+are expected to report, and a diagnostic there is never resolved in this
+repository.
+
+## Acceptance
+
+- Round trip on the fixture: render, split, qualify, accept, compare
+  equal; `issues` empty.
+- `python scripts/extract.py --project-root . --output <scratch>/index.json`
+  over Raptor: `issues`
+  empty, exit `0`, one row per REQ-RAP and ADR-RAP id.
+- `cargo fmt --check`, `cargo clippy -- -D warnings`, `cargo test`,
+  `pip install . && python -m pytest -q tests/` pass.
+- Strict ingress tests, each proving rejection with the structured error:
+  unknown key at top level and nested; missing key; wrong JSON type;
+  `null` in a non-nullable field; enum text differing only by case;
+  misspelled enum; malformed id, version, date; 29 February in a
+  non-leap year and in years 1900 and 2000; cross-kind supersession; a
+  batch with one bad record accepts the others and reports the one.
+- Qualifier tests: label, section, status and modal in mixed case, with
+  doubled and trailing whitespace and a trailing colon, all qualify to
+  canonical spellings; a misspelling produces a diagnostic with `value`,
+  `column` and `allowed`; an alias applies and is counted; an alias to an
+  unknown target is refused with its line; malformed links and id items;
+  statement ordering across the three labels; multi-record header carry.
+- Architecture tests: no field, section, label or enum literal in
+  `scripts/`; the boundary `rg` check permits only the approved four-file
+  JSON Value exception (`accept.rs`, `emit.rs`, `boundary.rs`, `error.rs`);
+  `rg -n 'unwrap\(\)|expect\(|panic!' crates/raptor-schema/src/` prints
+  nothing.
+- Consumer run, read-only: `consumer-run-b6.md` records, against the
+  baseline, index and dump row counts (537/51 and 532/51), rule counts,
+  the count of rendered files with zero diagnostics against the count of
+  rendered files, and an explicit per-record and per-group delta for every
+  difference, each attributed to one of: case-insensitive enum match,
+  whitespace, strict required-content policy, location correction, alias,
+  scalar rule change (full-year date, `validate_scalar` replacing the old
+  id, version and date checks). Unexplained drift fails the sprint. No
+  file path and no repository name.
+- Every ceiling measured on formatted code and listed in the completion
+  message, with the `rustfmt::skip` count, which is zero.
+- `cat rustfmt.toml` prints exactly `max_width = 100`, and no other
+  rustfmt configuration file exists in the repository.
+- Neutrality gate before every commit.
+
+## Plan amendments this sprint needs
+
+Applied to `docs/plans/phase-b/phase-b-plan.md` by the operator with this
+document: the label-tree section (the crate takes qualified JSON, not the
+tree; the qualifier takes the tree); the "Field attributes" table (the
+stored entry becomes the six attributes name, label, table, level with
+the section inside it, shape with the modal inside it, presence; the
+plan's four facts plus `name`, `table`, `modal`, `required`, `sql_type`
+and `nullable` are what the export derives from them); the "binder is the schema" bullet (the
+schema is still the only source of names; the qualifier reads it; the
+sentence "no alias table to extend" goes, aliases live in the consuming
+repository's `.raptor/`); the "corpus is never the test oracle" bullet
+(rendered files are the round-trip corpus, hand-written files the
+diagnostic corpus); the "no exceptions for one repository" bullet
+(per-repository aliases are declared in that repository, not here); the
+diagnostic object (`column`, `value`) and its rule ownership (the
+qualifier raises the source-side rules, the crate the typed and inventory
+rules, as in the diagnostics section above); the ceilings paragraph
+(formatted code, zero skips, the numbers above); the "One stack" bullet
+(B.6 branches from `integrate/phase-b` directly, as the first sprint after
+the stack merged); the sprints table row; the "Status values outside the
+enum" gap row.

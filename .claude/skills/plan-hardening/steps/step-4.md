@@ -23,12 +23,12 @@ Expected reviewer launch input shape:
 
 ```json
 {
-  "source_of_truth": "docs/plans/phase-X/plan-phase-X.md",
+  "source_of_truth": "docs/plans/phase-bc/phase-bc-plan.md",
   "references": [
     "docs/project-plan.md"
   ],
   "worktree_path": "/absolute/path/to/worktree",
-  "branch": "feature/branch-name",
+  "branch": "plan/phase-bc",
   "review_cycle_limit": 3,
   "review_cycle_index": 1,
   "reviewed_commit": "abc1234",
@@ -37,7 +37,7 @@ Expected reviewer launch input shape:
   "previous_step_json": {
     "status": "PASS",
     "mode": "plan-hardening-sprint-scope",
-    "round_id": "STEP-3-R1",
+    "round_id": "STEP3-R1",
     "round_index": 1,
     "reviewed_commit": "abc1234",
     "previous_reviewed_commit": ""
@@ -80,8 +80,8 @@ Save the extracted fenced JSON to `/tmp/step-4.json`.
     `critical-plan-reviewer` agent when possible
   - if the just-completed reviewer response used cycle index equal to
     `critical_review_cycle_limit`, do not launch another background review;
-    finish the Step 3 correction pass, record
-    `CAP_REACHED_CORRECTIONS_APPLIED`, and proceed to Step 5
+    stop the hardening run after the Step 3 correction pass and report
+    `cap-exhausted / not converged`
 - the reviewer must return all remaining `Blocking` and `Important` findings
   in one pass; newly surfaced findings after a previous round are acceptable
   only if the plan changed between rounds
@@ -120,7 +120,11 @@ author from Step 1 with `atm queue` so it never interrupts work in progress.
 The template declares `workflow.stage: plan`, which is what makes the round
 discoverable (`atm search --team <team> --workflow-stage plan`).
 
-Update the round table after every Step 4 response:
+Update the round table after every Step 4 response. In the Note column
+record the plan's `critical_path` and `width` for the round (from the
+`plan-scope-reviewer` `parallelism` block). A round that lengthens the
+critical path or narrows the width is a regression: name the finding that
+caused it, and prefer a boundary re-cut over accepting it.
 
 | Round | Step | Reviewer | reviewed_commit | status | blocking | important | minor | findings_hash | supersedes | Note |
 |-------|------|----------|-----------------|--------|----------|-----------|-------|---------------|------------|------|
@@ -138,7 +142,7 @@ Update the round table after every Step 4 response:
 - reviewer output repeats the same `reviewed_commit` and the same
   `findings_hash`: do not advance; mark it as stale replay and request a fresh
   review cycle only after the plan state changes
-- reviewer has reached `critical_review_cycle_limit`: do not launch another
-  reviewer cycle and do not accept the findings silently; finish the Step 3
-  correction pass, record `CAP_REACHED_CORRECTIONS_APPLIED`, and proceed to
-  Step 5
+- reviewer has reached `critical_review_cycle_limit` without converging: do not
+  launch another reviewer cycle, do not ask the user what to do, and do not
+  accept the findings silently; finish the Step 3 correction pass and report
+  `cap-exhausted / not converged`

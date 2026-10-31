@@ -1,0 +1,65 @@
+{
+  "schema_version": 1,
+  "phase": "b",
+  "reviewed_commit": "fb7ea189db3ca76d6963fec694978b6314e48917",
+  "filing_reviewer": "flaky-test-qa",
+  "finding_count": 2,
+  "findings": [
+    {
+      "id": "FTQ-001",
+      "filing_reviewer": "flaky-test-qa",
+      "severity": "minor",
+      "owner": "lrap",
+      "original_finding": "The helper launches extract.py and render.py with subprocess.run and no timeout. If a script hangs, for example on stdin, a lock or an extractor loop, the test blocks forever and the CI job runs until its global limit. It never fails with a clear message. The test cannot be reproduced reliably, and every test that builds a project through project() depends on this helper.",
+      "original_acceptance_criterion": "Pass a hard timeout to subprocess.run (for example timeout=60) and catch subprocess.TimeoutExpired so the test fails with a message naming the script and its arguments. Add stdin=subprocess.DEVNULL. This is a deadline on a call that can hang, not a retry or a padded wait, so it does not mask a race.",
+      "original_evidence_refs": [
+        "tests/test_extract.py:14"
+      ],
+      "source_report": "flaky-test-qa.md",
+      "duplicates_or_overlaps": [],
+      "status": "fixed-verified",
+      "current_evidence": [
+        "Current candidate refactor; exact committed head and filing-reviewer closure pending.",
+        "Developer reports: raptor-rust-qa-api-migration.md, raptor-python-qa-fixes.md, raptor-qa-tooling-report.txt.",
+        "Round-3 filing-owner verification at1caac05; no regression reported."
+      ],
+      "disposition_note": "Filing reviewer confirmed closure on exact pinned candidate; quality-mgr recorded this closure. Other findings remain independent.",
+      "verification": {
+        "commit": "1caac05149baabf1f75a8982a683a4fb86dc7e0e",
+        "task": "RAP-B-PHASE-FIX-VERIFY-20261030-3",
+        "closed_by": "quality-mgr",
+        "filing_reviewer": "flaky-test-qa",
+        "report": "https://github.com/randlee/raptor/pull/84#issuecomment-6538783122",
+        "closure_artifact": "ATM share: raptor/qa-round3-closures-1caac05.json"
+      }
+    },
+    {
+      "id": "FTQ-002",
+      "filing_reviewer": "flaky-test-qa",
+      "severity": "minor",
+      "owner": "lrap",
+      "original_finding": "The helper runs load_sqlite.py with subprocess.run and no timeout. The script opens a sqlite database. A hang, for example on a database lock or a stdin read, would block the test forever instead of failing.",
+      "original_acceptance_criterion": "Add timeout=60 and stdin=subprocess.DEVNULL, and convert TimeoutExpired into an assertion failure that names the command.",
+      "original_evidence_refs": [
+        "tests/test_load.py:11"
+      ],
+      "source_report": "flaky-test-qa.md",
+      "duplicates_or_overlaps": [],
+      "status": "fixed-verified",
+      "current_evidence": [
+        "Current candidate refactor; exact committed head and filing-reviewer closure pending.",
+        "Developer reports: raptor-rust-qa-api-migration.md, raptor-python-qa-fixes.md, raptor-qa-tooling-report.txt.",
+        "Round-3 filing-owner verification at1caac05; no regression reported."
+      ],
+      "disposition_note": "Filing reviewer confirmed closure on exact pinned candidate; quality-mgr recorded this closure. Other findings remain independent.",
+      "verification": {
+        "commit": "1caac05149baabf1f75a8982a683a4fb86dc7e0e",
+        "task": "RAP-B-PHASE-FIX-VERIFY-20261030-3",
+        "closed_by": "quality-mgr",
+        "filing_reviewer": "flaky-test-qa",
+        "report": "https://github.com/randlee/raptor/pull/84#issuecomment-6538783122",
+        "closure_artifact": "ATM share: raptor/qa-round3-closures-1caac05.json"
+      }
+    }
+  ]
+}
