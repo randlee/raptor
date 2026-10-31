@@ -103,13 +103,21 @@
       "duplicates_or_overlaps": [],
       "status": "implemented-unverified",
       "current_evidence": [
-        "Typed internal-Batch unit test exercises both duplicate occurrences at positions1 and3 with first position1 and all references present; focused test and Clippy pass."
+        "Typed internal-Batch unit test exercises both duplicate occurrences at positions1 and3 with first position1 and all references present; focused test and Clippy pass.",
+        "Defensive test moved intact into existing allowlisted batch/tests.rs; constructor guard unchanged. Full workspace/all-feature Rust tests59+5doctests, Clippy and build pass."
       ],
-      "disposition_note": "Quality-mgr normalized new ID via01M688NBR72R8GZBQ5SD82PGSH. Pinned filing-owner coverage verification pending.",
+      "disposition_note": "Coverage goal met; focused proof originally missed constructor-boundary regression. Full suite now passes after test ownership correction; pinned filing re-verification required.",
       "verification": null,
       "acceptance_source_refs": [
         "docs/plans/phase-b/sprint-b-6-rebuild-to-spec.md"
-      ]
+      ],
+      "regression": {
+        "id": "QA-004-R1",
+        "report_message": "01M689726DBVW6M9PHBKNQSKNQ",
+        "original_issue": "New inventory/tests.rs private constructor calls violated existing batch_boundary allowlist.",
+        "fix": "Move whole invariant test into existing batch/tests.rs; delete extra test module and restore inventory production file to runtimefc961.",
+        "status": "implemented-unverified"
+      }
     }
   ]
 }

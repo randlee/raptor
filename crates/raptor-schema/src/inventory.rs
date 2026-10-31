@@ -270,6 +270,3 @@ pub fn summarize(batch: &Batch, errors: &[Error]) -> Summary {
         counts,
     }
 }
-
-#[cfg(test)]
-mod tests;
