@@ -9,13 +9,17 @@ pub enum FieldScope {
     All,
     Only(TableId),
 }
+impl FieldScope {
+    pub(crate) const fn wire_name(self) -> &'static str {
+        match self {
+            Self::All => "Both",
+            Self::Only(table) => table.scope_name(),
+        }
+    }
+}
 impl Serialize for FieldScope {
     fn serialize<S: serde::Serializer>(&self, serializer: S) -> Result<S::Ok, S::Error> {
-        serializer.serialize_str(match self {
-            Self::All => "Both",
-            Self::Only(TableId::Req) => "Req",
-            Self::Only(TableId::Dec) => "Dec",
-        })
+        serializer.serialize_str(self.wire_name())
     }
 }
 #[derive(Clone, Copy, PartialEq, Eq)]

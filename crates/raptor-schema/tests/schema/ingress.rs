@@ -253,7 +253,7 @@ fn mixed_batch_keeps_original_positions_and_collects_all_errors() {
     input["requirements"].as_array_mut().unwrap().push(next);
     input["requirements"][0]["title"] = Value::Null;
     let result = accept(&input.to_string());
-    let positions = result.batch.requirements().map(|(position, _)| position);
+    let positions = result.batch.requirements().map(|row| row.position.0);
     assert!(positions.eq([1]));
     assert_eq!(result.batch.decisions().count(), 1);
     assert_eq!(result.errors.len(), 1);
@@ -315,4 +315,12 @@ fn supersession_check_accumulates_with_other_invalid_fields() {
         result.errors[1].category,
         ErrorCategory::CrossKindSupersession
     );
+}
+
+#[test]
+fn public_row_reference_has_named_typed_position() {
+    let result = accept(&fixture().to_string());
+    let row: RowRef<'_, Requirement> = result.batch.requirements().next().unwrap();
+    assert_eq!(row.position, RecordPosition(0));
+    assert_eq!(row.value.identity.id.as_str(), "REQ-FIX-0001");
 }

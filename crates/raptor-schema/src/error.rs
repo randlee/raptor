@@ -87,17 +87,21 @@ pub struct Error {
     details: Option<Box<ErrorDetail>>,
 }
 /// Identifies exactly one table containing a rejected record.
-#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash, Serialize)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
 pub enum TableId {
     /// The requirements table, including nonfunctional requirements.
-    #[serde(rename = "requirements")]
     Req,
     /// The architecture decisions table.
-    #[serde(rename = "decisions")]
     Dec,
 }
 impl TableId {
     pub const ALL: [Self; 2] = [Self::Req, Self::Dec];
+    pub const fn scope_name(self) -> &'static str {
+        match self {
+            Self::Req => "Req",
+            Self::Dec => "Dec",
+        }
+    }
     pub const fn name(self) -> &'static str {
         match self {
             Self::Req => "requirements",
@@ -105,6 +109,12 @@ impl TableId {
         }
     }
 }
+impl Serialize for TableId {
+    fn serialize<S: Serializer>(&self, serializer: S) -> Result<S::Ok, S::Error> {
+        serializer.serialize_str(self.name())
+    }
+}
+
 fn recovery(category: &ErrorCategory) -> &'static str {
     use ErrorCategory::*;
     match category {

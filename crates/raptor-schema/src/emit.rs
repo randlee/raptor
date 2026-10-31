@@ -113,11 +113,7 @@ pub fn field_table(table: TableId) -> Vec<FieldMeta> {
 }
 
 fn field_json(field: &FieldMeta) -> serde_json::Value {
-    let table = match field.table {
-        FieldScope::Only(TableId::Req) => "Req",
-        FieldScope::Only(TableId::Dec) => "Dec",
-        FieldScope::All => "Both",
-    };
+    let table = field.table.wire_name();
     let level = match field.level {
         MetaLevel::Header => "Header",
         MetaLevel::Item => "Item",

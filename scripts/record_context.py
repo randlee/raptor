@@ -26,10 +26,9 @@ class RecordContext:
     bad: bool = False
 
     def issue(self, rule, node, value, label=None, allowed=None, message=None):
-        line = max(1, node.get("line", 1))
-        raw = self.lines[line - 1] if line <= len(self.lines) else ""
-        found = raw.find(str(value))
-        column = max(1, node.get("column", found + 1 if found >= 0 else 1))
+        line, column = node["line"], node["column"]
+        if line < 1 or column < 1 or line > max(1, len(self.lines)):
+            raise ValueError(f"Invalid diagnostic source position: {line}:{column}")
         policy = self.owner.rules[rule]
         self.owner.issues.append(
             dict(
@@ -68,8 +67,10 @@ class RecordContext:
         if found is None:
             source = dict(node)
             if group != "values":
+                source["column"] = node["token_column"]
                 raw = self.lines[node["line"] - 1]
-                source["column"] = max(1, raw.find(value) + 1)
+                if not raw[source["column"] - 1 :].startswith(value):
+                    raise ValueError(f"Diagnostic token {value!r} is absent at its source position")
             label = value if group != "values" else node.get("token")
             self.issue(rule, source, value, label, list(choices), message)
         return found

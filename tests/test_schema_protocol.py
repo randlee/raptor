@@ -10,6 +10,11 @@ Not consumed shapes Version: scalar references select the Rust scalar validator.
 Not consumed shapes Status: JSON Schema enum choices select canonical values.
 Not consumed shapes Id: scalar references select the Rust scalar validator.
 Not consumed shapes TextList: generic array items are text without object roles.
+Not consumed shapes StatementList: modality semantic roles select statement items.
+Not consumed shapes Checklist: selection semantic roles select checkbox items.
+Not consumed shapes IdList: identifier semantic roles select reference items.
+Not consumed shapes LinkList: destination semantic roles select Markdown link items.
+Not consumed shapes Derived: headers absent from schema properties are computed from table metadata.
 Not consumed shapes Group: collection and caption roles select group rendering.
 Not consumed roles header_label: Header level selects source metadata labels.
 Not consumed roles item_label: Item level selects source metadata labels.

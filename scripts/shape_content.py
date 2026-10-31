@@ -26,12 +26,11 @@ def parse_items(context, node, metadata, specification, path, offset):
         entry = dict(entry, token=metadata["label"])
         raw = entry["value"]
         text = raw.strip()
-        shape = metadata["shape"]
         item_path = f"{path}/{offset + len(output)}"
         context.locations[item_path] = (entry, raw, metadata["label"])
-        if shape == "StatementList":
+        if "modality" in semantic:
             item = {semantic["modality"]: metadata["modal"], semantic["content"]: text}
-        elif shape == "Checklist":
+        elif "selection" in semantic:
             box = re.match(r"^\[([ xX])\]\s+(.*)$", text, re.DOTALL)
             if text.startswith("[") and not box:
                 context.issue(
@@ -45,7 +44,7 @@ def parse_items(context, node, metadata, specification, path, offset):
                 semantic["content"]: box[2] if box else text,
                 semantic["selection"]: box[1].casefold() == "x" if box else None,
             }
-        elif shape in ("IdList", "LinkList"):
+        elif "identifier" in semantic or "destination" in semantic:
             item = parse_reference(context, entry, metadata, specification, semantic, item_path)
         else:
             item = text
@@ -62,8 +61,7 @@ def parse_reference(context, entry, metadata, specification, semantic, path):
     else:
         token, _, note = text.partition(" ")
         href = ""
-    shape = metadata["shape"]
-    if (text.startswith("[") and not link) or (shape == "LinkList" and not link):
+    if (text.startswith("[") and not link) or ("destination" in semantic and not link):
         context.issue(
             "BAD_VALUE",
             entry,
@@ -72,14 +70,17 @@ def parse_reference(context, entry, metadata, specification, semantic, path):
             message=f"Found {raw!r}; expected [text](href) with an optional note.",
         )
     note = note.lstrip("—- ").strip() if note else None
-    if shape == "LinkList":
+    if "destination" in semantic:
         return {
             semantic["content"]: token,
             semantic["destination"]: href,
             semantic["annotation"]: note,
         }
     properties = resolve(specification["items"], context.schema)["properties"]
-    source = dict(entry, column=entry["column"] + max(0, raw.find(token)))
+    offset = raw.find(token)
+    if offset < 0:
+        raise ValueError(f"Reference token {token!r} is absent from its source item")
+    source = dict(entry, column=entry["column"] + offset)
     context.locations[path] = (source, token, metadata["label"])
     key = semantic["identifier"]
     return {key: context.scalar(token, properties[key], source), semantic["annotation"]: note}

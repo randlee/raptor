@@ -18,3 +18,17 @@ def test_structured_scalar_exception_and_empty_ingress():
         "errors": [],
         "summary": {"records": 0, "counts": {}},
     }
+
+
+@pytest.mark.parametrize("table", ["", "Requirements", "unknown-table"])
+def test_unknown_metadata_table_has_structured_exception(table):
+    with pytest.raises(raptor_schema.SchemaError) as caught:
+        raptor_schema.field_table(table)
+    error = caught.value
+    assert error.category == "UnknownVariant"
+    assert error.offending_value == table
+    assert error.table is None and error.record_position is None
+    assert error.field_path == "" and error.item_index is None
+    assert error.first_occurrence_record_position is None
+    assert error.cause == "one of requirements or decisions"
+    assert error.message and error.recovery

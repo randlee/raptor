@@ -263,6 +263,15 @@ columns. `extract.py` keeps the splitter and the file walk and calls
 [values]     # enum or modal text as written = canonical text
 ```
 
+A `[values]` alias whose canonical target is a modal also applies inside a
+statement-list label. The qualifier combines the alias key with the field's
+Rust-exported `modal_label_suffix`, normalizes that complete label, and matches
+only fields with that target modal and a label valid at the current level.
+For example, `shall = "Must"` also recognizes `shall statements` where the
+exported suffix is ` statements`. A complete `[labels]` alias takes precedence.
+Each such use increments the `[values]` alias count once; no arbitrary word
+replacement or suffix inference is performed.
+
 Keys are matched after step 1 above. An alias may only map to a canonical
 choice; an alias to an unknown target is a configuration error reported
 before any file is read, with the file and line of the alias. Each applied

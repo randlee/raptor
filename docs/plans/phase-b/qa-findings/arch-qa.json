@@ -99,13 +99,21 @@
       ],
       "source_report": "arch-qa.md",
       "duplicates_or_overlaps": [],
-      "status": "implemented-unverified",
+      "status": "fixed-verified",
       "current_evidence": [
         "Current candidate refactor; exact committed head and filing-reviewer closure pending.",
-        "Developer reports: raptor-rust-qa-api-migration.md, raptor-python-qa-fixes.md, raptor-qa-tooling-report.txt."
+        "Developer reports: raptor-rust-qa-api-migration.md, raptor-python-qa-fixes.md, raptor-qa-tooling-report.txt.",
+        "Round-3 filing-owner verification at1caac05; no regression reported."
       ],
-      "disposition_note": "Implementation supplied; this is not a verified closure. Aggregate-budget, Value-boundary and final corpus acceptance remain separate open gates.",
-      "verification": null
+      "disposition_note": "Filing reviewer confirmed closure on exact pinned candidate; quality-mgr recorded this closure. Other findings remain independent.",
+      "verification": {
+        "commit": "1caac05149baabf1f75a8982a683a4fb86dc7e0e",
+        "task": "RAP-B-PHASE-FIX-VERIFY-20261030-3",
+        "closed_by": "quality-mgr",
+        "filing_reviewer": "arch-qa",
+        "report": "https://github.com/randlee/raptor/pull/84#issuecomment-6538783122",
+        "closure_artifact": "ATM share: raptor/qa-round3-closures-1caac05.json"
+      }
     },
     {
       "id": "ARCH-006",
@@ -294,13 +302,21 @@
       "duplicates_or_overlaps": [
         "RBP-F004"
       ],
-      "status": "implemented-unverified",
+      "status": "fixed-verified",
       "current_evidence": [
         "Current candidate refactor; exact committed head and filing-reviewer closure pending.",
-        "Developer reports: raptor-rust-qa-api-migration.md, raptor-python-qa-fixes.md, raptor-qa-tooling-report.txt."
+        "Developer reports: raptor-rust-qa-api-migration.md, raptor-python-qa-fixes.md, raptor-qa-tooling-report.txt.",
+        "Round-3 filing-owner verification at1caac05; no regression reported."
       ],
-      "disposition_note": "Implementation supplied; this is not a verified closure. Aggregate-budget, Value-boundary and final corpus acceptance remain separate open gates.",
-      "verification": null
+      "disposition_note": "Filing reviewer confirmed closure on exact pinned candidate; quality-mgr recorded this closure. Other findings remain independent.",
+      "verification": {
+        "commit": "1caac05149baabf1f75a8982a683a4fb86dc7e0e",
+        "task": "RAP-B-PHASE-FIX-VERIFY-20261030-3",
+        "closed_by": "quality-mgr",
+        "filing_reviewer": "arch-qa",
+        "report": "https://github.com/randlee/raptor/pull/84#issuecomment-6538783122",
+        "closure_artifact": "ATM share: raptor/qa-round3-closures-1caac05.json"
+      }
     },
     {
       "id": "ARCH-013",
@@ -314,13 +330,21 @@
       ],
       "source_report": "arch-qa.md",
       "duplicates_or_overlaps": [],
-      "status": "implemented-unverified",
+      "status": "fixed-verified",
       "current_evidence": [
         "Current candidate refactor; exact committed head and filing-reviewer closure pending.",
-        "Developer reports: raptor-rust-qa-api-migration.md, raptor-python-qa-fixes.md, raptor-qa-tooling-report.txt."
+        "Developer reports: raptor-rust-qa-api-migration.md, raptor-python-qa-fixes.md, raptor-qa-tooling-report.txt.",
+        "Round-3 filing-owner verification at1caac05; no regression reported."
       ],
-      "disposition_note": "Implementation supplied; this is not a verified closure. Aggregate-budget, Value-boundary and final corpus acceptance remain separate open gates.",
-      "verification": null
+      "disposition_note": "Filing reviewer confirmed closure on exact pinned candidate; quality-mgr recorded this closure. Other findings remain independent.",
+      "verification": {
+        "commit": "1caac05149baabf1f75a8982a683a4fb86dc7e0e",
+        "task": "RAP-B-PHASE-FIX-VERIFY-20261030-3",
+        "closed_by": "quality-mgr",
+        "filing_reviewer": "arch-qa",
+        "report": "https://github.com/randlee/raptor/pull/84#issuecomment-6538783122",
+        "closure_artifact": "ATM share: raptor/qa-round3-closures-1caac05.json"
+      }
     },
     {
       "id": "ARCH-014",

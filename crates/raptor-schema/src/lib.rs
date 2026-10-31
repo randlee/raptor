@@ -10,7 +10,7 @@ mod protocol;
 mod rule;
 mod schema;
 pub use accept::{Accepted, accept};
-pub use batch::Batch;
+pub use batch::{Batch, RowRef};
 pub use emit::{FieldMeta, MetaLevel, MetaShape, Role, field_table, json_schema, sql_ddl};
 pub use error::{Error, ErrorCategory, ItemIndex, RecordPosition, TableId};
 pub use inventory::Summary;

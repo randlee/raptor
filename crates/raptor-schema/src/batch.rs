@@ -10,6 +10,13 @@ struct PositionedRow<T> {
     value: T,
 }
 
+/// A position and the accepted record stored at that position.
+#[derive(Debug)]
+pub struct RowRef<'a, T> {
+    pub position: RecordPosition,
+    pub value: &'a T,
+}
+
 /// Records admitted by `accept`; batches cannot be constructed by callers.
 ///
 /// ```compile_fail
@@ -35,26 +42,22 @@ impl Batch {
             decisions: Vec::new(),
         }
     }
-    pub(crate) fn add_requirement(&mut self, position: usize, value: Requirement) {
-        self.requirements.push(PositionedRow {
-            position: RecordPosition(position),
-            value,
-        });
+    pub(crate) fn add_requirement(&mut self, position: RecordPosition, value: Requirement) {
+        self.requirements.push(PositionedRow { position, value });
     }
-    pub(crate) fn add_decision(&mut self, position: usize, value: Decision) {
-        self.decisions.push(PositionedRow {
-            position: RecordPosition(position),
-            value,
-        });
+    pub(crate) fn add_decision(&mut self, position: RecordPosition, value: Decision) {
+        self.decisions.push(PositionedRow { position, value });
     }
-    pub fn requirements(&self) -> impl Iterator<Item = (usize, &Requirement)> {
-        self.requirements
-            .iter()
-            .map(|row| (row.position.0, &row.value))
+    pub fn requirements(&self) -> impl Iterator<Item = RowRef<'_, Requirement>> {
+        self.requirements.iter().map(|row| RowRef {
+            position: row.position,
+            value: &row.value,
+        })
     }
-    pub fn decisions(&self) -> impl Iterator<Item = (usize, &Decision)> {
-        self.decisions
-            .iter()
-            .map(|row| (row.position.0, &row.value))
+    pub fn decisions(&self) -> impl Iterator<Item = RowRef<'_, Decision>> {
+        self.decisions.iter().map(|row| RowRef {
+            position: row.position,
+            value: &row.value,
+        })
     }
 }

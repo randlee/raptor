@@ -49,3 +49,27 @@ def test_renamed_content_property_round_trips_without_python_changes(tmp_path, m
             qualifier.qualify(split(path, text), text)
         assert qualifier.issues == []
         assert qualifier.rows[table] == records
+
+
+def test_shape_tag_spellings_do_not_select_python_content_policy(tmp_path, monkeypatch):
+    definitions = json.loads(raptor_schema.json_schema())
+    original_fields = raptor_schema.field_table
+    fields = {table: json.loads(original_fields(table)) for table in definitions}
+    for table, schema in definitions.items():
+        for metadata in [*schema["x-raptor-fields"], *fields[table]]:
+            metadata["shape"] = "OpaqueSchemaTag"
+    monkeypatch.setattr(raptor_schema, "json_schema", lambda: json.dumps(definitions))
+    monkeypatch.setattr(raptor_schema, "field_table", lambda table: json.dumps(fields[table]))
+    fixture = json.loads((ROOT / "tests/fixtures/records.json").read_text())
+    root = project(tmp_path)
+    for table, records in fixture.items():
+        qualifier = Qualifier(root)
+        for record in records:
+            render(record, table, ROOT / "templates", root / "opaque", definitions)
+            heading = definitions[table]["x-raptor-protocol"]["heading_roles"]["identifier"]
+            identifier = next(field["name"] for field in fields[table] if field["role"] == heading)
+            path = root / "opaque" / table / f"{record[identifier]}.md"
+            text = path.read_text()
+            qualifier.qualify(split(path, text), text)
+        assert qualifier.issues == []
+        assert qualifier.rows[table] == records

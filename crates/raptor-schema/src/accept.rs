@@ -6,7 +6,7 @@ use crate::{
 };
 use serde::{Deserialize, Serialize, Serializer};
 use serde_json::{Value, json};
-use std::sync::OnceLock;
+use std::{collections::BTreeMap, sync::OnceLock};
 
 #[derive(Debug)]
 pub struct Accepted {
@@ -31,15 +31,24 @@ impl Serialize for Accepted {
     }
 }
 
+#[derive(Default)]
+struct ValidationState {
+    ids: BTreeMap<String, Id>,
+    typed: bool,
+}
+
 fn walk_target(
     value: &Value,
     schema: &schemars::schema::Schema,
     definitions: &schemars::Map<String, schemars::schema::Schema>,
+    state: &mut ValidationState,
     path: &str,
     item: Option<ItemIndex>,
 ) -> Vec<Error> {
     match schema {
-        schemars::schema::Schema::Object(object) => walk(value, object, definitions, path, item),
+        schemars::schema::Schema::Object(object) => {
+            walk(value, object, definitions, state, path, item)
+        }
         schemars::schema::Schema::Bool(_) => Vec::new(),
     }
 }
@@ -48,6 +57,7 @@ fn walk_object(
     object: &serde_json::Map<String, Value>,
     properties: &schemars::Map<String, schemars::schema::Schema>,
     definitions: &schemars::Map<String, schemars::schema::Schema>,
+    state: &mut ValidationState,
     path: &str,
     item: Option<ItemIndex>,
 ) -> Vec<Error> {
@@ -68,6 +78,7 @@ fn walk_object(
                 found,
                 specification,
                 definitions,
+                state,
                 &field_path,
                 item,
             ));
@@ -85,6 +96,7 @@ fn walk_array(
     items: &[Value],
     specification: &schemars::schema::Schema,
     definitions: &schemars::Map<String, schemars::schema::Schema>,
+    state: &mut ValidationState,
     path: &str,
 ) -> Vec<Error> {
     items
@@ -95,6 +107,7 @@ fn walk_array(
                 found,
                 specification,
                 definitions,
+                state,
                 &format!("{path}/{index}"),
                 Some(ItemIndex(index)),
             )
@@ -109,6 +122,7 @@ fn walk(
     value: &Value,
     schema: &schemars::schema::SchemaObject,
     definitions: &schemars::Map<String, schemars::schema::Schema>,
+    state: &mut ValidationState,
     path: &str,
     item: Option<ItemIndex>,
 ) -> Vec<Error> {
@@ -119,11 +133,20 @@ fn walk(
     };
     if let Some(reference) = &schema.reference {
         let name = reference.trim_start_matches("#/definitions/");
-        if let Some(kind) = ScalarKind::parse(name)
+        if !state.typed
+            && let Some(kind) = ScalarKind::parse(name)
             && let Some(text) = value.as_str()
-            && let Err(failure) = validate_typed_scalar(kind, text)
         {
-            return vec![failure.at(path, item)];
+            if matches!(kind, ScalarKind::Id) {
+                match Id::try_from(text.to_owned()) {
+                    Ok(id) => {
+                        state.ids.insert(path.to_owned(), id);
+                    }
+                    Err(failure) => return vec![failure.at(path, item)],
+                }
+            } else if let Err(failure) = validate_typed_scalar(kind, text) {
+                return vec![failure.at(path, item)];
+            }
         }
         return definitions.get(name).map_or_else(
             || {
@@ -134,7 +157,7 @@ fn walk(
                     path,
                 )]
             },
-            |target| walk_target(value, target, definitions, path, item),
+            |target| walk_target(value, target, definitions, state, path, item),
         );
     }
     if let Some(choices) = schema
@@ -152,7 +175,7 @@ fn walk(
             is_null == value.is_null()
         })
     {
-        return walk_target(value, choice, definitions, path, item);
+        return walk_target(value, choice, definitions, state, path, item);
     }
     let types: Vec<_> = match &schema.instance_type {
         Some(SingleOrVec::Single(kind)) => vec![kind.as_ref()],
@@ -206,6 +229,7 @@ fn walk(
             object,
             &specification.properties,
             definitions,
+            state,
             path,
             item,
         ));
@@ -214,7 +238,7 @@ fn walk(
         value.as_array(),
         schema.array.as_ref().and_then(|array| array.items.as_ref()),
     ) {
-        errors.extend(walk_array(items, specification, definitions, path));
+        errors.extend(walk_array(items, specification, definitions, state, path));
     }
     errors
 }
@@ -223,46 +247,65 @@ fn check_record(
     record: &Value,
     schema: &schemars::schema::RootSchema,
     fields: &[emit::FieldMeta],
+    decoded: Option<&DecodedRow>,
 ) -> Vec<Error> {
-    let mut errors = walk(record, &schema.schema, &schema.definitions, "", None);
-    let record_kind = record.get("id").and_then(Value::as_str).and_then(|text| {
-        Id::try_from(text.to_owned())
-            .ok()
-            .map(|id| id.kind())
-            .or_else(|| RecordKind::from_id(text))
-    });
-    for field in fields.iter().filter(|field| field.supersession) {
-        if let Some(target) = record.get(field.name).and_then(Value::as_str)
-            && let Some((source_kind, target_kind)) = record_kind.zip(
-                Id::try_from(target.to_owned())
-                    .ok()
-                    .map(|id| id.kind())
-                    .or_else(|| RecordKind::from_id(target)),
-            )
-            && let Some(error) = crate::inventory::cross_kind(
-                source_kind,
-                target_kind,
-                target,
-                &format!("/{}", field.name),
-            )
-        {
-            errors.push(error);
-        }
+    let mut state = ValidationState {
+        typed: decoded.is_some(),
+        ..ValidationState::default()
+    };
+    let mut errors = walk(
+        record,
+        &schema.schema,
+        &schema.definitions,
+        &mut state,
+        "",
+        None,
+    );
+    if let Some(row) = decoded {
+        errors.extend(crate::inventory::typed_supersession_errors(match row {
+            DecodedRow::Requirement(row) => crate::inventory::IncomingRow::Requirement(row),
+            DecodedRow::Decision(row) => crate::inventory::IncomingRow::Decision(row),
+        }));
+    } else {
+        let source =
+            record
+                .get("id")
+                .and_then(Value::as_str)
+                .map(|text| crate::inventory::IngressId {
+                    text,
+                    validated: state.ids.get("/id"),
+                });
+        let targets: Vec<_> = fields
+            .iter()
+            .filter(|field| field.supersession)
+            .filter_map(|field| {
+                let text = record.get(field.name).and_then(Value::as_str)?;
+                let path = format!("/{}", field.name);
+                Some(crate::inventory::IngressReference {
+                    text,
+                    validated: state.ids.get(&path),
+                    path,
+                })
+            })
+            .collect();
+        errors.extend(crate::inventory::supersession_errors(source, &targets));
     }
     errors
 }
 
-fn decode_record(
-    kind: TableId,
-    record: &Value,
-    position: usize,
-    batch: &mut Batch,
-) -> Result<(), serde_json::Error> {
+enum DecodedRow {
+    Requirement(Box<Requirement>),
+    Decision(Box<Decision>),
+}
+
+fn decode_record(kind: TableId, record: &Value) -> Result<DecodedRow, serde_json::Error> {
     match kind {
         TableId::Req => {
-            Requirement::deserialize(record).map(|row| batch.add_requirement(position, row))
+            Requirement::deserialize(record).map(|row| DecodedRow::Requirement(Box::new(row)))
         }
-        TableId::Dec => Decision::deserialize(record).map(|row| batch.add_decision(position, row)),
+        TableId::Dec => {
+            Decision::deserialize(record).map(|row| DecodedRow::Decision(Box::new(row)))
+        }
     }
 }
 
@@ -324,15 +367,24 @@ pub fn accept(input: &str) -> Accepted {
             .flatten()
             .enumerate()
         {
-            let mut errors = check_record(record, schema, fields);
-            if errors.is_empty()
-                && let Err(error) = decode_record(kind, record, position, &mut accepted.batch)
-            {
-                errors.push(Error::from_serde(
-                    record.clone(),
-                    &format!("a valid {table} record"),
-                    error,
-                ));
+            // Decode once on the success path. The schema walk still enforces
+            // explicit canonical keys, including optional source fields.
+            let decoded = decode_record(kind, record);
+            let mut errors = check_record(record, schema, fields, decoded.as_ref().ok());
+            if errors.is_empty() {
+                match decoded {
+                    Ok(DecodedRow::Requirement(row)) => accepted
+                        .batch
+                        .add_requirement(RecordPosition(position), *row),
+                    Ok(DecodedRow::Decision(row)) => {
+                        accepted.batch.add_decision(RecordPosition(position), *row)
+                    }
+                    Err(error) => errors.push(Error::from_serde(
+                        record.clone(),
+                        &format!("a valid {table} record"),
+                        error,
+                    )),
+                }
             }
             for error in &mut errors {
                 error.table = Some(kind);
@@ -345,4 +397,42 @@ pub fn accept(input: &str) -> Accepted {
         .errors
         .extend(crate::inventory::check_inventory(&accepted.batch));
     accepted
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use schemars::schema::SchemaObject;
+
+    #[test]
+    fn unresolvable_schema_reference_reports_type_mismatch()
+    -> Result<(), Box<dyn std::error::Error>> {
+        let schema = SchemaObject {
+            reference: Some("#/definitions/Absent".to_owned()),
+            ..SchemaObject::default()
+        };
+        let errors = walk(
+            &json!("value"),
+            &schema,
+            &Default::default(),
+            &mut ValidationState::default(),
+            "/field",
+            None,
+        );
+        let error = errors.first().ok_or("missing error")?;
+        assert_eq!(errors.len(), 1);
+        assert_eq!(error.category, ErrorCategory::TypeMismatch);
+        assert_eq!(error.field_path.as_ref(), "/field");
+        assert_eq!(error.cause.as_ref(), "a resolvable schema reference");
+        Ok(())
+    }
+
+    #[test]
+    fn decode_record_reports_serde_failure() -> Result<(), Box<dyn std::error::Error>> {
+        let error = decode_record(TableId::Req, &json!({"id": 4}))
+            .err()
+            .ok_or("decode unexpectedly succeeded")?;
+        assert!(!error.to_string().is_empty());
+        Ok(())
+    }
 }

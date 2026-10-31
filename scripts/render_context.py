@@ -72,7 +72,7 @@ def document_context(record, table, definitions):
     for field in fields:
         key = field["name"]
         if field["level"] == "Header":
-            if field["shape"] == "Derived":
+            if key not in schema["properties"]:
                 identifier = headings[heading_roles["identifier"]]
                 value = identifier + info["range_separator"] + identifier
             else:

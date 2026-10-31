@@ -57,6 +57,8 @@ def split(path: Path, text: str) -> dict:
             record = {
                 "token": match.group(1),
                 "caption": match.group(2),
+                "column": match.start(1) + 1,
+                "caption_column": match.start(2) + 1,
                 "line": number,
                 "fields": {},
                 "sections": [],
@@ -74,6 +76,8 @@ def split(path: Path, text: str) -> dict:
         if not fenced and record and line.startswith("### "):
             section = {
                 "token": raw[4:],
+                "column": 5,
+                "token_column": 5,
                 "line": number,
                 "prose": [],
                 "labels": [],
@@ -83,23 +87,39 @@ def split(path: Path, text: str) -> dict:
             group = label = None
             continue
         if not fenced and section and line.startswith("#### "):
-            group = {"token": raw[5:], "line": number, "prose": [], "labels": []}
+            group = {
+                "token": raw[5:],
+                "line": number,
+                "column": 6,
+                "token_column": 6,
+                "prose": [],
+                "labels": [],
+            }
             section["group_nodes"].append(group)
             label = None
             continue
         match = None if fenced else LABEL.match(raw)
         if match:
-            entry = {"token": match.group(1), "line": number, "prose": [], "items": []}
+            entry = {
+                "token": match.group(1),
+                "line": number,
+                "column": match.start(1) + 1,
+                "token_column": match.start(1) + 1,
+                "prose": [],
+                "items": [],
+            }
             value = match.group(2) or ""
             if header:
                 (pending if pending_header else tree["header"])[entry["token"]] = {
                     "value": value,
+                    "token_column": match.start(1) + 1,
                     "line": number,
                     "column": match.start(2) + 1 if match.group(2) else len(line) + 1,
                 }
             elif record and not section:
                 record["fields"][entry["token"]] = {
                     "value": value,
+                    "token_column": match.start(1) + 1,
                     "line": number,
                     "column": match.start(2) + 1 if match.group(2) else len(line) + 1,
                 }

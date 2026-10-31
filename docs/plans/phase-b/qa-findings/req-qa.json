@@ -130,10 +130,19 @@
         "ARCH-002",
         "ATM-QA-006"
       ],
-      "status": "pending",
-      "current_evidence": [],
-      "disposition_note": "No filing-reviewer closure confirmation received.",
-      "verification": null,
+      "status": "fixed-verified",
+      "current_evidence": [
+        "Round-3 filing-owner verification at1caac05; no regression reported."
+      ],
+      "disposition_note": "Filing reviewer confirmed closure on exact pinned candidate; quality-mgr recorded this closure. Other findings remain independent.",
+      "verification": {
+        "commit": "1caac05149baabf1f75a8982a683a4fb86dc7e0e",
+        "task": "RAP-B-PHASE-FIX-VERIFY-20261030-3",
+        "closed_by": "quality-mgr",
+        "filing_reviewer": "req-qa",
+        "report": "https://github.com/randlee/raptor/pull/84#issuecomment-6538783122",
+        "closure_artifact": "ATM share: raptor/qa-round3-closures-1caac05.json"
+      },
       "acceptance_source_refs": [
         "docs/plans/phase-b/sprint-b-6-rebuild-to-spec.md:324-345",
         "docs/plans/phase-b/sprint-b-6-rebuild-to-spec.md:4-6"
@@ -237,13 +246,21 @@
       ],
       "source_report": "req-qa.md",
       "duplicates_or_overlaps": [],
-      "status": "implemented-unverified",
+      "status": "fixed-verified",
       "current_evidence": [
         "Current candidate refactor; exact committed head and filing-reviewer closure pending.",
-        "Developer reports: raptor-rust-qa-api-migration.md, raptor-python-qa-fixes.md, raptor-qa-tooling-report.txt."
+        "Developer reports: raptor-rust-qa-api-migration.md, raptor-python-qa-fixes.md, raptor-qa-tooling-report.txt.",
+        "Round-3 filing-owner verification at1caac05; no regression reported."
       ],
-      "disposition_note": "Implementation supplied; this is not a verified closure. Aggregate-budget, Value-boundary and final corpus acceptance remain separate open gates.",
-      "verification": null,
+      "disposition_note": "Filing reviewer confirmed closure on exact pinned candidate; quality-mgr recorded this closure. Other findings remain independent.",
+      "verification": {
+        "commit": "1caac05149baabf1f75a8982a683a4fb86dc7e0e",
+        "task": "RAP-B-PHASE-FIX-VERIFY-20261030-3",
+        "closed_by": "quality-mgr",
+        "filing_reviewer": "req-qa",
+        "report": "https://github.com/randlee/raptor/pull/84#issuecomment-6538783122",
+        "closure_artifact": "ATM share: raptor/qa-round3-closures-1caac05.json"
+      },
       "acceptance_source_refs": [
         "docs/plans/phase-b/sprint-b-4-adr-columns.md:82"
       ]
@@ -327,13 +344,21 @@
       ],
       "source_report": "req-qa.md",
       "duplicates_or_overlaps": [],
-      "status": "implemented-unverified",
+      "status": "fixed-verified",
       "current_evidence": [
         "Current candidate refactor; exact committed head and filing-reviewer closure pending.",
-        "Developer reports: raptor-rust-qa-api-migration.md, raptor-python-qa-fixes.md, raptor-qa-tooling-report.txt."
+        "Developer reports: raptor-rust-qa-api-migration.md, raptor-python-qa-fixes.md, raptor-qa-tooling-report.txt.",
+        "Round-3 filing-owner verification at1caac05; no regression reported."
       ],
-      "disposition_note": "Implementation supplied; this is not a verified closure. Aggregate-budget, Value-boundary and final corpus acceptance remain separate open gates.",
-      "verification": null,
+      "disposition_note": "Filing reviewer confirmed closure on exact pinned candidate; quality-mgr recorded this closure. Other findings remain independent.",
+      "verification": {
+        "commit": "1caac05149baabf1f75a8982a683a4fb86dc7e0e",
+        "task": "RAP-B-PHASE-FIX-VERIFY-20261030-3",
+        "closed_by": "quality-mgr",
+        "filing_reviewer": "req-qa",
+        "report": "https://github.com/randlee/raptor/pull/84#issuecomment-6538783122",
+        "closure_artifact": "ATM share: raptor/qa-round3-closures-1caac05.json"
+      },
       "acceptance_source_refs": [
         "docs/plans/phase-b/sprint-b-6-rebuild-to-spec.md:117",
         "docs/plans/phase-b/phase-b-plan.md:115-116"
@@ -495,13 +520,21 @@
       ],
       "source_report": "req-qa.md",
       "duplicates_or_overlaps": [],
-      "status": "implemented-unverified",
+      "status": "fixed-verified",
       "current_evidence": [
         "Current candidate refactor; exact committed head and filing-reviewer closure pending.",
-        "Developer reports: raptor-rust-qa-api-migration.md, raptor-python-qa-fixes.md, raptor-qa-tooling-report.txt."
+        "Developer reports: raptor-rust-qa-api-migration.md, raptor-python-qa-fixes.md, raptor-qa-tooling-report.txt.",
+        "Round-3 filing-owner verification at1caac05; no regression reported."
       ],
-      "disposition_note": "Implementation supplied; this is not a verified closure. Aggregate-budget, Value-boundary and final corpus acceptance remain separate open gates.",
-      "verification": null,
+      "disposition_note": "Filing reviewer confirmed closure on exact pinned candidate; quality-mgr recorded this closure. Other findings remain independent.",
+      "verification": {
+        "commit": "1caac05149baabf1f75a8982a683a4fb86dc7e0e",
+        "task": "RAP-B-PHASE-FIX-VERIFY-20261030-3",
+        "closed_by": "quality-mgr",
+        "filing_reviewer": "req-qa",
+        "report": "https://github.com/randlee/raptor/pull/84#issuecomment-6538783122",
+        "closure_artifact": "ATM share: raptor/qa-round3-closures-1caac05.json"
+      },
       "acceptance_source_refs": [
         "docs/plans/phase-b/sprint-b-6-rebuild-to-spec.md:34-46",
         "docs/plans/phase-b/phase-b-plan.md:267-268",
@@ -529,13 +562,21 @@
         "ARCH-010",
         "QA-002"
       ],
-      "status": "implemented-unverified",
+      "status": "fixed-verified",
       "current_evidence": [
         "Current candidate refactor; exact committed head and filing-reviewer closure pending.",
-        "Developer reports: raptor-rust-qa-api-migration.md, raptor-python-qa-fixes.md, raptor-qa-tooling-report.txt."
+        "Developer reports: raptor-rust-qa-api-migration.md, raptor-python-qa-fixes.md, raptor-qa-tooling-report.txt.",
+        "Round-3 filing-owner verification at1caac05; no regression reported."
       ],
-      "disposition_note": "Implementation supplied; this is not a verified closure. Aggregate-budget, Value-boundary and final corpus acceptance remain separate open gates.",
-      "verification": null,
+      "disposition_note": "Filing reviewer confirmed closure on exact pinned candidate; quality-mgr recorded this closure. Other findings remain independent.",
+      "verification": {
+        "commit": "1caac05149baabf1f75a8982a683a4fb86dc7e0e",
+        "task": "RAP-B-PHASE-FIX-VERIFY-20261030-3",
+        "closed_by": "quality-mgr",
+        "filing_reviewer": "req-qa",
+        "report": "https://github.com/randlee/raptor/pull/84#issuecomment-6538783122",
+        "closure_artifact": "ATM share: raptor/qa-round3-closures-1caac05.json"
+      },
       "acceptance_source_refs": [
         "docs/plans/phase-b/sprint-b-6-rebuild-to-spec.md:238-243",
         "docs/plans/phase-b/sprint-b-4-adr-columns.md:97-99",
@@ -579,10 +620,19 @@
       ],
       "source_report": "req-qa.md",
       "duplicates_or_overlaps": [],
-      "status": "pending",
-      "current_evidence": [],
-      "disposition_note": "No filing-reviewer closure confirmation received.",
-      "verification": null,
+      "status": "fixed-verified",
+      "current_evidence": [
+        "Round-3 filing-owner verification at1caac05; no regression reported."
+      ],
+      "disposition_note": "Filing reviewer confirmed closure on exact pinned candidate; quality-mgr recorded this closure. Other findings remain independent.",
+      "verification": {
+        "commit": "1caac05149baabf1f75a8982a683a4fb86dc7e0e",
+        "task": "RAP-B-PHASE-FIX-VERIFY-20261030-3",
+        "closed_by": "quality-mgr",
+        "filing_reviewer": "req-qa",
+        "report": "https://github.com/randlee/raptor/pull/84#issuecomment-6538783122",
+        "closure_artifact": "ATM share: raptor/qa-round3-closures-1caac05.json"
+      },
       "acceptance_source_refs": [
         "docs/requirements.md:159",
         "docs/plans/phase-b/sprint-b-3-req-nfr-columns.md:121-125",
@@ -605,13 +655,21 @@
       "duplicates_or_overlaps": [
         "RBP-F002"
       ],
-      "status": "implemented-unverified",
+      "status": "fixed-verified",
       "current_evidence": [
         "Current candidate refactor; exact committed head and filing-reviewer closure pending.",
-        "Developer reports: raptor-rust-qa-api-migration.md, raptor-python-qa-fixes.md, raptor-qa-tooling-report.txt."
+        "Developer reports: raptor-rust-qa-api-migration.md, raptor-python-qa-fixes.md, raptor-qa-tooling-report.txt.",
+        "Round-3 filing-owner verification at1caac05; no regression reported."
       ],
-      "disposition_note": "Implementation supplied; this is not a verified closure. Aggregate-budget, Value-boundary and final corpus acceptance remain separate open gates.",
-      "verification": null,
+      "disposition_note": "Filing reviewer confirmed closure on exact pinned candidate; quality-mgr recorded this closure. Other findings remain independent.",
+      "verification": {
+        "commit": "1caac05149baabf1f75a8982a683a4fb86dc7e0e",
+        "task": "RAP-B-PHASE-FIX-VERIFY-20261030-3",
+        "closed_by": "quality-mgr",
+        "filing_reviewer": "req-qa",
+        "report": "https://github.com/randlee/raptor/pull/84#issuecomment-6538783122",
+        "closure_artifact": "ATM share: raptor/qa-round3-closures-1caac05.json"
+      },
       "acceptance_source_refs": [
         "docs/plans/phase-b/sprint-b-6-rebuild-to-spec.md:89-93",
         "docs/plans/phase-b/sprint-b-6-rebuild-to-spec.md:109-110"
@@ -658,10 +716,19 @@
       ],
       "source_report": "req-qa.md",
       "duplicates_or_overlaps": [],
-      "status": "pending",
-      "current_evidence": [],
-      "disposition_note": "No filing-reviewer closure confirmation received.",
-      "verification": null,
+      "status": "fixed-verified",
+      "current_evidence": [
+        "Round-3 filing-owner verification at1caac05; no regression reported."
+      ],
+      "disposition_note": "Filing reviewer confirmed closure on exact pinned candidate; quality-mgr recorded this closure. Other findings remain independent.",
+      "verification": {
+        "commit": "1caac05149baabf1f75a8982a683a4fb86dc7e0e",
+        "task": "RAP-B-PHASE-FIX-VERIFY-20261030-3",
+        "closed_by": "quality-mgr",
+        "filing_reviewer": "req-qa",
+        "report": "https://github.com/randlee/raptor/pull/84#issuecomment-6538783122",
+        "closure_artifact": "ATM share: raptor/qa-round3-closures-1caac05.json"
+      },
       "acceptance_source_refs": [
         "docs/project-plan.md:8",
         "docs/plans/phase-a/sprint-a-1-pydantic-record-model.md:4"

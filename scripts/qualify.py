@@ -63,7 +63,7 @@ class Qualifier:
         lines = text.splitlines()
         if not tree["records"]:
             context = RecordContext(self, tree["path"], lines, {})
-            context.issue("MISSING_ID", {}, "", allowed=["a record heading"])
+            context.issue("MISSING_ID", {"line": 1, "column": 1}, "", allowed=["a record heading"])
         for record in tree["records"]:
             context = RecordContext(self, tree["path"], lines, record)
             identifier = record["token"]
@@ -108,7 +108,8 @@ class Qualifier:
         top = {
             field["name"]: field
             for field in fields
-            if field["level"] in ("Header", "Item") and field["shape"] != "Derived"
+            if field["level"] in ("Header", "Item")
+            and field["name"] in context.schema["properties"]
         }
         heading_values = {
             self.heading_roles["identifier"]: context.record["token"],
@@ -118,6 +119,8 @@ class Qualifier:
             key = field["name"]
             if field["role"] in self.heading_roles.values():
                 node = dict(context.record, value=heading_values[field["role"]])
+                if field["role"] == self.heading_roles["caption"]:
+                    node["column"] = context.record["caption_column"]
             else:
                 node = supplied.get(field["label"])
             if node is not None and node["value"].strip():
