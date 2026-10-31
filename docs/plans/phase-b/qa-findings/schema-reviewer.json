@@ -17,12 +17,20 @@
       ],
       "source_report": "ATM share: raptor/qa-schema-51156fc/schema-findings.md",
       "duplicates_or_overlaps": [],
-      "status": "implemented-unverified",
+      "status": "fixed-verified",
       "current_evidence": [
-        "Developer report: ATM share raptor/raptor-schema-final-report.md; frozen source awaiting coordinator commit, fresh build and exact pinned filing-reviewer verification."
+        "Developer report: ATM share raptor/raptor-schema-final-report.md; frozen source awaiting coordinator commit, fresh build and exact pinned filing-reviewer verification.",
+        "Round-5 filing reviewer confirmed closure at1563b7e;7/7 fixed with no regressions."
       ],
-      "disposition_note": "Implementation supplied against filing-owner criteria; no verification or acceptance waiver is inferred.",
-      "verification": null,
+      "disposition_note": "Filing reviewer verified the original criterion and quality-mgr recorded closure. Overall phase acceptance and unrelated user gates remain open.",
+      "verification": {
+        "commit": "1563b7e24a2631f532b22444644e2b9aeac70a98",
+        "task": "RAP-B-PHASE-FIX-VERIFY-20261030-5",
+        "closed_by": "quality-mgr",
+        "filing_reviewer": "schema-reviewer",
+        "report": "https://github.com/randlee/raptor/pull/84#issuecomment-6539174825",
+        "source_message": "01M684F1C24FKBZH3BVQ0102DH"
+      },
       "acceptance_source_refs": [
         "docs/plans/phase-b/phase-b-plan.md",
         "docs/plans/phase-b/sprint-b-6-rebuild-to-spec.md",
@@ -41,12 +49,20 @@
       ],
       "source_report": "ATM share: raptor/qa-schema-51156fc/schema-findings.md",
       "duplicates_or_overlaps": [],
-      "status": "implemented-unverified",
+      "status": "fixed-verified",
       "current_evidence": [
-        "Developer report: ATM share raptor/raptor-schema-final-report.md; frozen source awaiting coordinator commit, fresh build and exact pinned filing-reviewer verification."
+        "Developer report: ATM share raptor/raptor-schema-final-report.md; frozen source awaiting coordinator commit, fresh build and exact pinned filing-reviewer verification.",
+        "Round-5 filing reviewer confirmed closure at1563b7e;7/7 fixed with no regressions."
       ],
-      "disposition_note": "Implementation supplied against filing-owner criteria; no verification or acceptance waiver is inferred.",
-      "verification": null,
+      "disposition_note": "Filing reviewer verified the original criterion and quality-mgr recorded closure. Overall phase acceptance and unrelated user gates remain open.",
+      "verification": {
+        "commit": "1563b7e24a2631f532b22444644e2b9aeac70a98",
+        "task": "RAP-B-PHASE-FIX-VERIFY-20261030-5",
+        "closed_by": "quality-mgr",
+        "filing_reviewer": "schema-reviewer",
+        "report": "https://github.com/randlee/raptor/pull/84#issuecomment-6539174825",
+        "source_message": "01M684F1C24FKBZH3BVQ0102DH"
+      },
       "acceptance_source_refs": [
         "docs/plans/phase-b/phase-b-plan.md",
         "docs/plans/phase-b/sprint-b-6-rebuild-to-spec.md",
@@ -70,12 +86,20 @@
       ],
       "source_report": "ATM share: raptor/qa-schema-51156fc/schema-findings.md",
       "duplicates_or_overlaps": [],
-      "status": "implemented-unverified",
+      "status": "fixed-verified",
       "current_evidence": [
-        "Developer report: ATM share raptor/raptor-schema-final-report.md; frozen source awaiting coordinator commit, fresh build and exact pinned filing-reviewer verification."
+        "Developer report: ATM share raptor/raptor-schema-final-report.md; frozen source awaiting coordinator commit, fresh build and exact pinned filing-reviewer verification.",
+        "Round-5 filing reviewer confirmed closure at1563b7e;7/7 fixed with no regressions."
       ],
-      "disposition_note": "Implementation supplied against filing-owner criteria; no verification or acceptance waiver is inferred.",
-      "verification": null,
+      "disposition_note": "Filing reviewer verified the original criterion and quality-mgr recorded closure. Overall phase acceptance and unrelated user gates remain open.",
+      "verification": {
+        "commit": "1563b7e24a2631f532b22444644e2b9aeac70a98",
+        "task": "RAP-B-PHASE-FIX-VERIFY-20261030-5",
+        "closed_by": "quality-mgr",
+        "filing_reviewer": "schema-reviewer",
+        "report": "https://github.com/randlee/raptor/pull/84#issuecomment-6539174825",
+        "source_message": "01M684F1C24FKBZH3BVQ0102DH"
+      },
       "acceptance_source_refs": [
         "docs/plans/phase-b/phase-b-plan.md",
         "docs/plans/phase-b/sprint-b-6-rebuild-to-spec.md",
@@ -99,12 +123,20 @@
       ],
       "source_report": "ATM share: raptor/qa-schema-51156fc/schema-findings.md",
       "duplicates_or_overlaps": [],
-      "status": "implemented-unverified",
+      "status": "fixed-verified",
       "current_evidence": [
-        "Developer report: ATM share raptor/raptor-schema-final-report.md; frozen source awaiting coordinator commit, fresh build and exact pinned filing-reviewer verification."
+        "Developer report: ATM share raptor/raptor-schema-final-report.md; frozen source awaiting coordinator commit, fresh build and exact pinned filing-reviewer verification.",
+        "Round-5 filing reviewer confirmed closure at1563b7e;7/7 fixed with no regressions."
       ],
-      "disposition_note": "Implementation supplied against filing-owner criteria; no verification or acceptance waiver is inferred.",
-      "verification": null,
+      "disposition_note": "Filing reviewer verified the original criterion and quality-mgr recorded closure. Overall phase acceptance and unrelated user gates remain open.",
+      "verification": {
+        "commit": "1563b7e24a2631f532b22444644e2b9aeac70a98",
+        "task": "RAP-B-PHASE-FIX-VERIFY-20261030-5",
+        "closed_by": "quality-mgr",
+        "filing_reviewer": "schema-reviewer",
+        "report": "https://github.com/randlee/raptor/pull/84#issuecomment-6539174825",
+        "source_message": "01M684F1C24FKBZH3BVQ0102DH"
+      },
       "acceptance_source_refs": [
         "docs/plans/phase-b/phase-b-plan.md",
         "docs/plans/phase-b/sprint-b-6-rebuild-to-spec.md",
@@ -128,12 +160,20 @@
       ],
       "source_report": "ATM share: raptor/qa-schema-51156fc/schema-findings.md",
       "duplicates_or_overlaps": [],
-      "status": "implemented-unverified",
+      "status": "fixed-verified",
       "current_evidence": [
-        "Developer report: ATM share raptor/raptor-schema-final-report.md; frozen source awaiting coordinator commit, fresh build and exact pinned filing-reviewer verification."
+        "Developer report: ATM share raptor/raptor-schema-final-report.md; frozen source awaiting coordinator commit, fresh build and exact pinned filing-reviewer verification.",
+        "Round-5 filing reviewer confirmed closure at1563b7e;7/7 fixed with no regressions."
       ],
-      "disposition_note": "Implementation supplied against filing-owner criteria; no verification or acceptance waiver is inferred.",
-      "verification": null,
+      "disposition_note": "Filing reviewer verified the original criterion and quality-mgr recorded closure. Overall phase acceptance and unrelated user gates remain open.",
+      "verification": {
+        "commit": "1563b7e24a2631f532b22444644e2b9aeac70a98",
+        "task": "RAP-B-PHASE-FIX-VERIFY-20261030-5",
+        "closed_by": "quality-mgr",
+        "filing_reviewer": "schema-reviewer",
+        "report": "https://github.com/randlee/raptor/pull/84#issuecomment-6539174825",
+        "source_message": "01M684F1C24FKBZH3BVQ0102DH"
+      },
       "acceptance_source_refs": [
         "docs/plans/phase-b/phase-b-plan.md",
         "docs/plans/phase-b/sprint-b-6-rebuild-to-spec.md",
