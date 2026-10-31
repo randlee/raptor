@@ -1,6 +1,6 @@
 # Consumer run B.6 — comparison incomplete
 
-Extractor and handoff SHA: `1caac05149baabf1f75a8982a683a4fb86dc7e0e`.
+Extractor and handoff SHA: `0d98a89b0a4dfb2392702c322ef9cd91ce6b5d75`.
 Baseline extractor: `0fd132c50c7fc4f9136e0cea67bdf39865b64025`.
 Document commit: `6be9d2d5eae8d34499785c267cf4d5ae9b3b0236`.
 The exact source archive used a fresh environment, extension build, and target.
@@ -72,8 +72,11 @@ MISSING_ID report.
 From `0886563` to `44c75e6`, 310 heading diagnostics change only message and allowed
 values: Rust InvalidId replaces Python prefix choices. Their group merges into
 an existing group of 2, yielding 312 and reducing 556 groups to 555.
-From `44c75e6` to this handoff, all row, diagnostic, group, and dump objects match
-exactly; only the generated timestamp differs. Full differential proof is retained.
+From `44c75e6` to `1caac05`, all output objects match except generation time.
+From `1caac05` to this handoff, 1273 MISSING_FIELD columns change from 1 to 4,
+verified at the heading identifier token; six also change sort position. All
+other diagnostic fields, rows, groups, and dumps match. Splitter offsets replace
+empty-value location guessing. Full differential proof is retained.
 
 A separate derived corpus renders all 354 accepted occurrences into distinct
 ordinal directories. All 354 documents qualify without source diagnostics;
@@ -83,7 +86,7 @@ and 15 dangling-reference errors. No new source or shape diagnostic appears.
 This derived proof covers accepted rows only; the original rendered count is 0.
 
 Regression proof covers scalar/list paragraphs, literal fences, and nested items.
-Reported Python validation has 81 passes and one literal Value guard failure;
+Reported Python validation has 90 passes and one literal Value guard failure;
 its source-boundary policy remains unresolved. Rust checks pass.
 
 The historical pre-B.4 detailed table separates two rule families later combined
@@ -94,4 +97,4 @@ Acceptance remains incomplete: 175 record occurrences lack approved cause
 attribution, changed diagnostic groups need contract acceptance, and the literal
 Value guard remains unresolved. No additional cause taxonomy is waived.
 Evidence summary SHA-256:
-`e41e93b2bb203d62b1be7b5d2d41fc3cc42a7a9e1430dea292123ebde9d355c7`.
+`3a291daee1062e902f8384105c9981255b8d97962fc634eccf866879a60b71f5`.
