@@ -4,6 +4,32 @@ use rusqlite::{Connection, params_from_iter};
 use serde_json::{Value, json};
 use std::collections::BTreeSet;
 
+fn insert_row(db: &Connection, table: &str, row: &Value) -> rusqlite::Result<()> {
+    let object = row.as_object().expect("fixture rows are objects");
+    let names = object.keys().cloned().collect::<Vec<_>>();
+    let columns = names.join(", ");
+    let marks = vec!["?"; names.len()].join(", ");
+    let values = names.iter().map(|name| match &object[name] {
+        Value::Null => None,
+        Value::String(value) => Some(value.clone()),
+        value => Some(value.to_string()),
+    });
+    db.execute(
+        &format!("INSERT INTO {table} ({columns}) VALUES ({marks})"),
+        params_from_iter(values),
+    )?;
+    Ok(())
+}
+
+fn foreign_key_violations(db: &Connection) -> Vec<String> {
+    db.prepare("PRAGMA foreign_key_check")
+        .unwrap()
+        .query_map([], |row| row.get(0))
+        .unwrap()
+        .map(Result::unwrap)
+        .collect()
+}
+
 #[test]
 fn field_exports_cover_all_63_entries_with_derived_attributes() {
     let mut exported = BTreeSet::new();
@@ -94,4 +120,55 @@ fn emitted_sql_loads_records_and_keeps_only_supersession_nullable() {
         assert_eq!(count, 1);
     }
     db.execute_batch("COMMIT").unwrap();
+}
+
+#[test]
+fn emitted_sql_checks_schema_status_and_table_id_prefixes() {
+    let data = fixture();
+    let db = Connection::open_in_memory().unwrap();
+    db.execute_batch(&sql_ddl()).unwrap();
+
+    let mut invalid_status = data["requirements"][0].clone();
+    invalid_status["status"] = json!("NotAStatus");
+    assert!(insert_row(&db, "requirements", &invalid_status).is_err());
+
+    let mut wrong_prefix = data["requirements"][0].clone();
+    wrong_prefix["id"] = json!("ADR-FIX-0001");
+    assert!(insert_row(&db, "requirements", &wrong_prefix).is_err());
+
+    db.execute_batch("PRAGMA foreign_keys = ON; BEGIN DEFERRED")
+        .unwrap();
+    let req = data["requirements"][0].clone();
+    let mut nfr = req.clone();
+    nfr["id"] = json!("NFR-FIX-0001");
+    insert_row(&db, "requirements", &req).unwrap();
+    insert_row(&db, "requirements", &nfr).unwrap();
+
+    let mut first_decision = data["decisions"][0].clone();
+    first_decision["superseded_by"] = json!("ADR-FIX-0002");
+    let mut second_decision = first_decision.clone();
+    second_decision["id"] = json!("ADR-FIX-0002");
+    second_decision["supersedes"] = json!("ADR-FIX-0001");
+    second_decision["superseded_by"] = Value::Null;
+    insert_row(&db, "decisions", &first_decision).unwrap();
+    insert_row(&db, "decisions", &second_decision).unwrap();
+    assert!(foreign_key_violations(&db).is_empty());
+    db.execute_batch("COMMIT").unwrap();
+}
+
+#[test]
+fn emitted_sql_reports_and_rejects_missing_supersession_targets() {
+    let data = fixture();
+    let db = Connection::open_in_memory().unwrap();
+    db.execute_batch(&sql_ddl()).unwrap();
+    db.execute_batch("PRAGMA foreign_keys = ON; BEGIN DEFERRED")
+        .unwrap();
+    let mut missing_target = data["decisions"][0].clone();
+    missing_target["supersedes"] = json!("ADR-FIX-9999");
+    missing_target["superseded_by"] = Value::Null;
+    insert_row(&db, "decisions", &missing_target).unwrap();
+
+    assert_eq!(foreign_key_violations(&db), ["decisions".to_owned()]);
+    assert!(db.execute_batch("COMMIT").is_err());
+    db.execute_batch("ROLLBACK").unwrap();
 }

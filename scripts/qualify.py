@@ -7,18 +7,12 @@ from pathlib import Path
 
 import raptor_schema
 if __package__:
+    from .diagnostics import issue, section_for_path
     from .markdown_content import list_entries, normal, populated, source_text
 else:
+    from diagnostics import issue, section_for_path
     from markdown_content import list_entries, normal, populated, source_text
 
-REMEDIES = {
-    "MISSING_ID": "Add the required field.", "MISSING_FIELD": "Add the required field.",
-    "BAD_VALUE": "Use the documented value format.",
-    "UNKNOWN_SECTION": "Remove the section or use an allowed section.",
-    "UNKNOWN_LABEL": "Remove the label or use an allowed label.",
-    "DUPLICATE_ID": "Make the identifier unique.",
-    "DANGLING_REFERENCE": "Declare the referenced identifier or remove the reference.",
-}
 
 
 def resolve(node, root):
@@ -66,14 +60,7 @@ class Qualifier:
                     raise ValueError(f"{path}:{line}: unknown alias target {target!r}; expected {sorted(choices[group])}")
                 self.aliases.setdefault(group, {})[normal(key)] = (key, target)
 
-    def issue(self, rule, node, value, label=None, allowed=None, message=None):
-        line = node.get("line", 1)
-        raw = self.lines[line - 1] if 0 < line <= len(self.lines) else ""
-        column = node.get("column", max(0, raw.find(str(value))) + 1)
-        self.issues.append(dict(file=self.file, line=line, column=column, rule=rule, id=self.record.get("id"),
-            label=label, value=value, allowed=allowed, message=message or f"Found {value!r}; expected {allowed or label or rule.lower()}.",
-            remedy=REMEDIES[rule]))
-        self.bad |= rule in ("BAD_VALUE", "MISSING_FIELD", "MISSING_ID")
+    issue = issue
 
     def match(self, group, value, choices, node, rule, message=None):
         token = normal(value)
@@ -187,11 +174,11 @@ class Qualifier:
 
     def qualify(self, tree, text):
         self.file, self.lines = tree["path"], text.splitlines()
-        self.record, self.bad = {}, False
+        self.record, self.bad, self.section = {}, False, None
         if not tree["records"]:
             self.issue("MISSING_ID", {}, "", allowed=["a record heading"])
         for record in tree["records"]:
-            self.record, self.bad, self.locations = record, False, {}
+            self.record, self.bad, self.locations, self.section = record, False, {}, None
             self.table = self.kinds.get(record["id"].partition("-")[0])
             if self.table is None:
                 self.issue("BAD_VALUE", record, record["id"], allowed=list(self.kinds))
@@ -222,11 +209,15 @@ class Qualifier:
                     field = sections[canonical]
                     path = f"/{field['name']}"
                     self.locations[path] = (node, node["name"], canonical)
+                    self.section = canonical
                     result[field["name"]] = self.content(node, field, self.schema["properties"][field["name"]], path)
+                    self.section = None
                     present.add(canonical)
             for label, field in sections.items():
                 if field["required"] and (label not in present or not populated(result[field["name"]])):
+                    self.section = label
                     self.issue("MISSING_FIELD", record, "", label)
+                    self.section = None
             if not self.bad:
                 self.rows[self.table].append(result)
                 self.sources[self.table].append((self.file, self.lines, record, self.locations))
@@ -235,6 +226,7 @@ class Qualifier:
     def map_error(self, error):
         self.file, self.lines, self.record, locations = self.sources[error["table"]][error["record_position"]]
         path = error["field_path"]
+        self.section = section_for_path(self.fields[error["table"]], path)
         if error["item_index"] is not None and not any(part.isdigit() for part in path.split("/")):
             path += f"/{error['item_index']}"
         while path not in locations and path:

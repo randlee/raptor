@@ -12,8 +12,10 @@ from pathlib import Path
 
 import raptor_schema
 if __package__:
+    from .diagnostics import group_issues
     from .qualify import Qualifier
 else:
+    from diagnostics import group_issues
     from qualify import Qualifier
 
 HEADING = re.compile(r"^##\s+([A-Z]+-[A-Z]{2,5}-\d{4}):\s*(.*)$")
@@ -120,13 +122,7 @@ def main() -> int:
     for error in accepted["errors"]:
         qualifier.map_error(error)
     issues = sorted(qualifier.issues, key=lambda issue: (issue["file"], issue["line"], issue["column"]))
-    groups = {}
-    for issue in issues:
-        key = (issue["rule"], issue["label"] is not None, issue["label"] or "", issue["allowed"] is not None, tuple(issue["allowed"] or []), issue["remedy"])
-        group = groups.setdefault(key, dict(rule=issue["rule"], section=None, label=issue["label"], allowed=issue["allowed"], count=0, files={}, remedy=issue["remedy"]))
-        group["count"] += 1
-        group["files"].setdefault(issue["file"], []).append(issue["line"])
-    summary.update(groups=[groups[key] for key in sorted(groups)], aliases=qualifier.counts)
+    summary.update(groups=group_issues(issues), aliases=qualifier.counts)
     payload = {"metadata": {"repository": repository, "generated": datetime.now(timezone.utc).isoformat(), "files": len(files), "records": summary["records"]}, **accepted["batch"], "diagnostics": {"issues": issues, "summary": summary}}
     args.output.write_text(json.dumps(payload, indent=2) + "\n")
     print(json.dumps({"index": str(args.output), "files": len(files), "records": payload["metadata"]["records"], "issues": len(issues)}))

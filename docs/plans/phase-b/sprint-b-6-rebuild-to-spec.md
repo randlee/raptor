@@ -41,6 +41,7 @@ RAP-B-AUDIT-1 and RAP-B-BASELINE-1.
 - `crates/raptor-schema/tests/schema.rs` rewritten
 - `scripts/qualify.py` (new); `scripts/extract.py`, `scripts/load_sqlite.py`
 - `tests/test_qualify.py` (new); `tests/test_extract.py`, `tests/test_load.py`
+- `scripts/diagnostics.py` and `tests/test_diagnostic_sections.py`: source diagnostics and section-aware grouping
 - `scripts/markdown_content.py` and `tests/test_markdown_content.py`: cohesive source-content reconstruction and its round-trip regressions
 - `templates/requirement.md.j2`, `templates/decision.md.j2`: indent multiline list continuations so rendered paragraphs and code are unambiguous
 - `tests/fixtures/records.json` only if a shape below requires it
@@ -248,7 +249,8 @@ this sprint.
 
 ### Diagnostics at compiler grade
 
-Every diagnostic, from the qualifier or mapped from Rust, carries `file`,
+Every diagnostic, from the qualifier or mapped from Rust, carries `section`
+(the canonical enclosing section or null), `file`,
 `line`, `column` (1-based, of the offending token), `rule`, `id`, `label`,
 `value` (the offending text verbatim), `allowed`, `message`, `remedy`. The
 message names what was found and what was expected in one sentence, so the

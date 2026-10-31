@@ -20,7 +20,7 @@ RUNTIME_PATHS = (
     # Python pipeline, its tests and fixtures.
     "scripts/",
     "tests/",
-    # Loaded by scripts/extract.py, scripts/load_sqlite.py and tests/test_record.py.
+    # Loaded by scripts/extract.py, scripts/load_sqlite.py and schema-related tests.
     "schema/",
     # Default sc-compose template root for scripts/render.py.
     "templates/",

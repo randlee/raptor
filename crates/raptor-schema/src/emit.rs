@@ -1,5 +1,5 @@
 use crate::{accept::ErrorTable, metadata::*, schema::*};
-use schemars::{schema::RootSchema, schema_for};
+use schemars::{JsonSchema, schema::RootSchema, schema_for};
 use serde::Serialize;
 use std::collections::{BTreeMap, BTreeSet};
 
@@ -101,6 +101,40 @@ pub fn field_table(table: Table) -> Vec<FieldMeta> {
         .collect()
 }
 
+fn record_kinds(table: Table) -> &'static [RecordKind] {
+    match table {
+        Table::Req => &[RecordKind::Req, RecordKind::Nfr],
+        Table::Dec => &[RecordKind::Adr],
+        Table::Both => &[],
+    }
+}
+
+fn enum_values<T: JsonSchema>() -> Vec<String> {
+    schema_for!(T)
+        .schema
+        .enum_values
+        .unwrap_or_default()
+        .into_iter()
+        .filter_map(|value| value.as_str().map(str::to_owned))
+        .collect()
+}
+
+fn sql_literal(value: &str) -> String {
+    format!("'{}'", value.replace('\'', "''"))
+}
+
+fn sql_check(values: &[String], expression: impl FnOnce(&str) -> String) -> String {
+    if values.is_empty() {
+        " CHECK (0)".to_owned()
+    } else {
+        let literals = values
+            .iter()
+            .map(|value| sql_literal(value))
+            .collect::<Vec<_>>();
+        format!(" CHECK ({})", expression(&literals.join(", ")))
+    }
+}
+
 pub fn json_schema() -> Result<BTreeMap<&'static str, RootSchema>, serde_json::Error> {
     let mut schemas = BTreeMap::new();
     for (name, table, mut schema) in [
@@ -111,11 +145,7 @@ pub fn json_schema() -> Result<BTreeMap<&'static str, RootSchema>, serde_json::E
             .schema
             .extensions
             .insert("x-raptor-fields".into(), serde_json::to_value(field_table(table))?);
-        let kinds = match table {
-            Table::Req => vec![RecordKind::Req, RecordKind::Nfr],
-            Table::Dec => vec![RecordKind::Adr],
-            Table::Both => Vec::new(),
-        };
+        let kinds = record_kinds(table);
         schema
             .schema
             .extensions
@@ -128,8 +158,23 @@ pub fn json_schema() -> Result<BTreeMap<&'static str, RootSchema>, serde_json::E
 pub fn sql_ddl() -> String {
     let mut statements = Vec::new();
     let mut edges = Vec::new();
+    let status_values = enum_values::<Status>();
     for (table, kind) in TABLES {
         let fields = field_table(kind.into());
+        let id_prefixes = record_kinds(kind.into())
+            .iter()
+            .filter_map(|kind| {
+                serde_json::to_value(kind)
+                    .ok()
+                    .and_then(|value| value.as_str().map(str::to_owned))
+                    .map(|value| format!("{}-", value.to_ascii_uppercase()))
+            })
+            .collect::<Vec<_>>();
+        let prefix_width = id_prefixes
+            .iter()
+            .map(String::len)
+            .max()
+            .unwrap_or_default();
         let mut seen = BTreeSet::new();
         let columns: Vec<_> = fields
             .iter()
@@ -137,12 +182,21 @@ pub fn sql_ddl() -> String {
                 field.level != "Label" && field.shape != "Derived" && seen.insert(field.name)
             })
             .map(|field| {
+                let check = if field.role == "heading_id" {
+                    sql_check(&id_prefixes, |values| {
+                        format!("substr({}, 1, {}) IN ({values})", field.name, prefix_width)
+                    })
+                } else if field.shape == "Status" {
+                    sql_check(&status_values, |values| format!("{} IN ({values})", field.name))
+                } else {
+                    String::new()
+                };
                 let constraint = if field.role == "heading_id" {
-                    " NOT NULL PRIMARY KEY".to_owned()
+                    format!(" NOT NULL PRIMARY KEY{check}")
                 } else if field.nullable {
                     format!(" REFERENCES {table}(id) DEFERRABLE INITIALLY DEFERRED")
                 } else {
-                    " NOT NULL".to_owned()
+                    format!(" NOT NULL{check}")
                 };
                 format!("{} {}{}", field.name, field.sql_type, constraint)
             })
