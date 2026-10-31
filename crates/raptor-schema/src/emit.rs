@@ -1,4 +1,4 @@
-use crate::{accept::ErrorTable, schema::*};
+use crate::{accept::ErrorTable, metadata::*, schema::*};
 use schemars::{schema::RootSchema, schema_for};
 use serde::Serialize;
 use std::collections::{BTreeMap, BTreeSet};

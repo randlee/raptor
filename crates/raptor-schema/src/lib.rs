@@ -1,11 +1,13 @@
 mod accept;
 mod emit;
 mod inventory;
+mod metadata;
 mod schema;
 #[doc(inline)]
 pub use accept::{Accepted, Batch, Error, ErrorCategory, ErrorTable, accept};
 pub use emit::{FieldMeta, field_table, json_schema, sql_ddl};
 pub use inventory::{Rule, Summary};
+pub use metadata::*;
 pub use schema::*;
 
 #[cfg(feature = "python")]

@@ -1,4 +1,4 @@
-use crate::{emit, schema::*};
+use crate::{emit, metadata::Table, schema::*};
 use serde::{Serialize, Serializer};
 use serde_json::{Value, json};
 use std::fmt;
