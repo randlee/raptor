@@ -30,13 +30,17 @@ mixed within each aggregate. Counts are ordered descending.
 
 | Rule | B.3 | B.4 | This run |
 | --- | ---: | ---: | ---: |
-| UNKNOWN_LABEL | 1902 | not recorded | 1180 |
+| UNKNOWN_LABEL | 1091 | not recorded | 1180 |
 | MISSING_FIELD | 282 | not recorded | 361 |
 | BAD_VALUE | 337 | not recorded | 345 |
-| UNKNOWN_SECTION | 0 | not recorded | 304 |
+| UNKNOWN_SECTION | 811 | not recorded | 304 |
 | MISSING_ID | 40 | not recorded | 40 |
 | DUPLICATE_ID | 39 | not recorded | 10 |
 | DANGLING_REFERENCE | 2 | not recorded | 3 |
+
+The corrected B.3 label/section counts come from the preserved original table,
+SHA-256 `5061fc5fae3c5870b43dc53f9c690ec165900bd42369576ffec58bd0be370c57`.
+This corrects classification only; the missing B.4 per-group evidence remains missing.
 
 Own inventory: 2 files, 15 records, exit 0, with no diagnostics. The consumer
 run still exits 1 with 2,243 diagnostics; its SQLite dump completes but does not

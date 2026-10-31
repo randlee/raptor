@@ -56,6 +56,7 @@ no import skill.
   exit `0`, one `requirements` row per REQ-RAP id, one `decisions` row per
   ADR-RAP id.
 - `pip install . && python -m pytest -q tests/` passes.
-- Consumer run: exit `1`; every emitted row has every column non-null;
+- Consumer run: exit `1`; every emitted row has every non-nullable column non-null
+  (only `supersedes` and `superseded_by` are nullable, as specified in B.4);
   `--dump` equals the index; `consumer-run.md` exists with its tables.
 - `rg -Pni --hidden --glob '!.git/**' --glob '!.sc/**' '(?<![[:alnum:]_])[p]3' .` prints nothing.
