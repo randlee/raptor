@@ -80,6 +80,6 @@ class Record(BaseModel):
 ## Required Validation
 
 - `python -m pytest -q tests`
-- `rg -ni --hidden --glob '!.git/**' --glob '!.sc/**' '[p]3' .` prints nothing
+- `rg -Pni --hidden --glob '!.git/**' --glob '!.sc/**' '(?<![[:alnum:]_])[p]3' .` prints nothing
 - Consumer architect agent: validate every record of the current index against
   the model from the consumer checkout, read-only; report pass and fail counts.

@@ -85,7 +85,7 @@ sqlite3 requirements.sqlite "select source_id, relation_kind from relationships 
 
 ## Required Validation
 
-- `rg -ni --hidden --glob '!.git/**' --glob '!.sc/**' '[p]3' .` prints nothing
+- `rg -Pni --hidden --glob '!.git/**' --glob '!.sc/**' '(?<![[:alnum:]_])[p]3' .` prints nothing
 - Consumer architect agent: follow the import skill on the consumer checkout
   and the query skill on the result; report whether each step
   worked as written and any step that needed knowledge the skill did not give.

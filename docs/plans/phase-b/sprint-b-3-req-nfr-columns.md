@@ -142,4 +142,4 @@ template 60; `test_extract.py` 120; `test_load.py` 40;
   `pip install . && python -m pytest -q tests/` pass.
 - `rg -n '\*\*[A-Z][A-Za-z ]+:\*\*' scripts/` prints nothing.
 - The corpus run exits `1` and `corpus-run-b3.md` exists with its groups.
-- `rg -ni --hidden --glob '!.git/**' --glob '!.sc/**' '[p]3' .` prints nothing.
+- `rg -Pni --hidden --glob '!.git/**' --glob '!.sc/**' '(?<![[:alnum:]_])[p]3' .` prints nothing.

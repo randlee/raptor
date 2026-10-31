@@ -63,31 +63,28 @@ into a JSON array and targets span two tables. `supersedes` and
 
 ## Field attributes
 
-Each field carries, next to its type, the four facts the importer and the
-renderer need:
+The schema stores one six-attribute entry per field. Derived export values are
+not independent policy.
 
-| Attribute | Values |
+| Attribute | Meaning |
 |---|---|
-| `label` | the Markdown label as the template writes it, for example `Last Updated` |
-| `level` | `header` (document header block, inherited by every record in the file; a record's own line wins), `item` (bold line directly under the record heading), `section` (a `###` heading whose column this is), `label` (a bold label inside a section) |
-| `shape` | `text`, `date`, `version`, `status`, `id`, `id_list`, `text_list`, `statement_list`, `checklist`, `link_list`, `group`, `derived` |
-| `section` | for `label` level, the section it renders under |
+| `name` | JSON/SQL field name |
+| `label` | canonical Markdown label |
+| `table` | requirement, decision, or both |
+| `level` | header, item, section, or label carrying its closed section enum |
+| `shape` | closed value shape, carrying the modal for statement lists |
+| `presence` | required, optional canonical empty value, or nullable |
 
-`derived` is a header label the template writes from the records in the
-file rather than from a column. Today there is one, `ID Range`, which the
-consumer's guideline requires on every multi-item file. The renderer
-computes it, the binder checks each record's id lies inside it and stores
-nothing. It is the one branch in `render.py`; a second `derived` field is
-a plan amendment, not another branch. Every section column carries `text` for prose written before its
-first label, so nothing an author wrote is dropped.
+`field_table(table)` exports name, label, table, level, section, shape, modal,
+required, SQL type, nullable and role from those attributes. JSON Schema and
+SQL DDL derive from the same definition. Only the two supersession fields
+are nullable; optional section columns use their canonical empty value.
+`ID Range` is derived file metadata emitted by the renderer and never stored.
 
-Outside the record model, and therefore neither stored nor reported: the
-file's H1, its `## Overview` and other H2 prose that is not a record, and
-the folder it sits in. Raptor renders records, not files.
-
-The crate emits them as extension keywords in the JSON Schema; the field
-table Python and the templates read is derived from that schema. Nothing is
-listed twice.
+Each structured section's `text` preserves prose before its first label.
+A scalar section stores its text directly. The file H1, non-record H2 prose
+and source folder are outside the record model. Raptor renders records,
+not whole source files.
 
 ## The label tree
 
@@ -109,16 +106,27 @@ file:
                         "labels": [ … ] } ] } ] } ] }
 ```
 
-`bind_file` in the crate takes that tree and returns typed records and
-diagnostics. Anything in the tree the schema does not claim is a diagnostic;
-anything the schema requires and the tree lacks is a diagnostic.
+The Python qualifier consumes this tree and reads the crate's field table and
+JSON Schema. It normalizes labels, sections, enum text and modal words by
+trimming, collapsing whitespace, removing a trailing colon and casefolding,
+then applies declared aliases and emits canonical JSON. It tokenizes Markdown
+links and list syntax; the Rust crate contains no Markdown parser.
+
+The crate's `accept` entry takes qualified JSON and returns an accepted batch,
+structured errors and an inventory summary. A rejected record is excluded
+without discarding other valid records. `Batch` is sealed, scalar constructors
+validate ids, versions and dates, and enums require exact canonical spellings.
+The Python boundary exposes five operations: `sql_ddl`, `json_schema`,
+`field_table`, `validate_scalar`, and `accept`. Inventory checking and summary
+construction remain crate-internal.
 
 ## Diagnostics
 
-One JSON object each: `file`, `line`, `rule`, `id`, `label`, `message`,
-`allowed`, `remedy`. Every occurrence, whole inventory, one pass, grouped in
+One JSON object each: `file`, `line`, `column`, `rule`, `id`, `label`,
+`value`, `message`, `allowed`, `remedy`. `column` is 1-based and `value`
+preserves the offending source text. Every occurrence, whole inventory, one pass, grouped in
 the summary by rule then label then file. Exit non-zero when any exists; the
-output is still written. No autocorrection; no per-repository exception.
+output is still written. No source autocorrection. Repository aliases are explicit configuration, not parser exceptions.
 
 | Rule | Raised when | Effect on the row |
 |---|---|---|
@@ -129,6 +137,13 @@ output is still written. No autocorrection; no per-repository exception.
 | `BAD_VALUE` | a shape conversion failed: date, version, status, id, checkbox | not emitted |
 | `DUPLICATE_ID` | an id declared more than once in the inventory; raised at every occurrence | all emitted |
 | `DANGLING_REFERENCE` | an id in any id list that no record declares | emitted |
+
+Python owns source diagnostics: missing content, unknown labels/sections and
+text that cannot be qualified. Rust owns strict JSON/type/scalar errors and
+inventory checks. Python maps Rust record/item positions back to source
+locations. Scalar failures map to `BAD_VALUE`; duplicate and dangling-reference
+categories retain their named rules. Every occurrence has its own location.
+Distinct error sources may add codes; existing categories are not renamed.
 
 The summary is built for surgical fixes. A thousand diagnostics are a
 handful of patterns, and the summary presents them that way:
@@ -155,20 +170,21 @@ so that none can be added by habit.
   markers and checkboxes. A label literal in Python is a defect, and the
   acceptance check `rg -n '\*\*[A-Z][A-Za-z ]+:\*\*' scripts/` printing
   nothing enforces it.
-- **The binder is the schema.** The only way to make the importer accept a
-  label is a field attribute in the crate, which is a schema change and is
-  decided by the operator between sprints, never inside one. There is no
-  regex to widen and no alias table to extend. The crate's acceptance check is that every label
-  literal in `src/` occurs inside a field attribute.
-- **A diagnostic is never resolved in this repository.** Sprint acceptance
-  for B.3, B.4 and B.5 is that the corpus run produces the grouped report and
-  exits non-zero, not that it is clean. A developer who believes a diagnostic
-  is a schema defect writes that in the completion message with the group and
-  does not change code.
-- **Effect on rows is fixed above.** Emitting a row without an unknown label
-  keeps the database usable while the corpus is being corrected, and the
-  round-trip test on the fixture, which has no diagnostics, is what proves
-  correctness. The corpus is never the test oracle.
+- **The schema owns canonical names.** The qualifier reads the crate's field
+  metadata and JSON Schema; it has no copied field, label, section or enum
+  literals. A canonical schema change requires the operator's decision.
+- **Aliases belong to the consuming repository.** `.raptor/aliases.toml`
+  has `labels`, `sections` and `values` tables. Targets must already be
+  canonical choices; invalid targets fail configuration with file and line.
+  Applications are counted in the summary. Raptor's alias tables are empty.
+- **Source corrections belong to source owners.** Hand-written corpus
+  diagnostics are reported, not repaired in this repository. A demonstrated
+  parser defect is repaired with a regression proving the intended behavior.
+- **Round-trip evidence proves content preservation.** The golden fixture and
+  rendered documents must survive render, split, qualify and accept with
+  equal full objects and no diagnostics. Hand-written documents are the
+  diagnostic corpus. Consumer runs compare full objects against a pinned
+  baseline, attribute every delta and report the actual rendered-file count.
 - **Ceilings hold across the phase.** `extract.py` 200 lines, `render.py`
   60, `load_sqlite.py` 50, the crate's `src/` 700. A sprint that needs more
   stops and reports.
@@ -183,11 +199,19 @@ so that none can be added by habit.
 | B.4 ADR columns | `context`, `decision`, `rationale`, `consequences`, `alternatives`, `implementation`, `impact_analysis`, `decision_date`, `supersedes`, `superseded_by`; `group` shape; foreign keys; corpus run | B.3 |
 | B.5 Own inventory; consumer run | ingest set trimmed to Raptor's two record files, which already follow the schema; importer clean over Raptor; the grouped non-compliance report | B.4 |
 
+The table above records the original B.1–B.5 sequence. The separately
+approved [B.6 rebuild](sprint-b-6-rebuild-to-spec.md) follows their merge into
+`integrate/phase-b` and governs the strict Rust/Python qualifier boundary
+described above. Its acceptance and phase-ending QA remain required; this
+reconciliation does not declare the sprint complete.
+
 Every sprint is `must_follow` its predecessor; none is `parallel_safe`.
 B.2 imports the crate B.1 builds; B.3 and B.4 each extend the crate, the
 fixture, the templates and the tests of the sprint before; B.5 runs the
-importer with every column in place. The five branches form one GitHub stack on `develop`
-(`/gh-stack`): `feature/b-1-schema-crate` is based on `develop`, and each
+importer with every column in place. The five branches form one GitHub stack on
+`integrate/phase-b`, the phase's integration branch cut from `develop`, which
+merges to `develop` when the phase ends (`/gh-stack`):
+`feature/b-1-schema-crate` is based on `integrate/phase-b`, and each
 later branch is based on the branch before it, as the `target` line of its
 sprint document says. The worktree is created with `/sc-git-worktree
 --base <target>`; the PR is created with `gh stack link <target> <branch>`
@@ -198,7 +222,7 @@ Branch, directory and file names are lower case.
 
 One hand-written fixture, `tests/fixtures/records.json`, is the golden file
 for both the Rust and the Python tests. B.1 writes it and renders it. B.2
-proves the parser by round trip: render, split, bind, compare for equality.
+proves the parser by round trip: render, split, qualify, accept, compare for equality.
 B.3 and B.4 extend it. Diagnostics are proven by mutating rendered files one
 defect at a time.
 
@@ -229,7 +253,7 @@ ADR-RAP-0004 to ADR-RAP-0006 in `docs/adr/adr-rap-product.md`, with
 | Gap | Owner |
 |---|---|
 | Every `UNKNOWN_LABEL`, `UNKNOWN_SECTION`, `BAD_VALUE`, `DUPLICATE_ID` and `DANGLING_REFERENCE` the corpus runs report | Consumer repository's architect, with the operator directly |
-| Status values outside the enum, about a hundred lines across the corpus | same |
+| Source status values outside the canonical enum after normalization or declared aliases | Consumer repository owner; canonical enum changes require operator approval |
 | Which local read model the CLI uses against a remote Dolt server | CLI phase, its own ADR |
 | Test plans and design documents as tables | later phase |
 | Filtering by product, repository and module (REQ-RAP-0004): an edge from a consuming repository's `.raptor/` mapping to record ids, not a column | future schema version, its own ADR |
@@ -253,12 +277,16 @@ ADR-RAP-0004 to ADR-RAP-0006 in `docs/adr/adr-rap-product.md`, with
   no configuration system, no plugin, no second parser.
 - **Diagnostics in JSON.** As above. Readers are agents.
 - **No exceptions for one repository.** The format is what the templates
-  emit. A line the template would not have written is reported, not parsed.
+  emit. Consistent spelling differences require explicit repository aliases;
+  unsupported source constructs are diagnosed.
 - **One stack.** Branch from the `target` in the sprint document, never from
-  `develop` directly for B.2 to B.5; PRs are linked with `gh stack link`;
+  `develop` or `integrate/phase-b` directly for B.2 to B.5; PRs are linked
+  with `gh stack link --base integrate/phase-b`;
   merges use `gh stack merge --yes`; rebases use `gh stack rebase --upstack`.
-  Lower case for every branch, directory and file name.
+  B.6 starts from `integrate/phase-b` after the original stack has merged.
+  Fixes append above the pushed stack top; only the stack writer links or lands
+  layers. Lower case for every branch, directory and file name.
 - **Neutrality gate before every commit.**
-  `rg -ni --hidden --glob '!.git/**' --glob '!.sc/**' '[p]3' .` prints nothing.
+  `rg -Pni --hidden --glob '!.git/**' --glob '!.sc/**' '(?<![[:alnum:]_])[p]3' .` prints nothing.
 
 Phase B does not wait on the consumer repository's corrections.

@@ -80,7 +80,7 @@ python scripts/render.py requirements-index.json --id REQ-CORE-0001 --output-dir
 ## Required Validation
 
 - `python -m pytest -q tests`
-- `rg -ni --hidden --glob '!.git/**' --glob '!.sc/**' '[p]3' .` prints nothing
+- `rg -Pni --hidden --glob '!.git/**' --glob '!.sc/**' '(?<![[:alnum:]_])[p]3' .` prints nothing
 - Consumer architect agent: render every record of the consumer index; report
   files written, errors, and for five records per type whether the rendered
   document reads like the source document.

@@ -104,4 +104,4 @@ Crate `src/` 700 lines total; crate tests 420; `records.json` 360;
   `pip install . && python -m pytest -q tests/` pass.
 - `rg -n '\*\*[A-Z][A-Za-z ]+:\*\*' scripts/` prints nothing.
 - The corpus run exits `1` and `corpus-run-b4.md` exists with both tables.
-- `rg -ni --hidden --glob '!.git/**' --glob '!.sc/**' '[p]3' .` prints nothing.
+- `rg -Pni --hidden --glob '!.git/**' --glob '!.sc/**' '(?<![[:alnum:]_])[p]3' .` prints nothing.

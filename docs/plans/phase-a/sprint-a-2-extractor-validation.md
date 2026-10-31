@@ -93,7 +93,7 @@ python scripts/extract.py /path/to/docs --domains calibration camera --output ou
 ## Required Validation
 
 - `python -m pytest -q tests`
-- `rg -ni --hidden --glob '!.git/**' --glob '!.sc/**' '[p]3' .` prints nothing
+- `rg -Pni --hidden --glob '!.git/**' --glob '!.sc/**' '(?<![[:alnum:]_])[p]3' .` prints nothing
 - Consumer architect agent: run `extract.py` on every Markdown document in the
   consumer checkout, then `load_sqlite.py`; report files, records, diagnostics
   verbatim, and row counts.

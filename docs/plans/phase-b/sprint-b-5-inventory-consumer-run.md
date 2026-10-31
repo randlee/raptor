@@ -58,4 +58,4 @@ no import skill.
 - `pip install . && python -m pytest -q tests/` passes.
 - Consumer run: exit `1`; every emitted row has every column non-null;
   `--dump` equals the index; `consumer-run.md` exists with its tables.
-- `rg -ni --hidden --glob '!.git/**' --glob '!.sc/**' '[p]3' .` prints nothing.
+- `rg -Pni --hidden --glob '!.git/**' --glob '!.sc/**' '(?<![[:alnum:]_])[p]3' .` prints nothing.

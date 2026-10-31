@@ -1,38 +1,60 @@
 #!/usr/bin/env python3
-"""Load a Raptor JSON index into an idempotent development SQLite database."""
+"""Load or dump a schema-defined SQLite index."""
 from __future__ import annotations
+
 import argparse
 import json
 import sqlite3
 from pathlib import Path
-from typing import Any
 
-SCHEMA = Path(__file__).parents[1] / "schema" / "schema.sql"
+import raptor_schema
+if __package__:
+    from .qualify import empty, resolve
+else:
+    from qualify import empty, resolve
 
-def records(index: dict[str, Any]) -> list[dict[str, Any]]:
-    return index.get("requirements", index.get("artifacts", []))
+TABLES = tuple(json.loads(raptor_schema.json_schema()).keys())
 
-def relationship_rows(record: dict[str, Any]):
-    for group, entries in record["relationships"].items():
-        if not isinstance(entries, list): continue
-        for entry in entries:
-            target = entry.get("target_id", entry.get("source_id"))
-            if target: yield (record["id"], entry.get("type", group), target, entry.get("context"))
+def load(index: dict, database: Path) -> None:
+    with sqlite3.connect(database) as connection:
+        connection.execute("PRAGMA foreign_keys = ON")
+        if not connection.execute("SELECT 1 FROM sqlite_master WHERE type = 'table'").fetchone():
+            connection.executescript(raptor_schema.sql_ddl())
+        for table in TABLES:
+            schema = json.loads(raptor_schema.json_schema())[table]
+            names = list(schema["properties"])
+            defaults = {f["name"]: empty(schema["properties"][f["name"]], schema) for f in schema["x-raptor-fields"] if not f["required"] and f["name"] in names}
+            marks = ", ".join("?" for _ in names)
+            sql = f"INSERT OR REPLACE INTO {table} ({', '.join(names)}) VALUES ({marks})"
+            for record in index.get(table, []):
+                canonical = {name: record.get(name) if record.get(name) is not None else defaults.get(name) for name in names}
+                values = [json.dumps(canonical[name]) if isinstance(canonical[name], (dict, list)) else canonical[name] for name in names]
+                connection.execute(sql, values)
+
+
+def dump(database: Path) -> dict:
+    with sqlite3.connect(database) as connection:
+        connection.row_factory = sqlite3.Row
+        def decode(table: str, row: sqlite3.Row) -> dict:
+            item, schema = dict(row), json.loads(raptor_schema.json_schema())[table]
+            for name, specification in schema["properties"].items():
+                if resolve(specification, schema).get("type") == "object":
+                    item[name] = json.loads(item[name])
+            return item
+        return {table: [decode(table, row) for row in connection.execute(f"SELECT * FROM {table} ORDER BY rowid")] for table in TABLES}
+
 
 def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("index", type=Path); parser.add_argument("database", type=Path)
+    parser.add_argument("paths", type=Path, nargs="+")
+    parser.add_argument("--dump", action="store_true")
     args = parser.parse_args()
-    index = json.loads(args.index.read_text(encoding="utf-8")); items = records(index)
-    with sqlite3.connect(args.database) as connection:
-        connection.executescript(SCHEMA.read_text(encoding="utf-8"))
-        connection.execute("DELETE FROM relationships"); connection.execute("DELETE FROM artifacts")
-        for item in items:
-            connection.execute("INSERT INTO artifacts VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)", (
-                item["id"], item["title"], item["type"], item.get("status"), item.get("domain"),
-                json.dumps(item.get("document_metadata", {})), json.dumps(item.get("source", {})),
-                json.dumps(item.get("content", {})), json.dumps(item.get("subsections", []))))
-            connection.executemany("INSERT INTO relationships VALUES (?, ?, ?, ?)", relationship_rows(item))
-    print(f"artifacts={len(items)} database={args.database}")
+    if args.dump:
+        print(json.dumps(dump(args.paths[0])))
+    else:
+        load(json.loads(args.paths[0].read_text()), args.paths[1])
     return 0
-if __name__ == "__main__": raise SystemExit(main())
+
+
+if __name__ == "__main__":
+    raise SystemExit(main())
