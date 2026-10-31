@@ -132,7 +132,8 @@ foreign keys, no fix to any diagnostic by code, no change to `extract.py`,
 
 ## Ceilings
 
-Crate `src/` 600 lines total; crate tests 350; `records.json` 260; each
+Whole-crate source/test estimates were not user-approved limits. The B.6
+per-file Rust limits govern the rebuilt implementation. `records.json` 260; each
 template 60; `test_extract.py` 120; `test_load.py` 40;
 `corpus-run-b3.md` 60.
 

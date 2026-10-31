@@ -170,7 +170,8 @@ no edges view. No derive macro of our own. No Dolt.
 
 ## Ceilings
 
-Crate `src/` 450 lines; crate tests 250; `pyproject.toml` 15;
+Whole-crate source/test estimates were not user-approved limits. The B.6
+per-file Rust limits govern the rebuilt implementation. `pyproject.toml` 15;
 `ci.yml` diff 10 lines; `records.json` 120; `test_schema.py` 25.
 
 ## Acceptance

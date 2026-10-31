@@ -94,7 +94,8 @@ change to `.raptor/` or product documents.
 
 ## Ceilings
 
-Crate `src/` 700 lines total; crate tests 420; `records.json` 360;
+Whole-crate source/test estimates were not user-approved limits. The B.6
+per-file Rust limits govern the rebuilt implementation. `records.json` 360;
 `decision.md.j2` 70; `requirement.md.j2` 60 (unchanged from B.3);
 `test_extract.py` 140; `test_load.py` 40; `corpus-run-b4.md` 70.
 

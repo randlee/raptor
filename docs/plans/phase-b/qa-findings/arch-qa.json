@@ -39,12 +39,20 @@
         "ATM-QA-005",
         "ATM-QA-006"
       ],
-      "status": "implemented-unverified",
+      "status": "fixed-verified",
       "current_evidence": [
-        "User explicitly clarified that no crate limit was approved; whole-crate caps removed from both plans, existing per-file caps unchanged. Filing verification pending."
+        "User explicitly clarified that no crate limit was approved; whole-crate caps removed from both plans, existing per-file caps unchanged. Filing verification pending.",
+        "Round6 filing owner verified user-directed duplicate rejection/per-file policy; no regression."
       ],
-      "disposition_note": "Unapproved aggregate estimates corrected under explicit user instruction; no increase in per-file limits. Do not ask to approve crate totals.",
-      "verification": null
+      "disposition_note": "Verified against explicit user clarification, not approval of an unapproved aggregate cap or last-winner projection.",
+      "verification": {
+        "commit": "878b19c4f2faa012e3af770fdb8c314fdc4aecba",
+        "task": "RAP-B-POLICY-FIX-VERIFY-20261030-6",
+        "closed_by": "quality-mgr",
+        "filing_reviewer": "arch-qa",
+        "report": "https://github.com/randlee/raptor/pull/84#issuecomment-6539808771",
+        "source_message": "01M688GP075146FCYR0S1RDXH3"
+      }
     },
     {
       "id": "ARCH-003",
@@ -61,12 +69,20 @@
         "ATM-QA-002",
         "ATM-QA-003"
       ],
-      "status": "implemented-unverified",
+      "status": "fixed-verified",
       "current_evidence": [
-        "User explicitly clarified that no crate limit was approved; whole-crate caps removed from both plans, existing per-file caps unchanged. Filing verification pending."
+        "User explicitly clarified that no crate limit was approved; whole-crate caps removed from both plans, existing per-file caps unchanged. Filing verification pending.",
+        "Round6 filing owner verified user-directed duplicate rejection/per-file policy; no regression."
       ],
-      "disposition_note": "Unapproved aggregate estimates corrected under explicit user instruction; no increase in per-file limits. Do not ask to approve crate totals.",
-      "verification": null
+      "disposition_note": "Verified against explicit user clarification, not approval of an unapproved aggregate cap or last-winner projection.",
+      "verification": {
+        "commit": "878b19c4f2faa012e3af770fdb8c314fdc4aecba",
+        "task": "RAP-B-POLICY-FIX-VERIFY-20261030-6",
+        "closed_by": "quality-mgr",
+        "filing_reviewer": "arch-qa",
+        "report": "https://github.com/randlee/raptor/pull/84#issuecomment-6539808771",
+        "source_message": "01M688GP075146FCYR0S1RDXH3"
+      }
     },
     {
       "id": "ARCH-004",

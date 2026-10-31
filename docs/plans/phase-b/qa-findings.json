@@ -19,12 +19,12 @@
     "flaky-test-qa": 2,
     "req-qa": 24,
     "rust-best-practices-agent": 12,
-    "rust-qa-agent": 3,
+    "rust-qa-agent": 4,
     "rust-service-hardening-agent": 0,
     "ruthless-boundary-qa": 13,
     "schema-reviewer": 5
   },
-  "finding_count": 78,
+  "finding_count": 79,
   "summary_blocker_aliases": {
     "B-1": [
       "ATM-QA-001",
@@ -85,7 +85,7 @@
     {
       "filing_reviewer": "rust-qa-agent",
       "file": "qa-findings/rust-qa-agent.json",
-      "finding_count": 3
+      "finding_count": 4
     },
     {
       "filing_reviewer": "ruthless-boundary-qa",

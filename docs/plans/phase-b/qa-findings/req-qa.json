@@ -48,12 +48,20 @@
         "ARCH-003",
         "ATM-QA-003"
       ],
-      "status": "implemented-unverified",
+      "status": "fixed-verified",
       "current_evidence": [
-        "User explicitly clarified that no crate limit was approved; whole-crate caps removed from both plans, existing per-file caps unchanged. Filing verification pending."
+        "User explicitly clarified that no crate limit was approved; whole-crate caps removed from both plans, existing per-file caps unchanged. Filing verification pending.",
+        "Round6 filing owner verified user-directed duplicate rejection/per-file policy; no regression."
       ],
-      "disposition_note": "Unapproved aggregate estimates corrected under explicit user instruction; no increase in per-file limits. Do not ask to approve crate totals.",
-      "verification": null,
+      "disposition_note": "Verified against explicit user clarification, not approval of an unapproved aggregate cap or last-winner projection.",
+      "verification": {
+        "commit": "878b19c4f2faa012e3af770fdb8c314fdc4aecba",
+        "task": "RAP-B-POLICY-FIX-VERIFY-20261030-6",
+        "closed_by": "quality-mgr",
+        "filing_reviewer": "req-qa",
+        "report": "https://github.com/randlee/raptor/pull/84#issuecomment-6539808771",
+        "source_message": "01M688GP075146FCYR0S1RDXH3"
+      },
       "acceptance_source_refs": [
         "docs/plans/phase-b/sprint-b-6-rebuild-to-spec.md:236-243",
         "docs/plans/phase-b/sprint-b-6-rebuild-to-spec.md:320-321"
@@ -74,12 +82,20 @@
         "ARCH-003",
         "ATM-QA-002"
       ],
-      "status": "implemented-unverified",
+      "status": "fixed-verified",
       "current_evidence": [
-        "User explicitly clarified that no crate limit was approved; whole-crate caps removed from both plans, existing per-file caps unchanged. Filing verification pending."
+        "User explicitly clarified that no crate limit was approved; whole-crate caps removed from both plans, existing per-file caps unchanged. Filing verification pending.",
+        "Round6 filing owner verified user-directed duplicate rejection/per-file policy; no regression."
       ],
-      "disposition_note": "Unapproved aggregate estimates corrected under explicit user instruction; no increase in per-file limits. Do not ask to approve crate totals.",
-      "verification": null,
+      "disposition_note": "Verified against explicit user clarification, not approval of an unapproved aggregate cap or last-winner projection.",
+      "verification": {
+        "commit": "878b19c4f2faa012e3af770fdb8c314fdc4aecba",
+        "task": "RAP-B-POLICY-FIX-VERIFY-20261030-6",
+        "closed_by": "quality-mgr",
+        "filing_reviewer": "req-qa",
+        "report": "https://github.com/randlee/raptor/pull/84#issuecomment-6539808771",
+        "source_message": "01M688GP075146FCYR0S1RDXH3"
+      },
       "acceptance_source_refs": [
         "docs/plans/phase-b/sprint-b-6-rebuild-to-spec.md:240"
       ]
@@ -167,12 +183,20 @@
         "ARCH-002",
         "ATM-QA-005"
       ],
-      "status": "implemented-unverified",
+      "status": "fixed-verified",
       "current_evidence": [
-        "User explicitly clarified that no crate limit was approved; whole-crate caps removed from both plans, existing per-file caps unchanged. Filing verification pending."
+        "User explicitly clarified that no crate limit was approved; whole-crate caps removed from both plans, existing per-file caps unchanged. Filing verification pending.",
+        "Round6 filing owner verified user-directed duplicate rejection/per-file policy; no regression."
       ],
-      "disposition_note": "Unapproved aggregate estimates corrected under explicit user instruction; no increase in per-file limits. Do not ask to approve crate totals.",
-      "verification": null,
+      "disposition_note": "Verified against explicit user clarification, not approval of an unapproved aggregate cap or last-winner projection.",
+      "verification": {
+        "commit": "878b19c4f2faa012e3af770fdb8c314fdc4aecba",
+        "task": "RAP-B-POLICY-FIX-VERIFY-20261030-6",
+        "closed_by": "quality-mgr",
+        "filing_reviewer": "req-qa",
+        "report": "https://github.com/randlee/raptor/pull/84#issuecomment-6539808771",
+        "source_message": "01M688GP075146FCYR0S1RDXH3"
+      },
       "acceptance_source_refs": [
         "docs/plans/phase-b/phase-b-plan.md:188-190",
         "docs/plans/phase-b/sprint-b-6-rebuild-to-spec.md:236-243",
@@ -619,12 +643,20 @@
       "duplicates_or_overlaps": [
         "ATM-QA-007"
       ],
-      "status": "implemented-unverified",
+      "status": "fixed-verified",
       "current_evidence": [
-        "User requires duplicate IDs invalid. B5 now requires rejection before SQLite writes, equality only for unique canonical input; no first/last-winner projection. Strict code and tests pending pinned verification."
+        "User requires duplicate IDs invalid. B5 now requires rejection before SQLite writes, equality only for unique canonical input; no first/last-winner projection. Strict code and tests pending pinned verification.",
+        "Round6 filing owner verified user-directed duplicate rejection/per-file policy; no regression."
       ],
-      "disposition_note": "Duplicate projection was rejected by user; acceptance wording now requires duplicate rejection, not permission to collapse IDs.",
-      "verification": null,
+      "disposition_note": "Verified against explicit user clarification, not approval of an unapproved aggregate cap or last-winner projection.",
+      "verification": {
+        "commit": "878b19c4f2faa012e3af770fdb8c314fdc4aecba",
+        "task": "RAP-B-POLICY-FIX-VERIFY-20261030-6",
+        "closed_by": "quality-mgr",
+        "filing_reviewer": "req-qa",
+        "report": "https://github.com/randlee/raptor/pull/84#issuecomment-6539808771",
+        "source_message": "01M688GP075146FCYR0S1RDXH3"
+      },
       "acceptance_source_refs": [
         "docs/plans/phase-b/sprint-b-5-inventory-consumer-run.md:59-60",
         "docs/plans/phase-b/phase-b-plan.md:80-81"
