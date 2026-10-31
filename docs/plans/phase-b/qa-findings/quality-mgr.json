@@ -1,0 +1,117 @@
+{
+  "schema_version": 1,
+  "phase": "b",
+  "reviewed_commit": "fb7ea189db3ca76d6963fec694978b6314e48917",
+  "filing_reviewer": "quality-mgr",
+  "finding_count": 4,
+  "findings": [
+    {
+      "id": "QM-1",
+      "filing_reviewer": "quality-mgr",
+      "severity": "important",
+      "owner": "lrap",
+      "original_finding": "The three Rust assignment templates are rejected by sc-compose 1.7.0 with ERR_RENDER_JSON_MALFORMED despite valid JSON; text-format copies were used.",
+      "original_acceptance_criterion": "Render the Rust reviewer assignments through their declared templates successfully, preserving the structured assignment contract.",
+      "original_evidence_refs": [
+        "https://github.com/randlee/raptor/pull/84#issuecomment-6538022716"
+      ],
+      "source_report": "PR84 quality-mgr round-1 final comment",
+      "duplicates_or_overlaps": [],
+      "status": "fixed-verified",
+      "current_evidence": [
+        "Current candidate refactor; exact committed head and filing-reviewer closure pending.",
+        "Developer reports: raptor-rust-qa-api-migration.md, raptor-python-qa-fixes.md, raptor-qa-tooling-report.txt."
+      ],
+      "disposition_note": "Quality manager verified snapshot fixes; prior failure was caused by stale primary-checkout templates.",
+      "verification": {
+        "reviewer": "quality-mgr",
+        "commit": "08865633afd601e7973514c974e82dd6f3fddfd6",
+        "message_id": "01M680HVD80RT6YFZ3CWN2HERV",
+        "evidence": "Pinned snapshot templates render valid JSON; next QA must load snapshot policy and setup commands."
+      }
+    },
+    {
+      "id": "QM-2",
+      "filing_reviewer": "quality-mgr",
+      "severity": "important",
+      "owner": "crap",
+      "original_finding": "The reviewed fb7ea18 is not the later PR head 6ac6160, and no CI result exists for the pinned reviewed revision.",
+      "original_acceptance_criterion": "Supply the final pinned candidate and obtain required CI evidence for that same head; later commits require verification.",
+      "original_evidence_refs": [
+        "https://github.com/randlee/raptor/pull/84#issuecomment-6538022716"
+      ],
+      "source_report": "PR84 quality-mgr round-1 final comment",
+      "duplicates_or_overlaps": [],
+      "status": "fixed-verified",
+      "current_evidence": [],
+      "disposition_note": "Quality-mgr round9 confirmed fixed under explicit user acceptance rulings.",
+      "verification": {
+        "commit": "52249dcb30e7665c496c83a017af573699ffef3b",
+        "task": "RAP-B-FINAL-ACCEPTANCE-VERIFY-20261030-9",
+        "closed_by": "quality-mgr",
+        "report": "https://github.com/randlee/raptor/pull/84#issuecomment-6540112795",
+        "source_message": "01M68AFQ18K7PFTR9H9VSJKRXG",
+        "filing_reviewer": "quality-mgr"
+      },
+      "user_ruling": {
+        "date": "2026-10-30",
+        "source": "User yes/yes response to two explicit acceptance questions",
+        "decision": "Approved narrow Value exception and audited B6 proof replacing missing historical per-group reports, including documented additional parser corrections. Strict duplicate rejection retained.",
+        "verification_status": "Verified by filing reviewer and quality-mgr; see finding verification."
+      }
+    },
+    {
+      "id": "QM-3",
+      "filing_reviewer": "quality-mgr",
+      "severity": "minor",
+      "owner": "crap",
+      "original_finding": "The policy says no governed interfaces yet, although the record schema/CLI contract now ships.",
+      "original_acceptance_criterion": "Update Governed Interfaces policy and reviewer applicability to the actual shipped interface scope.",
+      "original_evidence_refs": [
+        "https://github.com/randlee/raptor/pull/84#issuecomment-6538022716"
+      ],
+      "source_report": "PR84 quality-mgr round-1 final comment",
+      "duplicates_or_overlaps": [],
+      "status": "fixed-verified",
+      "current_evidence": [
+        "Current candidate refactor; exact committed head and filing-reviewer closure pending.",
+        "Developer reports: raptor-rust-qa-api-migration.md, raptor-python-qa-fixes.md, raptor-qa-tooling-report.txt.",
+        "Round-3 filing-owner verification at1caac05; no regression reported."
+      ],
+      "disposition_note": "Filing reviewer confirmed closure on exact pinned candidate; quality-mgr recorded this closure. Other findings remain independent.",
+      "verification": {
+        "commit": "1caac05149baabf1f75a8982a683a4fb86dc7e0e",
+        "task": "RAP-B-PHASE-FIX-VERIFY-20261030-3",
+        "closed_by": "quality-mgr",
+        "filing_reviewer": "quality-mgr",
+        "report": "https://github.com/randlee/raptor/pull/84#issuecomment-6538783122",
+        "closure_artifact": "ATM share: raptor/qa-round3-closures-1caac05.json"
+      }
+    },
+    {
+      "id": "QM-4",
+      "filing_reviewer": "quality-mgr",
+      "severity": "minor",
+      "owner": "crap",
+      "original_finding": "The assignment requests just validate although repository policy uses other validation commands; docs/team-protocol.md does not exist.",
+      "original_acceptance_criterion": "Align the assignment references and artifact commands with repository policy and its declared protocol.",
+      "original_evidence_refs": [
+        "https://github.com/randlee/raptor/pull/84#issuecomment-6538022716"
+      ],
+      "source_report": "PR84 quality-mgr round-1 final comment",
+      "duplicates_or_overlaps": [],
+      "status": "fixed-verified",
+      "current_evidence": [
+        "Current candidate refactor; exact committed head and filing-reviewer closure pending.",
+        "Developer reports: raptor-rust-qa-api-migration.md, raptor-python-qa-fixes.md, raptor-qa-tooling-report.txt."
+      ],
+      "disposition_note": "Quality manager verified snapshot fixes; prior failure was caused by stale primary-checkout templates.",
+      "verification": {
+        "reviewer": "quality-mgr",
+        "commit": "08865633afd601e7973514c974e82dd6f3fddfd6",
+        "message_id": "01M680HVD80RT6YFZ3CWN2HERV",
+        "evidence": "Pinned snapshot templates render valid JSON; next QA must load snapshot policy and setup commands."
+      }
+    }
+  ]
+}

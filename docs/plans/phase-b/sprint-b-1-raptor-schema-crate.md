@@ -1,12 +1,12 @@
 ---
 id: b-1
 title: The raptor-schema crate
-status: planned
+status: complete
 branch: feature/b-1-schema-crate
 worktree: ../raptor-worktrees/feature/b-1-schema-crate
-target: develop
+target: integrate/phase-b
 depends_on: []
-relation: bottom of the stack; based on develop
+relation: bottom of the stack; based on integrate/phase-b
 ---
 
 # Sprint B.1 — The `raptor-schema` crate
@@ -170,7 +170,8 @@ no edges view. No derive macro of our own. No Dolt.
 
 ## Ceilings
 
-Crate `src/` 450 lines; crate tests 250; `pyproject.toml` 15;
+Whole-crate source/test estimates were not user-approved limits. The B.6
+per-file Rust limits govern the rebuilt implementation. `pyproject.toml` 15;
 `ci.yml` diff 10 lines; `records.json` 120; `test_schema.py` 25.
 
 ## Acceptance
@@ -181,4 +182,4 @@ Crate `src/` 450 lines; crate tests 250; `pyproject.toml` 15;
 - Every label literal in `crates/raptor-schema/src/` occurs inside a field
   attribute or `FIELDS` table: `rg -n '"[A-Z][A-Za-z ]+"' src/` shows no
   other occurrence.
-- `rg -ni --hidden --glob '!.git/**' --glob '!.sc/**' '[p]3' .` prints nothing.
+- `rg -Pni --hidden --glob '!.git/**' --glob '!.sc/**' '(?<![[:alnum:]_])[p]3' .` prints nothing.

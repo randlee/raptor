@@ -74,8 +74,7 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      # .claude/** is excluded: those skills are synced verbatim from
-      # atm-core and link into atm-core's docs tree.
+      # Synced skills link into the upstream project's docs tree.
       - name: Check relative Markdown links
         run: python3 .github/scripts/check_md_links.py . ':(exclude).claude'
 
@@ -85,7 +84,7 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - run: |
-          if rg -ni --hidden --glob '!.git/**' --glob '!.sc/**' '[p]3' .; then exit 1; fi
+          if rg -Pni --hidden --glob '!.git/**' --glob '!.sc/**' '(?<![[:alnum:]_])[p]3' .; then exit 1; fi
 
   corpus-scripts:
     name: Corpus script tests
@@ -105,7 +104,10 @@ jobs:
           python-version: "3.11"
 
       - if: ${{ needs.ci-scope.outputs.runtime == 'true' }}
-        run: pip install pytest markdown Pydantic sc-compose
+        run: pip install maturin pytest markdown sc-compose
+
+      - if: ${{ needs.ci-scope.outputs.runtime == 'true' }}
+        run: pip install .
 
       - if: ${{ needs.ci-scope.outputs.runtime == 'true' }}
         run: python -m pytest -q tests

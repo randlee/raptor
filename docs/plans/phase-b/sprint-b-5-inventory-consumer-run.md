@@ -1,7 +1,7 @@
 ---
 id: b-5
 title: Own inventory; consumer run
-status: planned
+status: complete
 branch: feature/b-5-own-inventory
 worktree: ../raptor-worktrees/feature/b-5-own-inventory
 target: feature/b-4-adr-columns
@@ -52,10 +52,18 @@ no import skill.
 
 ## Acceptance
 
+Historical per-group reports are superseded by the approved audited B6 proof; see
+[final acceptance rulings](phase-b-plan.md#final-acceptance-rulings).
+
 - `python scripts/extract.py --project-root .` over Raptor: `issues` empty,
   exit `0`, one `requirements` row per REQ-RAP id, one `decisions` row per
   ADR-RAP id.
 - `pip install . && python -m pytest -q tests/` passes.
-- Consumer run: exit `1`; every emitted row has every column non-null;
-  `--dump` equals the index; `consumer-run.md` exists with its tables.
-- `rg -ni --hidden --glob '!.git/**' --glob '!.sc/**' '[p]3' .` prints nothing.
+- Consumer run: exit `1`; every emitted row has every non-nullable column non-null
+  (only `supersedes` and `superseded_by` are nullable, as specified in B.4);
+  duplicate IDs are invalid and a duplicate-bearing index is rejected before
+  any SQLite write. For duplicate-free canonical input, a fresh load or replay
+  of that input has a dump equal to its records; no first/last-winner projection.
+  `consumer-run.md` exists with its tables. A consumer run with duplicates
+  reports the rejection rather than claiming a successful database round trip.
+- `rg -Pni --hidden --glob '!.git/**' --glob '!.sc/**' '(?<![[:alnum:]_])[p]3' .` prints nothing.

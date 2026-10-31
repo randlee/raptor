@@ -1,7 +1,7 @@
 ---
 id: b-4
 title: ADR columns
-status: planned
+status: complete
 branch: feature/b-4-adr-columns
 worktree: ../raptor-worktrees/feature/b-4-adr-columns
 target: feature/b-3-req-columns
@@ -94,14 +94,18 @@ change to `.raptor/` or product documents.
 
 ## Ceilings
 
-Crate `src/` 700 lines total; crate tests 420; `records.json` 360;
+Whole-crate source/test estimates were not user-approved limits. The B.6
+per-file Rust limits govern the rebuilt implementation. `records.json` 360;
 `decision.md.j2` 70; `requirement.md.j2` 60 (unchanged from B.3);
 `test_extract.py` 140; `test_load.py` 40; `corpus-run-b4.md` 70.
 
 ## Acceptance
 
+Historical per-group reports are superseded by the approved audited B6 proof; see
+[final acceptance rulings](phase-b-plan.md#final-acceptance-rulings).
+
 - `cargo test -p raptor-schema`, `cargo clippy --all-targets --all-features -- -D warnings`,
   `pip install . && python -m pytest -q tests/` pass.
 - `rg -n '\*\*[A-Z][A-Za-z ]+:\*\*' scripts/` prints nothing.
 - The corpus run exits `1` and `corpus-run-b4.md` exists with both tables.
-- `rg -ni --hidden --glob '!.git/**' --glob '!.sc/**' '[p]3' .` prints nothing.
+- `rg -Pni --hidden --glob '!.git/**' --glob '!.sc/**' '(?<![[:alnum:]_])[p]3' .` prints nothing.

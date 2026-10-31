@@ -16,7 +16,7 @@ def test_runtime_paths() -> None:
         "rust-toolchain.toml",
         "scripts/extract.py",
         "tests/fixtures/items.md",
-        "schema/schema.sql",
+        "schema/example.sql",
         "templates/adr.md.j2",
         ".raptor/sources.toml",
         ".github/workflows/ci.yml",

@@ -1,7 +1,7 @@
 ---
 id: a-1
 title: Pydantic model of the record
-status: planned
+status: complete
 branch: feature/A-1-record-model
 worktree: ../raptor-worktrees/feature/A-1-record-model
 target: develop
@@ -80,6 +80,6 @@ class Record(BaseModel):
 ## Required Validation
 
 - `python -m pytest -q tests`
-- `rg -ni --hidden --glob '!.git/**' --glob '!.sc/**' '[p]3' .` prints nothing
+- `rg -Pni --hidden --glob '!.git/**' --glob '!.sc/**' '(?<![[:alnum:]_])[p]3' .` prints nothing
 - Consumer architect agent: validate every record of the current index against
   the model from the consumer checkout, read-only; report pass and fail counts.

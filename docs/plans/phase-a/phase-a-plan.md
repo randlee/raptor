@@ -1,7 +1,7 @@
 ---
 id: a
 title: Import the documentation corpus into SQLite
-status: planned
+status: complete
 branch: develop
 target: develop
 ---

@@ -1,7 +1,7 @@
 ---
 id: b-2
 title: Python on the crate
-status: planned
+status: complete
 branch: feature/b-2-python-on-crate
 worktree: ../raptor-worktrees/feature/b-2-python-on-crate
 target: feature/b-1-schema-crate
@@ -21,7 +21,7 @@ deleted. Proven by round trip on the B.1 fixture. No crate change.
 
 - `scripts/extract.py`, `scripts/render.py`, `scripts/load_sqlite.py`
 - `templates/requirement.md.j2`, `templates/decision.md.j2` (new); delete
-  `nfr.md.j2`, `design.md.j2`, `test-plan.md.j2`
+  `nfr.md.j2`, `design.md.j2`, `test-plan.md.j2`, `adr.md.j2`
 - Delete `schema/record.py`, `schema/record.schema.json`, `schema/schema.sql`
 - `tests/test_extract.py`, `tests/test_load.py` (new); delete
   `tests/test_scripts.py`, `tests/test_record.py`, `tests/fixtures/items.md`
@@ -108,8 +108,11 @@ no corpus run, no change to `.raptor/` or `docs/`.
 
 ## Acceptance
 
-- `pip install . && python -m pytest -q tests/` passes.
+- `pip install . sc-compose && python -m pytest -q tests/` passes
+  (`sc-compose` is the renderer's dependency, installed as CI installs it;
+  the crate's `pyproject.toml` does not declare it).
 - `rg -n '\*\*[A-Z][A-Za-z ]+:\*\*' scripts/` prints nothing.
-- `rg -n 'pydantic|record\.py|schema\.sql' scripts tests .github` prints nothing.
+- `rg -n 'pydantic|record\.py|schema\.sql\b' scripts tests .github` prints
+  nothing (`\b` keeps the crate's `sql_ddl` out of the match).
 - `rg -c 'print\(' scripts/extract.py` prints `1`.
-- `rg -ni --hidden --glob '!.git/**' --glob '!.sc/**' '[p]3' .` prints nothing.
+- `rg -Pni --hidden --glob '!.git/**' --glob '!.sc/**' '(?<![[:alnum:]_])[p]3' .` prints nothing.

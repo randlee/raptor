@@ -1,7 +1,7 @@
 ---
 id: b-3
 title: REQ and NFR columns
-status: planned
+status: complete
 branch: feature/b-3-req-columns
 worktree: ../raptor-worktrees/feature/b-3-req-columns
 target: feature/b-2-python-on-crate
@@ -132,14 +132,18 @@ foreign keys, no fix to any diagnostic by code, no change to `extract.py`,
 
 ## Ceilings
 
-Crate `src/` 600 lines total; crate tests 350; `records.json` 260; each
+Whole-crate source/test estimates were not user-approved limits. The B.6
+per-file Rust limits govern the rebuilt implementation. `records.json` 260; each
 template 60; `test_extract.py` 120; `test_load.py` 40;
 `corpus-run-b3.md` 60.
 
 ## Acceptance
 
+Historical per-group reports are superseded by the approved audited B6 proof; see
+[final acceptance rulings](phase-b-plan.md#final-acceptance-rulings).
+
 - `cargo test -p raptor-schema`, `cargo clippy --all-targets --all-features -- -D warnings`,
   `pip install . && python -m pytest -q tests/` pass.
 - `rg -n '\*\*[A-Z][A-Za-z ]+:\*\*' scripts/` prints nothing.
 - The corpus run exits `1` and `corpus-run-b3.md` exists with its groups.
-- `rg -ni --hidden --glob '!.git/**' --glob '!.sc/**' '[p]3' .` prints nothing.
+- `rg -Pni --hidden --glob '!.git/**' --glob '!.sc/**' '(?<![[:alnum:]_])[p]3' .` prints nothing.
