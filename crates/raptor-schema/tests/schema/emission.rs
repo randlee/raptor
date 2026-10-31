@@ -144,3 +144,83 @@ fn emitted_sql_reports_and_rejects_missing_supersession_targets() {
     assert!(db.execute_batch("COMMIT").is_err());
     db.execute_batch("ROLLBACK").unwrap();
 }
+
+#[test]
+fn edges_view_preserves_all_six_reference_paths_and_item_positions() {
+    let mut records: Value =
+        serde_json::from_str(include_str!("../../../../tests/fixtures/records.json")).unwrap();
+    let requirement_targets = ["REQ-FIX-0001", "NFR-FIX-0001"];
+    let decision_targets = ["ADR-FIX-0001", "ADR-FIX-0002"];
+    let cases = [
+        (
+            "requirements",
+            "dependencies",
+            "requires",
+            requirement_targets,
+        ),
+        ("requirements", "dependencies", "related", decision_targets),
+        (
+            "requirements",
+            "related_documents",
+            "requirements",
+            requirement_targets,
+        ),
+        (
+            "requirements",
+            "related_documents",
+            "architecture_decisions",
+            decision_targets,
+        ),
+        (
+            "decisions",
+            "related_documents",
+            "requirements",
+            requirement_targets,
+        ),
+        (
+            "decisions",
+            "related_documents",
+            "architecture_decisions",
+            decision_targets,
+        ),
+    ];
+    let mut expected = Vec::new();
+    for (table, section, field, targets) in cases {
+        records[table][0][section][field] =
+            json!(targets.map(|target| json!({"id": target, "note": null})));
+        let source = records[table][0]["id"].as_str().unwrap();
+        for (position, target) in targets.into_iter().enumerate() {
+            expected.push((
+                source.to_owned(),
+                format!("{section}.{field}"),
+                target.to_owned(),
+                position as i64,
+            ));
+        }
+    }
+    let accepted = accept(&records.to_string());
+    assert!(accepted.errors.is_empty(), "{:?}", accepted.errors);
+    let db = Connection::open_in_memory().unwrap();
+    db.execute_batch(&sql_ddl()).unwrap();
+    db.execute_batch("PRAGMA foreign_keys = ON; BEGIN DEFERRED")
+        .unwrap();
+    for table in ["requirements", "decisions"] {
+        for row in records[table].as_array().unwrap() {
+            insert_row(&db, table, row).unwrap();
+        }
+    }
+    assert!(foreign_key_violations(&db).is_empty());
+    db.execute_batch("COMMIT").unwrap();
+    let actual: Vec<(String, String, String, i64)> = db
+        .prepare("SELECT source, path, target, position FROM edges ORDER BY source, path, position")
+        .unwrap()
+        .query_map([], |row| {
+            Ok((row.get(0)?, row.get(1)?, row.get(2)?, row.get(3)?))
+        })
+        .unwrap()
+        .map(Result::unwrap)
+        .collect();
+    expected.sort_by(|left, right| (&left.0, &left.1, left.3).cmp(&(&right.0, &right.1, right.3)));
+    assert_eq!(actual.len(), 12);
+    assert_eq!(actual, expected);
+}

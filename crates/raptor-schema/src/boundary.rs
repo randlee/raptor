@@ -78,24 +78,26 @@ pub(crate) fn tables() -> Value {
         .iter()
         .find(|field| field.shape == crate::metadata::Shape::Derived)
         .map(|field| field.label);
-    let req_prefixes = crate::schema::record_kinds(crate::error::TableId::Req)
-        .iter()
-        .map(|kind| kind.prefix())
-        .collect::<Vec<_>>();
-    let dec_prefixes = crate::schema::record_kinds(crate::error::TableId::Dec)
-        .iter()
-        .map(|kind| kind.prefix())
-        .collect::<Vec<_>>();
-    json!({
-        "requirements": {
-            "template": "record", "heading_label": "Requirement", "heading_range_label": range,
-            "group_heading_prefix": "Alternative", "range_separator": " through ",
-            "id_prefixes": req_prefixes
-        },
-        "decisions": {
-            "template": "record", "heading_label": "Decision", "heading_range_label": range,
-            "group_heading_prefix": "Alternative", "range_separator": " through ",
-            "id_prefixes": dec_prefixes
-        }
-    })
+    let tables = crate::error::TableId::ALL
+        .into_iter()
+        .map(|table| {
+            let heading = match table {
+                crate::error::TableId::Req => "Requirement",
+                crate::error::TableId::Dec => "Decision",
+            };
+            let prefixes: Vec<_> = crate::schema::record_kinds(table)
+                .iter()
+                .map(|kind| kind.prefix())
+                .collect();
+            (
+                table.name().to_owned(),
+                json!({
+                    "template": "record", "heading_label": heading, "heading_range_label": range,
+                    "group_heading_prefix": "Alternative", "range_separator": " through ",
+                    "id_prefixes": prefixes
+                }),
+            )
+        })
+        .collect();
+    Value::Object(tables)
 }

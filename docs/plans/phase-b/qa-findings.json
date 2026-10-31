@@ -21,9 +21,10 @@
     "rust-best-practices-agent": 12,
     "rust-qa-agent": 3,
     "rust-service-hardening-agent": 0,
-    "ruthless-boundary-qa": 13
+    "ruthless-boundary-qa": 13,
+    "schema-reviewer": 5
   },
-  "finding_count": 73,
+  "finding_count": 78,
   "summary_blocker_aliases": {
     "B-1": [
       "ATM-QA-001",
@@ -90,6 +91,12 @@
       "filing_reviewer": "ruthless-boundary-qa",
       "file": "qa-findings/ruthless-boundary-qa.json",
       "finding_count": 13
+    },
+    {
+      "filing_reviewer": "schema-reviewer",
+      "file": "qa-findings/schema-reviewer.json",
+      "finding_count": 5
     }
-  ]
+  ],
+  "supplemental_report": "https://github.com/randlee/raptor/pull/84#issuecomment-6538982691"
 }

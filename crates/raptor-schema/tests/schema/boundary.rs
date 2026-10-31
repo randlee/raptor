@@ -106,7 +106,7 @@ fn source_optional_fields_still_require_explicit_canonical_keys() {
         .unwrap();
     assert!(supersedes.nullable);
     assert!(
-        !schema["required"]
+        schema["required"]
             .as_array()
             .unwrap()
             .contains(&"supersedes".into())
@@ -145,7 +145,7 @@ fn top_level_storage_nullability_matches_field_metadata() {
                 .as_array()
                 .unwrap()
                 .contains(&field.name.into());
-            assert_eq!(required, !field.nullable, "{name}: {}", field.name);
+            assert!(required, "{name}: {}", field.name);
         }
     }
 }

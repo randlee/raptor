@@ -9,6 +9,7 @@ mod metadata;
 mod protocol;
 mod rule;
 mod schema;
+mod schema_contract;
 pub use accept::{Accepted, accept};
 pub use batch::{Batch, RowRef};
 pub use emit::{FieldMeta, MetaLevel, MetaShape, Role, field_table, json_schema, sql_ddl};

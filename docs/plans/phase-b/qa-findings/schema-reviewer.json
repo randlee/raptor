@@ -1,0 +1,144 @@
+{
+  "schema_version": 1,
+  "phase": "b",
+  "reviewed_commit": "51156fcee451dd78f9f338bb2860d2427b03b214",
+  "filing_reviewer": "schema-reviewer",
+  "finding_count": 5,
+  "findings": [
+    {
+      "id": "SCH-001",
+      "filing_reviewer": "schema-reviewer",
+      "severity": "important",
+      "owner": "crap",
+      "original_finding": "SCH-001 Important COMPATIBILITY-UNPROVEN crates/raptor-schema/src/emit.rs:299\nCriterion: phase-end review requires SQL evidence for the derived edges view (ADR-RAP-0006: 6 UNION ALL branches, 4 requirement + 2 decision).\nEvidence: only assertion is `SELECT count(*) FROM edges == 3` in test_dump_keeps_text_that_looks_like_json; fixture populates 3 of 6 branches (requirements dependencies.requires/.related, decisions related_documents.requirements). Unpopulated: requirement related_documents.requirements/.architecture_decisions, decision related_documents.architecture_decisions. A wrong path string or json_each argument would pass every test.\nRequired: SQL-level test over fixture/mutated copy populating every id-list path in both tables; assert exact (source,path,target,position) rows incl. position>0 and path spellings.",
+      "original_acceptance_criterion": "SQL-level test over fixture/mutated copy populating every id-list path in both tables; assert exact (source,path,target,position) rows incl. position>0 and path spellings.",
+      "original_evidence_refs": [
+        "crates/raptor-schema/src/emit.rs:299"
+      ],
+      "source_report": "ATM share: raptor/qa-schema-51156fc/schema-findings.md",
+      "duplicates_or_overlaps": [],
+      "status": "implemented-unverified",
+      "current_evidence": [
+        "Developer report: ATM share raptor/raptor-schema-final-report.md; frozen source awaiting coordinator commit, fresh build and exact pinned filing-reviewer verification."
+      ],
+      "disposition_note": "Implementation supplied against filing-owner criteria; no verification or acceptance waiver is inferred.",
+      "verification": null,
+      "acceptance_source_refs": [
+        "docs/plans/phase-b/phase-b-plan.md",
+        "docs/plans/phase-b/sprint-b-6-rebuild-to-spec.md",
+        "docs/adr/adr-rap-product.md"
+      ]
+    },
+    {
+      "id": "SCH-002",
+      "filing_reviewer": "schema-reviewer",
+      "severity": "minor",
+      "owner": "arap",
+      "original_finding": "SCH-002 Minor FIELD-DIVERGENCE crates/raptor-schema/src/fields/decisions.rs:26\nCriterion: phase-b-plan.md: Rationale exists in both tables under the same name with a different shape; exported field metadata describes the stored contract.\nEvidence: decisions rationale and context/decision/consequences/implementation/impact_analysis are declared shape Text but stored as objects ({text,benefits,trade_offs} DecisionRationale); requirement sections use primary list shape. Python does not consume section shape. Needs operator ruling on canonical reading.",
+      "original_acceptance_criterion": "phase-b-plan.md: Rationale exists in both tables under the same name with a different shape; exported field metadata describes the stored contract.",
+      "original_evidence_refs": [
+        "crates/raptor-schema/src/fields/decisions.rs:26"
+      ],
+      "source_report": "ATM share: raptor/qa-schema-51156fc/schema-findings.md",
+      "duplicates_or_overlaps": [],
+      "status": "implemented-unverified",
+      "current_evidence": [
+        "Developer report: ATM share raptor/raptor-schema-final-report.md; frozen source awaiting coordinator commit, fresh build and exact pinned filing-reviewer verification."
+      ],
+      "disposition_note": "Implementation supplied against filing-owner criteria; no verification or acceptance waiver is inferred.",
+      "verification": null,
+      "acceptance_source_refs": [
+        "docs/plans/phase-b/phase-b-plan.md",
+        "docs/plans/phase-b/sprint-b-6-rebuild-to-spec.md",
+        "docs/adr/adr-rap-product.md"
+      ],
+      "criterion_clarification": {
+        "source_message": "01M683R936R7WGMDD9CFMNGJQ6",
+        "authority": "Filing schema-reviewer via quality-mgr",
+        "text": "Documentation and contract tests suffice. Preserve existing source-interpretation shape values. Stored JSON envelope is read from emitted properties. Test every field against schema kind and level, with explicit requirement Rationale string versus decision Rationale object. No new stored-property export is necessary."
+      }
+    },
+    {
+      "id": "SCH-003",
+      "filing_reviewer": "schema-reviewer",
+      "severity": "minor",
+      "owner": "arap",
+      "original_finding": "SCH-003 Minor JSON-SQL-DRIFT crates/raptor-schema/src/schema.rs:5\nCriterion: plan lists Id/Version/Date forms as part of the schema; sprint makes validate_scalar the single implementation.\nEvidence: json_schema() emits Id/Version/Date as plain strings with no pattern/format; generic validator accepts \"created\":\"not-a-date\". Operator ruling: scalar grammar owned only by validate_scalar/accept, or patterns derived from same source.",
+      "original_acceptance_criterion": "plan lists Id/Version/Date forms as part of the schema; sprint makes validate_scalar the single implementation.",
+      "original_evidence_refs": [
+        "crates/raptor-schema/src/schema.rs:5"
+      ],
+      "source_report": "ATM share: raptor/qa-schema-51156fc/schema-findings.md",
+      "duplicates_or_overlaps": [],
+      "status": "implemented-unverified",
+      "current_evidence": [
+        "Developer report: ATM share raptor/raptor-schema-final-report.md; frozen source awaiting coordinator commit, fresh build and exact pinned filing-reviewer verification."
+      ],
+      "disposition_note": "Implementation supplied against filing-owner criteria; no verification or acceptance waiver is inferred.",
+      "verification": null,
+      "acceptance_source_refs": [
+        "docs/plans/phase-b/phase-b-plan.md",
+        "docs/plans/phase-b/sprint-b-6-rebuild-to-spec.md",
+        "docs/adr/adr-rap-product.md"
+      ],
+      "criterion_clarification": {
+        "source_message": "01M683R936R7WGMDD9CFMNGJQ6",
+        "authority": "Filing schema-reviewer via quality-mgr",
+        "text": "Document JSON Schema as structural and named Id/Version/Date scalar semantics as authoritative through Rust validate_scalar/accept, in generated scalar definitions or protocol, crate rustdoc and B6 paragraph. Pin named references/definitions and absence of duplicate pattern/format rules. B6 makes validate_scalar the single implementation; no standalone generic-validator scalar grammar requirement was found."
+      }
+    },
+    {
+      "id": "SCH-004",
+      "filing_reviewer": "schema-reviewer",
+      "severity": "minor",
+      "owner": "arap",
+      "original_finding": "SCH-004 Minor JSON-SQL-DRIFT crates/raptor-schema/src/schema.rs:394\nCriterion: plan requires accept to treat an absent key where null is the meaning as an error; unspecified whether published schema must express it.\nEvidence: top-level rows use serde flatten, no additionalProperties:false; Option fields omitted from `required` (boundary.rs:108-113 asserts supersedes absent; same for superseded_by, IdItem.note, LinkItem.note, CheckItem.checked) while accept returns MissingKey (tests/schema/boundary.rs:114-127; accept.rs:118-120). Operator ruling: is accept() the sole strictness authority.",
+      "original_acceptance_criterion": "plan requires accept to treat an absent key where null is the meaning as an error; unspecified whether published schema must express it.",
+      "original_evidence_refs": [
+        "crates/raptor-schema/src/schema.rs:394"
+      ],
+      "source_report": "ATM share: raptor/qa-schema-51156fc/schema-findings.md",
+      "duplicates_or_overlaps": [],
+      "status": "implemented-unverified",
+      "current_evidence": [
+        "Developer report: ATM share raptor/raptor-schema-final-report.md; frozen source awaiting coordinator commit, fresh build and exact pinned filing-reviewer verification."
+      ],
+      "disposition_note": "Implementation supplied against filing-owner criteria; no verification or acceptance waiver is inferred.",
+      "verification": null,
+      "acceptance_source_refs": [
+        "docs/plans/phase-b/phase-b-plan.md",
+        "docs/plans/phase-b/sprint-b-6-rebuild-to-spec.md",
+        "docs/adr/adr-rap-product.md"
+      ],
+      "criterion_clarification": {
+        "source_message": "01M683R936R7WGMDD9CFMNGJQ6",
+        "authority": "Filing schema-reviewer via quality-mgr",
+        "text": "Conformance requires every object schema required set to equal all its declared properties and additionalProperties=false after flatten, recursively. Nullable value branches and three-state checked remain unchanged. Extension keys are not required record properties. Update old nullable-not-required assertions; preserve MissingKey rejection assertions and role-to-property completeness. Verify fixture/corpus accepted objects unchanged."
+      }
+    },
+    {
+      "id": "SCH-005",
+      "filing_reviewer": "schema-reviewer",
+      "severity": "important",
+      "owner": "arap",
+      "original_finding": "SCH-005 Important JSON-SQL-DRIFT crates/raptor-schema/src/accept.rs:351 (from coordinator probe /tmp/raptor-schema-root-kind-probe.json)\nCriteria: (1) phase-b-plan.md:46 RecordKind REQ/NFR/ADR \"read from the id, selects the table\"; (2) sprint-b-1:111-114 DDL CHECK on id for the table's prefixes; (3) sprint-b-6:158-166 accept() only way a record enters, a Batch proves every record passed accept; (4) JSON Schema, SQL and Python metadata agree with Rust authority.\nEvidence: requirement row with id ADR-CHECK-9999 is admitted by accept() (only 2 unrelated DanglingReference errors); generated requirements DDL rejects it (CHECK substr(id,1,4) IN ('REQ-','NFR-')). record_kinds(TableId) (schema.rs:209-214) is used only by emission (emit.rs:196,259; boundary.rs:81,85), never ingress (accept.rs:136-150, 246-294, 351-394). Id::try_from accepts any of REQ/NFR/ADR.\nRequired: accept() rejects with structured Error an id whose RecordKind is outside record_kinds(table), at /id, both tables; Rust test per table; test tying ingress to SQL CHECK. Error category by operator ruling if none fits. No gate relaxation.",
+      "original_acceptance_criterion": "accept() rejects with structured Error an id whose RecordKind is outside record_kinds(table), at /id, both tables; Rust test per table; test tying ingress to SQL CHECK. Error category by operator ruling if none fits. No gate relaxation.",
+      "original_evidence_refs": [
+        "/tmp/raptor-schema-root-kind-probe.json)"
+      ],
+      "source_report": "ATM share: raptor/qa-schema-51156fc/schema-findings.md",
+      "duplicates_or_overlaps": [],
+      "status": "implemented-unverified",
+      "current_evidence": [
+        "Developer report: ATM share raptor/raptor-schema-final-report.md; frozen source awaiting coordinator commit, fresh build and exact pinned filing-reviewer verification."
+      ],
+      "disposition_note": "Implementation supplied against filing-owner criteria; no verification or acceptance waiver is inferred.",
+      "verification": null,
+      "acceptance_source_refs": [
+        "docs/plans/phase-b/phase-b-plan.md",
+        "docs/plans/phase-b/sprint-b-6-rebuild-to-spec.md",
+        "docs/adr/adr-rap-product.md"
+      ]
+    }
+  ]
+}

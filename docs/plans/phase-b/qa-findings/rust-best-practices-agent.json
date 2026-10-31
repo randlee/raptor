@@ -242,13 +242,21 @@
       ],
       "source_report": "rust-best-practices-agent.md",
       "duplicates_or_overlaps": [],
-      "status": "implemented-unverified",
+      "status": "fixed-verified",
       "current_evidence": [
         "Current candidate refactor; exact committed head and filing-reviewer closure pending.",
-        "Developer reports: raptor-rust-qa-api-migration.md, raptor-python-qa-fixes.md, raptor-qa-tooling-report.txt."
+        "Developer reports: raptor-rust-qa-api-migration.md, raptor-python-qa-fixes.md, raptor-qa-tooling-report.txt.",
+        "Round-4 filing-owner verification at51156fc; no regression reported."
       ],
-      "disposition_note": "Implementation supplied; this is not a verified closure. Aggregate-budget, Value-boundary and final corpus acceptance remain separate open gates.",
-      "verification": null
+      "disposition_note": "Filing reviewer confirmed original-criterion closure on pinned51156fc; quality-mgr recorded closure. Other findings remain independent.",
+      "verification": {
+        "commit": "51156fcee451dd78f9f338bb2860d2427b03b214",
+        "task": "RAP-B-PHASE-FIX-VERIFY-20261030-4",
+        "closed_by": "quality-mgr",
+        "filing_reviewer": "rust-best-practices-agent",
+        "report": "https://github.com/randlee/raptor/pull/84#issuecomment-6538940737",
+        "closure_artifact": "ATM share: raptor/qa-round4-closures-51156fc.json"
+      }
     },
     {
       "id": "RBP-F010",
@@ -262,13 +270,21 @@
       ],
       "source_report": "rust-best-practices-agent.md",
       "duplicates_or_overlaps": [],
-      "status": "implemented-unverified",
+      "status": "fixed-verified",
       "current_evidence": [
         "Current candidate refactor; exact committed head and filing-reviewer closure pending.",
-        "Developer reports: raptor-rust-qa-api-migration.md, raptor-python-qa-fixes.md, raptor-qa-tooling-report.txt."
+        "Developer reports: raptor-rust-qa-api-migration.md, raptor-python-qa-fixes.md, raptor-qa-tooling-report.txt.",
+        "Round-4 filing-owner verification at51156fc; no regression reported."
       ],
-      "disposition_note": "Implementation supplied; this is not a verified closure. Aggregate-budget, Value-boundary and final corpus acceptance remain separate open gates.",
-      "verification": null
+      "disposition_note": "Filing reviewer confirmed original-criterion closure on pinned51156fc; quality-mgr recorded closure. Other findings remain independent.",
+      "verification": {
+        "commit": "51156fcee451dd78f9f338bb2860d2427b03b214",
+        "task": "RAP-B-PHASE-FIX-VERIFY-20261030-4",
+        "closed_by": "quality-mgr",
+        "filing_reviewer": "rust-best-practices-agent",
+        "report": "https://github.com/randlee/raptor/pull/84#issuecomment-6538940737",
+        "closure_artifact": "ATM share: raptor/qa-round4-closures-51156fc.json"
+      }
     },
     {
       "id": "RBP-F011",

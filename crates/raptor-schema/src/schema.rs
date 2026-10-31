@@ -1,4 +1,4 @@
-use crate::error::{Error, ErrorCategory};
+use crate::error::{Error, ErrorCategory, TableId};
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 
@@ -211,6 +211,25 @@ pub(crate) fn record_kinds(table: crate::error::TableId) -> &'static [RecordKind
         crate::error::TableId::Req => &[RecordKind::Req, RecordKind::Nfr],
         crate::error::TableId::Dec => &[RecordKind::Adr],
     }
+}
+
+/// Enforce the same table/kind authority used by SQL and schema emission.
+pub(crate) fn validate_table_id(table: TableId, id: &Id) -> Result<(), Error> {
+    let kinds = record_kinds(table);
+    if kinds.contains(&id.kind()) {
+        return Ok(());
+    }
+    let prefixes = kinds
+        .iter()
+        .map(|kind| kind.prefix())
+        .collect::<Vec<_>>()
+        .join(", ");
+    Err(Error::scalar(
+        ErrorCategory::InvalidId,
+        id.as_str(),
+        &format!("an identifier for {} with prefix: {prefixes}", table.name()),
+    )
+    .at("/id", None))
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]

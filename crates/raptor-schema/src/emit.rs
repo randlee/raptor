@@ -15,6 +15,7 @@ pub struct FieldMeta {
     pub label: &'static str,
     pub table: FieldScope,
     pub level: MetaLevel,
+    /// Markdown source-interpretation shape; stored structure is in JSON Schema.
     pub shape: MetaShape,
     pub section: Option<&'static str>,
     pub modal: Option<Modal>,
@@ -183,6 +184,26 @@ fn sql_check(values: &[String], expression: impl FnOnce(&str) -> String) -> Stri
     }
 }
 
+fn id_prefix_check(field: &str, prefixes: &[String]) -> String {
+    let mut groups = BTreeMap::<usize, Vec<String>>::new();
+    for prefix in prefixes {
+        groups
+            .entry(prefix.len())
+            .or_default()
+            .push(sql_literal(prefix));
+    }
+    if groups.is_empty() {
+        return " CHECK (0)".to_owned();
+    }
+    let choices = groups
+        .into_iter()
+        .map(|(width, literals)| {
+            format!("substr({field}, 1, {width}) IN ({})", literals.join(", "))
+        })
+        .collect::<Vec<_>>();
+    format!(" CHECK ({})", choices.join(" OR "))
+}
+
 pub(crate) fn table_schema(kind: TableId) -> RootSchema {
     let table = kind;
     let mut schema = match kind {
@@ -239,9 +260,12 @@ pub(crate) fn table_schema(kind: TableId) -> RootSchema {
                 .insert("x-raptor-roles".into(), serde_json::Value::Object(roles));
         }
     }
+    crate::schema_contract::apply(&mut schema);
     schema
 }
 
+/// Emit structural schemas; Id, Version and Date semantics are enforced by
+/// `validate_scalar` and `accept`, rather than by a second schema grammar.
 pub fn json_schema() -> BTreeMap<&'static str, RootSchema> {
     TableId::ALL
         .into_iter()
@@ -260,11 +284,6 @@ pub fn sql_ddl() -> String {
             .iter()
             .map(|kind| kind.prefix().to_owned())
             .collect::<Vec<_>>();
-        let prefix_width = id_prefixes
-            .iter()
-            .map(String::len)
-            .max()
-            .unwrap_or_default();
         let mut seen = BTreeSet::new();
         let columns: Vec<_> = fields
             .iter()
@@ -275,9 +294,7 @@ pub fn sql_ddl() -> String {
             })
             .map(|field| {
                 let check = if field.role == Role::HeadingId {
-                    sql_check(&id_prefixes, |values| {
-                        format!("substr({}, 1, {}) IN ({values})", field.name, prefix_width)
-                    })
+                    id_prefix_check(field.name, &id_prefixes)
                 } else if field.shape == MetaShape::Status {
                     sql_check(&status_values, |values| {
                         format!("{} IN ({values})", field.name)
@@ -322,66 +339,4 @@ pub fn sql_ddl() -> String {
 }
 
 #[cfg(test)]
-mod tests {
-    use super::*;
-    use std::collections::BTreeSet;
-    #[test]
-    fn reference_shapes_have_typed_accessors() {
-        for field in FIELDS {
-            let valid = match (field.shape, field.reference) {
-                (Shape::IdList, Some(ReferenceAccess::List { decision, .. }))
-                    if matches!(field.level, Level::Label(_)) =>
-                {
-                    field.table != FieldScope::All || decision.is_some()
-                }
-                (Shape::Supersession, Some(ReferenceAccess::Scalar { .. })) => true,
-                (Shape::IdList, None) if matches!(field.level, Level::Section) => true,
-                (Shape::IdList | Shape::Supersession, _) | (_, Some(_)) => false,
-                _ => true,
-            };
-            assert!(valid, "invalid reference accessor for {}", field.name);
-        }
-    }
-
-    #[test]
-    fn field_exports_cover_all_63_entries_with_derived_attributes() -> Result<(), serde_json::Error>
-    {
-        let mut exported = BTreeSet::new();
-        for table in [TableId::Req, TableId::Dec] {
-            let fields = field_table(table);
-            let stored: Vec<_> = FIELDS
-                .iter()
-                .filter(|entry| {
-                    entry.table == FieldScope::Only(table) || entry.table == FieldScope::All
-                })
-                .collect();
-            assert_eq!(fields.len(), stored.len());
-            for (field, stored) in fields.iter().zip(stored) {
-                assert_eq!((field.name, field.label), (stored.name, stored.label));
-                assert_eq!(field.required, stored.presence == Presence::Required);
-                assert_eq!(
-                    field.nullable,
-                    matches!(field.name, "supersedes" | "superseded_by")
-                );
-                assert_eq!(field.sql_type, "TEXT");
-                let scope = match stored.table {
-                    FieldScope::Only(TableId::Req) => "Req",
-                    FieldScope::Only(TableId::Dec) => "Dec",
-                    FieldScope::All => "Both",
-                };
-                assert_eq!(serde_json::to_value(field.table)?, scope);
-                assert_eq!(field.section.is_some(), field.level == MetaLevel::Label);
-                exported.insert(serde_json::to_string(field)?);
-            }
-        }
-        assert_eq!(exported.len(), 63);
-        let modals: BTreeSet<_> = field_table(TableId::Req)
-            .iter()
-            .filter_map(|field| field.modal)
-            .map(|modal| format!("{modal:?}"))
-            .collect();
-        let expected = ["Must", "Should", "MustNot"].map(String::from).into();
-        assert_eq!(modals, expected);
-        Ok(())
-    }
-}
+mod tests;

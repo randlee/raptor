@@ -1,6 +1,6 @@
 use crate::{
-    error::RecordPosition,
-    schema::{Decision, Requirement},
+    error::{Error, RecordPosition, TableId},
+    schema::{Decision, Requirement, validate_table_id},
 };
 use serde::{Serialize, Serializer};
 
@@ -22,6 +22,22 @@ pub struct RowRef<'a, T> {
 /// ```compile_fail
 /// let _batch = raptor_schema::Batch::default();
 /// ```
+///
+/// ```compile_fail
+/// let _batch = raptor_schema::Batch::new();
+/// ```
+///
+/// ```compile_fail
+/// fn mutate(batch: &mut raptor_schema::Batch, row: raptor_schema::Requirement) {
+///     batch.add_requirement(raptor_schema::RecordPosition(0), row);
+/// }
+/// ```
+///
+/// ```compile_fail
+/// fn mutate(batch: &mut raptor_schema::Batch, row: raptor_schema::Decision) {
+///     batch.add_decision(raptor_schema::RecordPosition(0), row);
+/// }
+/// ```
 #[derive(Debug, Serialize)]
 pub struct Batch {
     #[serde(serialize_with = "unpositioned")]
@@ -42,11 +58,31 @@ impl Batch {
             decisions: Vec::new(),
         }
     }
-    pub(crate) fn add_requirement(&mut self, position: RecordPosition, value: Requirement) {
+    pub(crate) fn add_requirement(
+        &mut self,
+        position: RecordPosition,
+        value: Requirement,
+    ) -> Result<(), Error> {
+        validate_table_id(TableId::Req, &value.identity.id).map_err(|mut error| {
+            error.table = Some(TableId::Req);
+            error.record_position = Some(position);
+            error
+        })?;
         self.requirements.push(PositionedRow { position, value });
+        Ok(())
     }
-    pub(crate) fn add_decision(&mut self, position: RecordPosition, value: Decision) {
+    pub(crate) fn add_decision(
+        &mut self,
+        position: RecordPosition,
+        value: Decision,
+    ) -> Result<(), Error> {
+        validate_table_id(TableId::Dec, &value.identity.id).map_err(|mut error| {
+            error.table = Some(TableId::Dec);
+            error.record_position = Some(position);
+            error
+        })?;
         self.decisions.push(PositionedRow { position, value });
+        Ok(())
     }
     pub fn requirements(&self) -> impl Iterator<Item = RowRef<'_, Requirement>> {
         self.requirements.iter().map(|row| RowRef {
@@ -61,3 +97,6 @@ impl Batch {
         })
     }
 }
+
+#[cfg(test)]
+mod tests;

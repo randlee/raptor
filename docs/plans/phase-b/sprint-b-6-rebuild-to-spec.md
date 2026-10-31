@@ -151,7 +151,11 @@ attributes. `json_schema()` is emitted per table with `Status`
 and `Modal` choices resolvable from the schema and `x-raptor-fields`
 attached per table. `validate_scalar(kind, text) -> Result<(), Error>` is
 the single implementation of the id, version and date rules; Python calls
-it and holds no second policy. No field is added, renamed or removed.
+it and holds no second policy. The exported JSON Schema is the structural
+contract; its named Id, Version and Date references rely on `validate_scalar`
+and `accept` for scalar semantics rather than a duplicate pattern or format.
+Field `shape` describes source interpretation; the stored structure comes from
+the emitted JSON Schema property. No field is added, renamed or removed.
 
 ### Rust: strict ingress (`accept.rs`)
 

@@ -247,6 +247,7 @@ fn check_record(
     record: &Value,
     schema: &schemars::schema::RootSchema,
     fields: &[emit::FieldMeta],
+    table: TableId,
     decoded: Option<&DecodedRow>,
 ) -> Vec<Error> {
     let mut state = ValidationState {
@@ -261,34 +262,46 @@ fn check_record(
         "",
         None,
     );
-    if let Some(row) = decoded {
-        errors.extend(crate::inventory::typed_supersession_errors(match row {
-            DecodedRow::Requirement(row) => crate::inventory::IncomingRow::Requirement(row),
-            DecodedRow::Decision(row) => crate::inventory::IncomingRow::Decision(row),
-        }));
-    } else {
-        let source =
-            record
-                .get("id")
-                .and_then(Value::as_str)
-                .map(|text| crate::inventory::IngressId {
-                    text,
-                    validated: state.ids.get("/id"),
-                });
-        let targets: Vec<_> = fields
-            .iter()
-            .filter(|field| field.supersession)
-            .filter_map(|field| {
-                let text = record.get(field.name).and_then(Value::as_str)?;
-                let path = format!("/{}", field.name);
-                Some(crate::inventory::IngressReference {
-                    text,
-                    validated: state.ids.get(&path),
-                    path,
+    let root = match decoded {
+        Some(DecodedRow::Requirement(row)) => Some(&row.identity.id),
+        Some(DecodedRow::Decision(row)) => Some(&row.identity.id),
+        None => state.ids.get("/id"),
+    };
+    let kind_error = root.and_then(|id| validate_table_id(table, id).err());
+    let wrong_table = kind_error.is_some();
+    if let Some(error) = kind_error {
+        errors.push(error);
+    }
+    if !wrong_table {
+        if let Some(row) = decoded {
+            errors.extend(crate::inventory::typed_supersession_errors(match row {
+                DecodedRow::Requirement(row) => crate::inventory::IncomingRow::Requirement(row),
+                DecodedRow::Decision(row) => crate::inventory::IncomingRow::Decision(row),
+            }));
+        } else {
+            let source =
+                record
+                    .get("id")
+                    .and_then(Value::as_str)
+                    .map(|text| crate::inventory::IngressId {
+                        text,
+                        validated: state.ids.get("/id"),
+                    });
+            let targets: Vec<_> = fields
+                .iter()
+                .filter(|field| field.supersession)
+                .filter_map(|field| {
+                    let text = record.get(field.name).and_then(Value::as_str)?;
+                    let path = format!("/{}", field.name);
+                    Some(crate::inventory::IngressReference {
+                        text,
+                        validated: state.ids.get(&path),
+                        path,
+                    })
                 })
-            })
-            .collect();
-        errors.extend(crate::inventory::supersession_errors(source, &targets));
+                .collect();
+            errors.extend(crate::inventory::supersession_errors(source, &targets));
+        }
     }
     errors
 }
@@ -306,6 +319,45 @@ fn decode_record(kind: TableId, record: &Value) -> Result<DecodedRow, serde_json
         TableId::Dec => {
             Decision::deserialize(record).map(|row| DecodedRow::Decision(Box::new(row)))
         }
+    }
+}
+
+fn process_records<'a>(
+    accepted: &mut Accepted,
+    kind: TableId,
+    records: impl Iterator<Item = (usize, &'a Value)>,
+    schema: &schemars::schema::RootSchema,
+    fields: &[emit::FieldMeta],
+) {
+    let table = kind.name();
+    for (position, record) in records {
+        // Decode once on the success path. The schema walk still enforces
+        // explicit canonical keys, including optional source fields.
+        let decoded = decode_record(kind, record);
+        let mut errors = check_record(record, schema, fields, kind, decoded.as_ref().ok());
+        if errors.is_empty() {
+            let insertion = match decoded {
+                Ok(DecodedRow::Requirement(row)) => accepted
+                    .batch
+                    .add_requirement(RecordPosition(position), *row),
+                Ok(DecodedRow::Decision(row)) => {
+                    accepted.batch.add_decision(RecordPosition(position), *row)
+                }
+                Err(error) => Err(Error::from_serde(
+                    record.clone(),
+                    &format!("a valid {table} record"),
+                    error,
+                )),
+            };
+            if let Err(error) = insertion {
+                errors.push(error);
+            }
+        }
+        for error in &mut errors {
+            error.table = Some(kind);
+            error.record_position = Some(RecordPosition(position));
+        }
+        accepted.errors.extend(errors);
     }
 }
 
@@ -360,38 +412,13 @@ pub fn accept(input: &str) -> Accepted {
             TableId::Dec => &DECISION_FIELDS,
         };
         let fields = field_cache.get_or_init(|| emit::field_table(kind));
-        for (position, record) in object
+        let records = object
             .get(table)
             .and_then(Value::as_array)
             .into_iter()
             .flatten()
-            .enumerate()
-        {
-            // Decode once on the success path. The schema walk still enforces
-            // explicit canonical keys, including optional source fields.
-            let decoded = decode_record(kind, record);
-            let mut errors = check_record(record, schema, fields, decoded.as_ref().ok());
-            if errors.is_empty() {
-                match decoded {
-                    Ok(DecodedRow::Requirement(row)) => accepted
-                        .batch
-                        .add_requirement(RecordPosition(position), *row),
-                    Ok(DecodedRow::Decision(row)) => {
-                        accepted.batch.add_decision(RecordPosition(position), *row)
-                    }
-                    Err(error) => errors.push(Error::from_serde(
-                        record.clone(),
-                        &format!("a valid {table} record"),
-                        error,
-                    )),
-                }
-            }
-            for error in &mut errors {
-                error.table = Some(kind);
-                error.record_position = Some(RecordPosition(position));
-            }
-            accepted.errors.extend(errors);
-        }
+            .enumerate();
+        process_records(&mut accepted, kind, records, schema, fields);
     }
     accepted
         .errors
@@ -400,39 +427,4 @@ pub fn accept(input: &str) -> Accepted {
 }
 
 #[cfg(test)]
-mod tests {
-    use super::*;
-    use schemars::schema::SchemaObject;
-
-    #[test]
-    fn unresolvable_schema_reference_reports_type_mismatch()
-    -> Result<(), Box<dyn std::error::Error>> {
-        let schema = SchemaObject {
-            reference: Some("#/definitions/Absent".to_owned()),
-            ..SchemaObject::default()
-        };
-        let errors = walk(
-            &json!("value"),
-            &schema,
-            &Default::default(),
-            &mut ValidationState::default(),
-            "/field",
-            None,
-        );
-        let error = errors.first().ok_or("missing error")?;
-        assert_eq!(errors.len(), 1);
-        assert_eq!(error.category, ErrorCategory::TypeMismatch);
-        assert_eq!(error.field_path.as_ref(), "/field");
-        assert_eq!(error.cause.as_ref(), "a resolvable schema reference");
-        Ok(())
-    }
-
-    #[test]
-    fn decode_record_reports_serde_failure() -> Result<(), Box<dyn std::error::Error>> {
-        let error = decode_record(TableId::Req, &json!({"id": 4}))
-            .err()
-            .ok_or("decode unexpectedly succeeded")?;
-        assert!(!error.to_string().is_empty());
-        Ok(())
-    }
-}
+mod tests;

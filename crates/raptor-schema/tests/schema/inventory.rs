@@ -3,12 +3,8 @@ use raptor_schema::*;
 use serde_json::{Value, json};
 
 #[test]
-fn duplicates_report_every_occurrence_within_and_across_tables() {
-    for (source, destination) in [
-        ("requirements", "requirements"),
-        ("decisions", "decisions"),
-        ("requirements", "decisions"),
-    ] {
+fn duplicates_report_every_occurrence_within_each_table() {
+    for (source, destination) in [("requirements", "requirements"), ("decisions", "decisions")] {
         let mut input = fixture();
         let id = input[source][0]["id"].clone();
         if source == destination {
@@ -211,5 +207,27 @@ fn inventory_diagnostic_order_preserves_related_dependencies_then_supersession()
             "/dependencies/requires",
             "/supersedes"
         ]
+    );
+}
+
+#[test]
+fn cross_table_duplicate_rejects_wrong_kind_before_inventory() {
+    let mut input = fixture();
+    input["decisions"][0]["id"] = input["requirements"][0]["id"].clone();
+    let result = accept(&input.to_string());
+    assert_eq!(result.batch.decisions().count(), 0);
+    assert!(
+        result
+            .errors
+            .iter()
+            .any(|error| error.category == ErrorCategory::InvalidId
+                && error.table == Some(TableId::Dec)
+                && error.field_path.as_ref() == "/id")
+    );
+    assert!(
+        !result
+            .errors
+            .iter()
+            .any(|error| error.category == ErrorCategory::DuplicateId)
     );
 }
