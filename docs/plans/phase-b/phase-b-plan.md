@@ -310,5 +310,6 @@ and diagnostic JSON Value exceptions recorded in B.6, and the audited B6
 before/after proof in place of missing historical per-group reports, including
 the documented additional parser corrections. Strict duplicate rejection and
 per-file limits remain required. Sprint status records implementation completion;
-final quality-manager approval and landing remain pending. PR #84 targets
-`integrate/phase-b`; the primary checkout remains on `develop`.
+quality-mgr approved all six sprints and the whole phase in
+[round 10](https://github.com/randlee/raptor/pull/85#issuecomment-6540159947). Landing remains pending.
+PR #84 targets `integrate/phase-b`; the primary checkout remains on `develop`.
