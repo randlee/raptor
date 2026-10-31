@@ -69,7 +69,14 @@ def test_duplicate_and_missing_id(tmp_path: Path):
         for record in split(requirement, requirement.read_text())["records"]
         if record["token"] == "ADR-FIX-0002"
     ][-1]["fields"]["Decision Date"]["value"].strip() == "2026-01-07"
-    assert len(payload["requirements"]) + len(payload["decisions"]) == 5
+    assert len(payload["requirements"]) + len(payload["decisions"]) == 3
+    assert all(row["id"] != "ADR-FIX-0002" for row in payload["decisions"])
+    fixture = json.loads((ROOT / "tests/fixtures/records.json").read_text())
+    for table in fixture:
+        expected = [row for row in fixture[table] if row["id"] != "ADR-FIX-0002"]
+        assert sorted(payload[table], key=lambda row: row["id"]) == sorted(
+            expected, key=lambda row: row["id"]
+        )
     (root / "docs/empty.md").write_text("# Empty\n")
     result = extract(root, index, check=False)
     assert result.returncode == 1

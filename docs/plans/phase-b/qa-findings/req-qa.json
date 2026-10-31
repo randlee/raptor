@@ -48,9 +48,11 @@
         "ARCH-003",
         "ATM-QA-003"
       ],
-      "status": "pending",
-      "current_evidence": [],
-      "disposition_note": "Files were split in 8fcd74d; per-file sizes improved. Aggregate budgets remain unresolved; this is not closed.",
+      "status": "implemented-unverified",
+      "current_evidence": [
+        "User explicitly clarified that no crate limit was approved; whole-crate caps removed from both plans, existing per-file caps unchanged. Filing verification pending."
+      ],
+      "disposition_note": "Unapproved aggregate estimates corrected under explicit user instruction; no increase in per-file limits. Do not ask to approve crate totals.",
       "verification": null,
       "acceptance_source_refs": [
         "docs/plans/phase-b/sprint-b-6-rebuild-to-spec.md:236-243",
@@ -72,9 +74,11 @@
         "ARCH-003",
         "ATM-QA-002"
       ],
-      "status": "pending",
-      "current_evidence": [],
-      "disposition_note": "Files were split in 8fcd74d; per-file sizes improved. Aggregate budgets remain unresolved; this is not closed.",
+      "status": "implemented-unverified",
+      "current_evidence": [
+        "User explicitly clarified that no crate limit was approved; whole-crate caps removed from both plans, existing per-file caps unchanged. Filing verification pending."
+      ],
+      "disposition_note": "Unapproved aggregate estimates corrected under explicit user instruction; no increase in per-file limits. Do not ask to approve crate totals.",
       "verification": null,
       "acceptance_source_refs": [
         "docs/plans/phase-b/sprint-b-6-rebuild-to-spec.md:240"
@@ -163,9 +167,11 @@
         "ARCH-002",
         "ATM-QA-005"
       ],
-      "status": "pending",
-      "current_evidence": [],
-      "disposition_note": "No filing-reviewer closure confirmation received.",
+      "status": "implemented-unverified",
+      "current_evidence": [
+        "User explicitly clarified that no crate limit was approved; whole-crate caps removed from both plans, existing per-file caps unchanged. Filing verification pending."
+      ],
+      "disposition_note": "Unapproved aggregate estimates corrected under explicit user instruction; no increase in per-file limits. Do not ask to approve crate totals.",
       "verification": null,
       "acceptance_source_refs": [
         "docs/plans/phase-b/phase-b-plan.md:188-190",
@@ -613,9 +619,11 @@
       "duplicates_or_overlaps": [
         "ATM-QA-007"
       ],
-      "status": "pending",
-      "current_evidence": [],
-      "disposition_note": "No filing-reviewer closure confirmation received.",
+      "status": "implemented-unverified",
+      "current_evidence": [
+        "User requires duplicate IDs invalid. B5 now requires rejection before SQLite writes, equality only for unique canonical input; no first/last-winner projection. Strict code and tests pending pinned verification."
+      ],
+      "disposition_note": "Duplicate projection was rejected by user; acceptance wording now requires duplicate rejection, not permission to collapse IDs.",
       "verification": null,
       "acceptance_source_refs": [
         "docs/plans/phase-b/sprint-b-5-inventory-consumer-run.md:59-60",

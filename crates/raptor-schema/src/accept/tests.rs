@@ -7,14 +7,13 @@ fn unresolvable_schema_reference_reports_type_mismatch() -> Result<(), Box<dyn s
         reference: Some("#/definitions/Absent".to_owned()),
         ..SchemaObject::default()
     };
-    let errors = walk(
-        &json!("value"),
-        &schema,
-        &Default::default(),
-        &mut ValidationState::default(),
-        "/field",
-        None,
-    );
+    let definitions = Default::default();
+    let errors = Walker {
+        definitions: &definitions,
+        ids: BTreeMap::new(),
+        typed: false,
+    }
+    .walk(&json!("value"), &schema, "/field", None);
     let error = errors.first().ok_or("missing error")?;
     assert_eq!(errors.len(), 1);
     assert_eq!(error.category, ErrorCategory::TypeMismatch);
@@ -63,6 +62,7 @@ fn divergent_schema_returns_structured_decode_failure() -> Result<(), Box<dyn st
         std::iter::once((1, &record)),
         &schema,
         &fields,
+        &crate::inventory::DuplicateIndex::default(),
     );
     assert_eq!(accepted.batch.requirements().count(), 0);
     assert_eq!(accepted.batch.decisions().count(), 0);

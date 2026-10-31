@@ -71,7 +71,8 @@ def test_unknown_names_preserve_source_token_and_column(document, old, new, rule
 
 def test_inventory_maps_every_occurrence_to_its_token(document):
     root, text = document
-    text = text + text
+    survivor = replace_present(text, "## REQ-FIX-0001:", "## REQ-FIX-0009:", 1)
+    text = text + text + survivor
     result = qualify(root, text)
     accepted = json.loads(raptor_schema.accept(json.dumps(result.rows)))
     for error in accepted["errors"]:

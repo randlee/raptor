@@ -1,4 +1,4 @@
-# Consumer run
+# Historical consumer run — before strict duplicate rejection
 
 Read-only run at commit `6be9d2d5eae8d34499785c267cf4d5ae9b3b0236`.
 The full JSON index remains untracked for hand-off to the operator.
@@ -49,5 +49,6 @@ equal the index records.
 The requirements index has 537 rows while its dump has 532: five duplicate
 identifiers collapse through replacement on the primary key, retaining the
 final occurrence. Decisions have 51 index rows and 51 dump rows with no
-duplicate identifiers. This is a corpus condition, not a loader round-trip
-defect.
+duplicate identifiers. These are historical results, not accepted current
+behavior. The user requires duplicate IDs to be rejected without choosing a
+winner; current import and loader evidence belongs in `consumer-run-b6.md`.

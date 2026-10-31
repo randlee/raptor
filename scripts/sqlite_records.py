@@ -13,9 +13,21 @@ else:
 
 def load(index, database):
     definitions = schemas()
+    duplicate_rule = "DUPLICATE_ID"
+    prior_duplicates = [
+        issue
+        for issue in index.get("diagnostics", {}).get("issues", [])
+        if issue["rule"] == duplicate_rule
+    ]
+    if prior_duplicates:
+        raise ValueError(json.dumps(prior_duplicates))
     submitted = {table: index.get(table, []) for table in definitions}
     accepted = json.loads(raptor_schema.accept(json.dumps(submitted)))
-    if accepted["batch"] != submitted:
+    rules = next(iter(definitions.values()))["x-raptor-rules"]
+    duplicate_categories = rules[duplicate_rule]["categories"]
+    if accepted["batch"] != submitted or any(
+        error["category"] in duplicate_categories for error in accepted["errors"]
+    ):
         raise ValueError(json.dumps(accepted["errors"]))
     with sqlite3.connect(database) as connection:
         connection.execute("PRAGMA foreign_keys = ON")
@@ -25,7 +37,17 @@ def load(index, database):
         for table, schema in definitions.items():
             names = list(schema["properties"])
             marks = ", ".join("?" for _ in names)
-            statement = f"INSERT OR REPLACE INTO {table} ({', '.join(names)}) VALUES ({marks})"
+            identifier_role = schema["x-raptor-protocol"]["heading_roles"]["identifier"]
+            [identifier] = [
+                field["name"]
+                for field in schema["x-raptor-fields"]
+                if field["role"] == identifier_role
+            ]
+            updates = ", ".join(f"{name} = excluded.{name}" for name in names if name != identifier)
+            statement = (
+                f"INSERT INTO {table} ({', '.join(names)}) VALUES ({marks}) "
+                f"ON CONFLICT({identifier}) DO UPDATE SET {updates}"
+            )
             for record in accepted["batch"][table]:
                 values = [
                     (

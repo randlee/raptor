@@ -39,9 +39,11 @@
         "ATM-QA-005",
         "ATM-QA-006"
       ],
-      "status": "pending",
-      "current_evidence": [],
-      "disposition_note": "No filing-reviewer closure confirmation received.",
+      "status": "implemented-unverified",
+      "current_evidence": [
+        "User explicitly clarified that no crate limit was approved; whole-crate caps removed from both plans, existing per-file caps unchanged. Filing verification pending."
+      ],
+      "disposition_note": "Unapproved aggregate estimates corrected under explicit user instruction; no increase in per-file limits. Do not ask to approve crate totals.",
       "verification": null
     },
     {
@@ -59,9 +61,11 @@
         "ATM-QA-002",
         "ATM-QA-003"
       ],
-      "status": "pending",
-      "current_evidence": [],
-      "disposition_note": "Files were split in 8fcd74d; per-file sizes improved. Aggregate budgets remain unresolved; this is not closed.",
+      "status": "implemented-unverified",
+      "current_evidence": [
+        "User explicitly clarified that no crate limit was approved; whole-crate caps removed from both plans, existing per-file caps unchanged. Filing verification pending."
+      ],
+      "disposition_note": "Unapproved aggregate estimates corrected under explicit user instruction; no increase in per-file limits. Do not ask to approve crate totals.",
       "verification": null
     },
     {

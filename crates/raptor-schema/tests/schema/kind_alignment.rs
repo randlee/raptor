@@ -167,28 +167,32 @@ fn wrong_table_id_preserves_position_and_malformed_id_is_not_double_reported() {
 }
 
 #[test]
-fn rejected_wrong_kind_is_not_a_duplicate_and_causes_a_dangling_reference() {
+fn wrong_table_duplicate_rejects_all_occurrences_and_leaves_reference_dangling() {
     let mut input = fixture();
-    input["requirements"][0]["dependencies"]["related"] =
-        json!([{"id": "ADR-FIX-0001", "note": null}]);
+    let mut unique = input["requirements"][0].clone();
+    unique["id"] = json!("REQ-FIX-0002");
+    unique["dependencies"]["related"] = json!([{"id": "REQ-FIX-0001", "note": null}]);
+    input["requirements"].as_array_mut().unwrap().push(unique);
     input["decisions"][0]["id"] = json!("REQ-FIX-0001");
     let result = accept(&input.to_string());
     assert_eq!(result.batch.requirements().count(), 1);
     assert_eq!(result.batch.decisions().count(), 0);
+    let categories = result
+        .errors
+        .iter()
+        .map(|error| error.category)
+        .collect::<Vec<_>>();
     assert_eq!(
-        result
-            .errors
-            .iter()
-            .map(|error| error.category)
-            .collect::<Vec<_>>(),
-        [ErrorCategory::InvalidId, ErrorCategory::DanglingReference]
+        categories,
+        [
+            ErrorCategory::DuplicateId,
+            ErrorCategory::InvalidId,
+            ErrorCategory::DuplicateId,
+            ErrorCategory::DanglingReference
+        ]
     );
     assert_eq!(
-        result.errors[0].offending_value.as_ref(),
+        result.errors[3].offending_value.as_ref(),
         &json!("REQ-FIX-0001")
-    );
-    assert_eq!(
-        result.errors[1].offending_value.as_ref(),
-        &json!("ADR-FIX-0001")
     );
 }

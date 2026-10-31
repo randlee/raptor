@@ -15,6 +15,14 @@ fn duplicates_report_every_occurrence_within_each_table() {
         }
         let result = accept(&input.to_string());
         assert_eq!(result.errors.len(), 2);
+        assert_eq!(
+            result.batch.requirements().count(),
+            usize::from(source != "requirements")
+        );
+        assert_eq!(
+            result.batch.decisions().count(),
+            usize::from(source != "decisions")
+        );
         for (error, (table, position)) in result.errors.iter().zip([
             (source, 0),
             (destination, usize::from(source == destination)),
@@ -211,7 +219,7 @@ fn inventory_diagnostic_order_preserves_related_dependencies_then_supersession()
 }
 
 #[test]
-fn cross_table_duplicate_rejects_wrong_kind_before_inventory() {
+fn cross_table_duplicate_rejects_both_and_preserves_wrong_kind_error() {
     let mut input = fixture();
     input["decisions"][0]["id"] = input["requirements"][0]["id"].clone();
     let result = accept(&input.to_string());
@@ -224,10 +232,99 @@ fn cross_table_duplicate_rejects_wrong_kind_before_inventory() {
                 && error.table == Some(TableId::Dec)
                 && error.field_path.as_ref() == "/id")
     );
-    assert!(
-        !result
+    assert_eq!(result.batch.requirements().count(), 0);
+    assert_eq!(
+        result
             .errors
             .iter()
-            .any(|error| error.category == ErrorCategory::DuplicateId)
+            .filter(|error| error.category == ErrorCategory::DuplicateId)
+            .count(),
+        2
+    );
+}
+
+#[test]
+fn duplicate_rows_never_win_even_if_conflicting_or_malformed() {
+    for malformed in [false, true] {
+        let mut input = fixture();
+        let mut unique = input["requirements"][0].clone();
+        unique["id"] = json!("REQ-FIX-0002");
+        unique["dependencies"]["requires"] = json!([{"id": "REQ-FIX-0001", "note": null}]);
+        let mut duplicate = input["requirements"][0].clone();
+        duplicate["title"] = if malformed {
+            Value::Null
+        } else {
+            json!("Conflicting")
+        };
+        let records = input["requirements"].as_array_mut().unwrap();
+        records.insert(0, unique);
+        records.push(duplicate);
+        let result = accept(&input.to_string());
+        let retained: Vec<_> = result
+            .batch
+            .requirements()
+            .map(|row| row.position.0)
+            .collect();
+        assert_eq!(retained, [0]);
+        let duplicates: Vec<_> = result
+            .errors
+            .iter()
+            .filter(|e| e.category == ErrorCategory::DuplicateId)
+            .collect();
+        assert_eq!(duplicates.len(), 2);
+        assert_eq!(
+            duplicates
+                .iter()
+                .map(|e| e.record_position.unwrap().0)
+                .collect::<Vec<_>>(),
+            [1, 2]
+        );
+        assert!(
+            duplicates
+                .iter()
+                .all(|e| e.first_occurrence_record_position().unwrap().0 == 1)
+        );
+        assert_eq!(
+            result
+                .errors
+                .iter()
+                .filter(|e| e.category == ErrorCategory::DanglingReference)
+                .count(),
+            1
+        );
+        assert_eq!(
+            result
+                .errors
+                .iter()
+                .filter(|e| e.category == ErrorCategory::NullNotAllowed)
+                .count(),
+            usize::from(malformed)
+        );
+    }
+}
+
+#[test]
+fn duplicate_malformed_id_strings_keep_scalar_errors() {
+    let mut input = fixture();
+    input["requirements"][0]["id"] = json!("invalid");
+    let row = input["requirements"][0].clone();
+    input["requirements"].as_array_mut().unwrap().push(row);
+    let result = accept(&input.to_string());
+    assert_eq!(result.batch.requirements().count(), 0);
+    assert_eq!(
+        result
+            .errors
+            .iter()
+            .filter(|e| e.category == ErrorCategory::DuplicateId)
+            .count(),
+        2
+    );
+    assert_eq!(
+        result
+            .errors
+            .iter()
+            .filter(|e| e.category == ErrorCategory::InvalidId)
+            .count(),
+        2
     );
 }

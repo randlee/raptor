@@ -182,83 +182,72 @@ fn append_list<'a>(
     }
 }
 
-pub fn check_inventory(batch: &Batch) -> Vec<Error> {
-    let requirements = batch.requirements().map(|entry| {
-        let row = entry.value;
-        let targets = references(Source::Requirement(row), TableId::Req);
-        InventoryRow {
-            table: TableId::Req,
-            position: entry.position,
-            identity: &row.identity,
-            targets,
-        }
-    });
-    let decisions = batch.decisions().map(|entry| {
-        let row = entry.value;
-        let targets = references(Source::Decision(row), TableId::Dec);
-        InventoryRow {
-            table: TableId::Dec,
-            position: entry.position,
-            identity: &row.identity,
-            targets,
-        }
-    });
-    let rows: Vec<_> = requirements.chain(decisions).collect();
-    struct Occurrences {
-        first: RecordPosition,
-        count: usize,
+#[derive(Default)]
+pub(crate) struct DuplicateIndex {
+    counts: BTreeMap<String, (RecordPosition, usize)>,
+}
+
+impl DuplicateIndex {
+    pub(crate) fn observe(&mut self, id: &str, position: RecordPosition) {
+        let entry = self.counts.entry(id.to_owned()).or_insert((position, 0));
+        entry.1 += 1;
     }
-    let mut counts = BTreeMap::new();
+
+    pub(crate) fn error(&self, id: &str) -> Option<Error> {
+        let &(first, count) = self.counts.get(id)?;
+        if count < 2 {
+            return None;
+        }
+        let cause = format!(
+            "a unique identifier; first occurrence is record position {}",
+            first.0
+        );
+        let mut error = Error::scalar(ErrorCategory::DuplicateId, id, &cause).at("/id", None);
+        error.set_first_occurrence(first);
+        Some(error)
+    }
+}
+
+fn inventory_rows(batch: &Batch) -> Vec<InventoryRow<'_>> {
+    let requirements = batch.requirements().map(|entry| InventoryRow {
+        table: TableId::Req,
+        position: entry.position,
+        identity: &entry.value.identity,
+        targets: references(Source::Requirement(entry.value), TableId::Req),
+    });
+    let decisions = batch.decisions().map(|entry| InventoryRow {
+        table: TableId::Dec,
+        position: entry.position,
+        identity: &entry.value.identity,
+        targets: references(Source::Decision(entry.value), TableId::Dec),
+    });
+    requirements.chain(decisions).collect()
+}
+
+pub fn check_inventory(batch: &Batch) -> Vec<Error> {
+    let rows = inventory_rows(batch);
+    let mut ids = DuplicateIndex::default();
     for row in &rows {
-        let entry = counts
-            .entry(row.identity.id.as_str())
-            .or_insert(Occurrences {
-                first: row.position,
-                count: 0,
-            });
-        entry.count += 1;
+        ids.observe(row.identity.id.as_str(), row.position);
     }
     let mut errors = Vec::new();
-    for InventoryRow {
-        table,
-        position,
-        identity,
-        targets,
-    } in rows
-    {
-        let error = |category, text, cause: String, path: &str, item| {
-            let mut error = Error::scalar(category, text, &cause).at(path, item);
-            error.table = Some(table);
-            error.record_position = Some(position);
-            error
-        };
-        if let Some(occurrences) = counts.get(identity.id.as_str())
-            && occurrences.count > 1
-        {
-            let first_position = occurrences.first;
-            let cause = format!(
-                "a unique identifier; first occurrence is record position {}",
-                first_position.0
-            );
-            let mut duplicate = error(
-                ErrorCategory::DuplicateId,
-                identity.id.as_str(),
-                cause,
-                "/id",
-                None,
-            );
-            duplicate.set_first_occurrence(first_position);
-            errors.push(duplicate);
+    for row in rows {
+        if let Some(mut error) = ids.error(row.identity.id.as_str()) {
+            error.table = Some(row.table);
+            error.record_position = Some(row.position);
+            errors.push(error);
         }
-        for Reference { path, item, target } in targets {
-            if !counts.contains_key(target.as_str()) {
-                errors.push(error(
+        for Reference { path, item, target } in row.targets {
+            if !ids.counts.contains_key(target.as_str()) {
+                let mut error = Error::scalar(
                     ErrorCategory::DanglingReference,
                     target.as_str(),
-                    "a referenced record in the batch".into(),
-                    &path,
-                    item,
-                ));
+                    "a referenced record in the batch",
+                )
+                .at(&path, item);
+                error.table = Some(row.table);
+                error.record_position = Some(row.position);
+                errors.push(error);
             }
         }
     }

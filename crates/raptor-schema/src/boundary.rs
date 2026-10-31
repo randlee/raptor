@@ -63,7 +63,7 @@ pub(crate) fn rules() -> Value {
             "categories": categories(Rule::BadValue)
         },
         "DUPLICATE_ID": {
-            "rejects_record": false, "remedy": "Make the identifier unique.",
+            "rejects_record": true, "remedy": "Make the identifier unique.",
             "categories": categories(Rule::DuplicateId)
         },
         "DANGLING_REFERENCE": {

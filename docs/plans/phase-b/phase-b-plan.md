@@ -135,8 +135,8 @@ output is still written. No source autocorrection. Repository aliases are explic
 | `UNKNOWN_SECTION` | a `###` heading the table's schema does not define; `allowed` lists the sections | emitted without that section |
 | `UNKNOWN_LABEL` | a bold label the section's schema does not define; `allowed` lists the labels | emitted without that label |
 | `BAD_VALUE` | a shape conversion failed: date, version, status, id, checkbox | not emitted |
-| `DUPLICATE_ID` | an id declared more than once in the inventory; raised at every occurrence | all emitted |
-| `DANGLING_REFERENCE` | an id in any id list that no record declares | emitted |
+| `DUPLICATE_ID` | an id declared more than once in the inventory; raised at every occurrence | every duplicate occurrence rejected |
+| `DANGLING_REFERENCE` | an id in any id list that no admitted record declares | emitted |
 
 Python owns source diagnostics: missing content, unknown labels/sections and
 text that cannot be qualified. Rust owns strict JSON/type/scalar errors and
@@ -144,6 +144,13 @@ inventory checks. Python maps Rust record/item positions back to source
 locations. Scalar failures map to `BAD_VALUE`; duplicate and dangling-reference
 categories retain their named rules. Every occurrence has its own location.
 Distinct error sources may add codes; existing categories are not renamed.
+
+Duplicate identifiers are invalid, as clarified by the user. Source inventory
+checks every valid heading ID, including records rejected for other source
+errors; Rust separately checks all submitted canonical-input IDs. Neither
+boundary selects a first or last winner. A loader rejects duplicate rows or
+carried duplicate diagnostics before opening SQLite. Replaying a unique input
+updates its existing canonical rows without replacement or changing row IDs.
 
 The summary is built for surgical fixes. A thousand diagnostics are a
 handful of patterns, and the summary presents them that way:
@@ -187,9 +194,10 @@ so that none can be added by habit.
   baseline, attribute every delta and report the actual rendered-file count.
 - **Ceilings follow the governing sprint.** Later approved sprint limits
   supersede earlier estimates for the files they rebuild. B.6 specifies
-  1,000 Rust source lines in total, 450 per source file, 400 crate test lines,
-  and its named Python/test file ceilings. These remain hard acceptance
-  constraints; the refactor does not waive aggregate overruns.
+  450 lines per Rust source file, 400 per Rust test file, and its named
+  Python/test file ceilings. The user clarified that no whole-crate line
+  limit was approved; crate totals are informational. Per-file limits remain
+  hard constraints, with cohesive refactors when a limit is reached.
 
 
 ## Sprints

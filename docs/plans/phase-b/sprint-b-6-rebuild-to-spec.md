@@ -68,7 +68,8 @@ reference metadata to validated row members; it adds no record column or schema
 policy. This implementation binding is distinct from the six semantic field
 attributes, and completeness tests require every reference shape to have one. Integration tests are grouped by ingress, inventory and emission with
 a shared fixture module. These splits preserve all checks and do not establish
-compliance with aggregate size budgets; those remain measured acceptance items.
+permission to enlarge files. Crate totals are informational; the per-file
+limits below remain binding.
 
 The corrective targets also include the leaf Rust `error.rs`, `rule.rs`,
 `batch.rs`, `protocol.rs` and `boundary.rs` modules, plus the error/metadata
@@ -81,6 +82,11 @@ cover those modules. These are refactor boundaries, not increased ceilings:
 new Python helpers and tests stay within 150 lines each, Rust source files within
 450, and Rust test files within 400. Original narrower file ceilings still apply.
 The JSON fixture is normally indented data, with unchanged decoded values.
+The ingress walker shares one context for schema definitions and validated IDs;
+raw traversal remains in `accept.rs`. `emit.rs` owns compiled schema/field-cache
+provisioning. `scripts/source_inventory.py` checks valid source-heading identities
+before canonical submission. Source locations and rejection reasons are retained
+without selecting duplicate winners.
 
 ## What is carried over, and nothing else
 
@@ -204,8 +210,17 @@ input-dependent path returns `Result`.
 
 `check_inventory(&Batch) -> Vec<Error>` and `summarize` live in
 `inventory.rs`, operate on an accepted batch and report record position
-and item index; Python maps those to file and line. `accept` calls
-`check_inventory` last and nothing else calls it. The seven `Rule`
+and item index; Python maps those to file and line. A typed duplicate index in
+this module receives submitted identities from ingress before admission.
+Every repeated identity is reported at every occurrence, and all its rows are
+rejected; malformed neighboring rows cannot select a winner. Dangling checks
+run against the admitted unique records. `accept` calls `check_inventory` last
+and nothing else calls it. Python checks all valid source-heading identities,
+including records rejected before submission, with the shared duplicate rule.
+The loader rejects any duplicate input or carried duplicate diagnostic before
+opening SQLite. A unique input can be replayed through an explicit update of
+its existing rows; duplicate input never overwrites an earlier occurrence.
+The seven `Rule`
 variants also cover Python-only source diagnostics. The exported rule table
 is their shared taxonomy; Rust summaries use only typed/inventory rules:
 `DuplicateId` and `DanglingReference` map to the `Rule` of the same name
@@ -322,15 +337,23 @@ completion message.
 Measured on `cargo fmt` output with zero `rustfmt::skip` and no line over
 100 characters. `rustfmt.toml` sets only `max_width = 100`; call formatting
 uses rustfmt defaults. No override may compress calls to meet a line budget.
-The original tuple-based estimate below is historical and does not establish
-current compliance. Crate `src/` 1,000 lines total, no file over 450. Crate
-tests 400. `extract.py` 150, `qualify.py` 250, `load_sqlite.py` 60, `render.py`
+No Rust source file exceeds 450 lines; no Rust test file exceeds 400.
+The user clarified: "I didn't approve a crate limit." The original whole-crate
+source/test figures were unapproved estimates, not acceptance limits; report
+totals for information only. `extract.py` 150, `qualify.py` 250, `load_sqlite.py` 60, `render.py`
 36 (unchanged). `tests/test_qualify.py` 150, `tests/test_extract.py` 150.
 `markdown_content.py` 150 and `tests/test_markdown_content.py` 150.
 `consumer-run-b6.md` 100. `aliases.toml` 6. A sprint that needs more stops
 and reports the number; it does not pack lines.
 
-The estimate behind the 1,000 is reconciled against RAP-B-ANALYSIS-2 as
+Production Rust functions follow the released sc-lint 0.8.0 function-length
+algorithm: 70–79 code lines are advisory; 80 or more fail. Comments, blank lines
+and test functions are excluded by that algorithm. No new or increased
+baseline allowances are authorized. Raptor does not yet configure the native
+consumer integration; record the official parser audit without claiming it
+runs in CI. This is a function limit, not a whole-crate budget.
+
+The historical estimate of 1,000 was reconciled against RAP-B-ANALYSIS-2 as
 follows. That report's disposition table (report lines 7 to 20) keeps 463
 of today's 1,212 lines; its size table (line 77) says those 463 become
 1,305 lines once the skips are removed, and line 81 says the field table
@@ -351,9 +374,8 @@ The item-by-item estimate, counted as `cargo fmt` output: 25 types and
 enums with derives at about 8 lines each, 200; field table, 90; scalar
 rules, 40; emission, 120; presence walk and typed acceptance, 170;
 inventory and summary, 80; pyo3 module, 60; about 760. The two methods
-give 760 and 950. Both sit under 1,000; the report's method leaves only
-50 lines of headroom, which is why the ceiling is not lower. The ceiling
-is where the sprint stops and reports, not a target.
+gave 760 and 950. These figures explain the earlier estimate only. They do
+not establish a whole-crate ceiling or authorize larger individual files.
 
 ## Baseline and test corpus
 

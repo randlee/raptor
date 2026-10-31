@@ -265,6 +265,7 @@ fn source_only_rules_are_exported_without_rust_error_categories() {
         for rule in rust {
             assert!(!rules[rule]["categories"].as_array().unwrap().is_empty());
         }
+        assert_eq!(rules["DUPLICATE_ID"]["rejects_record"], true);
     }
 }
 

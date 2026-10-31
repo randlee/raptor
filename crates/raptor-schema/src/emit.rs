@@ -1,7 +1,10 @@
 use crate::{error::TableId, fields::FIELDS, metadata::*, schema::*};
 use schemars::{JsonSchema, schema::RootSchema, schema_for};
 use serde::Serialize;
-use std::collections::{BTreeMap, BTreeSet};
+use std::{
+    collections::{BTreeMap, BTreeSet},
+    sync::OnceLock,
+};
 
 pub use crate::protocol::{MetaLevel, MetaShape, Role};
 /// Public projection of a field; the backing catalog is crate-internal.
@@ -262,6 +265,24 @@ pub(crate) fn table_schema(kind: TableId) -> RootSchema {
     }
     crate::schema_contract::apply(&mut schema);
     schema
+}
+
+pub(crate) struct CompiledRecordSchema {
+    pub definition: RootSchema,
+    pub fields: Vec<FieldMeta>,
+}
+
+pub(crate) fn compiled_schema(kind: TableId) -> &'static CompiledRecordSchema {
+    static REQUIREMENTS: OnceLock<CompiledRecordSchema> = OnceLock::new();
+    static DECISIONS: OnceLock<CompiledRecordSchema> = OnceLock::new();
+    let cache = match kind {
+        TableId::Req => &REQUIREMENTS,
+        TableId::Dec => &DECISIONS,
+    };
+    cache.get_or_init(|| CompiledRecordSchema {
+        definition: table_schema(kind),
+        fields: field_table(kind),
+    })
 }
 
 /// Emit structural schemas; Id, Version and Date semantics are enforced by

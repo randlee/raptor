@@ -11,6 +11,7 @@ if __package__:
     from .record_context import RecordContext
     from .schema_json import empty, schemas
     from .shape_content import parse_content
+    from .source_inventory import SourceInventory
 else:
     from aliases import load_aliases
     from diagnostics import section_for_path
@@ -18,6 +19,7 @@ else:
     from record_context import RecordContext
     from schema_json import empty, schemas
     from shape_content import parse_content
+    from source_inventory import SourceInventory
 
 
 class Qualifier:
@@ -51,6 +53,7 @@ class Qualifier:
         self.rows = {table: [] for table in self.schemas}
         self.sources = {table: [] for table in self.schemas}
         self.issues, self.counts = [], {}
+        self.source_inventory = SourceInventory()
         self.aliases = load_aliases(root, self.schemas, self.fields)
         self.rules = next(iter(self.schemas.values()))["x-raptor-rules"]
         self.error_rules = {
@@ -77,6 +80,8 @@ class Qualifier:
                     allowed=error.allowed_values,
                     message=f"{error.category}: {error.message}",
                 )
+            else:
+                self.source_inventory.record(context)
             matches = [
                 table
                 for table, prefixes in self.table_prefixes.items()

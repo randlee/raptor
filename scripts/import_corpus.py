@@ -49,6 +49,7 @@ def build_index(root):
     for file in files:
         text = file.read_text()
         qualifier.qualify(split(file.relative_to(root), text), text)
+    qualifier.source_inventory.finalize(qualifier)
     accepted = json.loads(raptor_schema.accept(json.dumps(qualifier.rows)))
     for error in accepted["errors"]:
         qualifier.map_error(error)

@@ -58,5 +58,9 @@ no import skill.
 - `pip install . && python -m pytest -q tests/` passes.
 - Consumer run: exit `1`; every emitted row has every non-nullable column non-null
   (only `supersedes` and `superseded_by` are nullable, as specified in B.4);
-  `--dump` equals the index; `consumer-run.md` exists with its tables.
+  duplicate IDs are invalid and a duplicate-bearing index is rejected before
+  any SQLite write. For duplicate-free canonical input, a fresh load or replay
+  of that input has a dump equal to its records; no first/last-winner projection.
+  `consumer-run.md` exists with its tables. A consumer run with duplicates
+  reports the rejection rather than claiming a successful database round trip.
 - `rg -Pni --hidden --glob '!.git/**' --glob '!.sc/**' '(?<![[:alnum:]_])[p]3' .` prints nothing.
