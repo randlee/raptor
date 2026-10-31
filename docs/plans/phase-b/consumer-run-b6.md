@@ -1,6 +1,6 @@
 # Consumer run B.6 — comparison incomplete
 
-Extractor and handoff SHA: `0d98a89b0a4dfb2392702c322ef9cd91ce6b5d75`.
+Extractor and handoff SHA: `226910fb99f090fb9f5b3c8e7d15c52103b47bcd`.
 Baseline extractor: `0fd132c50c7fc4f9136e0cea67bdf39865b64025`.
 Document commit: `6be9d2d5eae8d34499785c267cf4d5ae9b3b0236`.
 The exact source archive used a fresh environment, extension build, and target.
@@ -63,20 +63,20 @@ All 979 changed full summary groups are verified against their complete
 constituent diagnostic objects, counts, locations, and section attribution.
 A source-code explanation does not itself establish permitted-cause equivalence.
 
-At `0886563`, against `d8f1e1174c3f5529e2c6bef999f382bbf6211b47`, every row is
-identical in exact order, including duplicates. Of its diagnostic occurrences,
-1470 remain identical, 1637 gain only section attribution, 15 gain section plus
-inventory wording, and 2 change only inventory wording. Three newly recognized
-structural headings produce 22 additional diagnostics and replace one file-level
-MISSING_ID report.
+At `0886563`, accepted rows equal `d8f1e11` exactly. Diagnostic differences are
+1637 section-only, 15 section plus wording, 2 wording-only, and 1470 unchanged;
+three newly recognized headings add 22 reports and replace one MISSING_ID.
 From `0886563` to `44c75e6`, 310 heading diagnostics change only message and allowed
 values: Rust InvalidId replaces Python prefix choices. Their group merges into
 an existing group of 2, yielding 312 and reducing 556 groups to 555.
 From `44c75e6` to `1caac05`, all output objects match except generation time.
-From `1caac05` to this handoff, 1273 MISSING_FIELD columns change from 1 to 4,
-verified at the heading identifier token; six also change sort position. All
-other diagnostic fields, rows, groups, and dumps match. Splitter offsets replace
-empty-value location guessing. Full differential proof is retained.
+From `1caac05` to `0d98a89`, 1273 MISSING_FIELD columns move from 1 to 4 at the
+identifier token; six also reorder. Other fields, rows, groups, and dumps match.
+From `0d98a89` to this handoff, all consumer output objects match except time.
+Separate API proof: all 24 object schemas require every canonical key and reject
+unknown keys recursively; nullability is unchanged. Wrong-table root IDs reject
+with InvalidId at /id; scalar descriptions delegate validation to Rust.
+SQL emission is byte-identical. These changes do not alter pinned corpus output.
 
 A separate derived corpus renders all 354 accepted occurrences into distinct
 ordinal directories. All 354 documents qualify without source diagnostics;
@@ -97,4 +97,4 @@ Acceptance remains incomplete: 175 record occurrences lack approved cause
 attribution, changed diagnostic groups need contract acceptance, and the literal
 Value guard remains unresolved. No additional cause taxonomy is waived.
 Evidence summary SHA-256:
-`3a291daee1062e902f8384105c9981255b8d97962fc634eccf866879a60b71f5`.
+`96ea564bf6b79a0e47163337f928a3e139debf07cbc7c4d1f4d283307b38e222`.
