@@ -2,6 +2,7 @@
 name = "raptor-schema"
 version.workspace = true
 edition.workspace = true
+rust-version.workspace = true
 
 [lib]
 name = "raptor_schema"
@@ -14,8 +15,8 @@ python = ["dep:pyo3"]
 serde.workspace = true
 serde_json.workspace = true
 schemars.workspace = true
-pyo3 = { version = "0.23", features = ["abi3-py311"], optional = true }
+pyo3 = { workspace = true, optional = true }
 
 [dev-dependencies]
-rusqlite = { version = "0.32", features = ["bundled"] }
-jsonschema = { version = "0.23", default-features = false }
+rusqlite.workspace = true
+jsonschema.workspace = true

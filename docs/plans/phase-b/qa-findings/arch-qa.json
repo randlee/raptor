@@ -1,0 +1,440 @@
+{
+  "schema_version": 1,
+  "phase": "b",
+  "reviewed_commit": "fb7ea189db3ca76d6963fec694978b6314e48917",
+  "filing_reviewer": "arch-qa",
+  "finding_count": 15,
+  "findings": [
+    {
+      "id": "ARCH-001",
+      "filing_reviewer": "arch-qa",
+      "severity": "blocking",
+      "owner": "consumer",
+      "original_finding": "The B.6 Exact Targets name a new `docs/plans/phase-b/consumer-run-b6.md` (lines 46, 312-319), and that file does not exist in the snapshot. B.6 acceptance requires rendered-file counts, row counts 537/51 and 532/51, and a per-record and per-group delta attributed to a cause. The only consumer-run artifact is the B.5-era `docs/plans/phase-b/consumer-run.md`. It is stale: its B.4 column is 'not recorded' (lines 31-39), it has no rendered-versus-hand-written split, and it has no delta attribution. The sprint front matter is still `status: draft` (sprint-b-6:4). The gate artifact is open.",
+      "original_acceptance_criterion": "Add `consumer-run-b6.md` with every item B.6 Acceptance requires, within its 100-line ceiling, and set the sprint status only after the evidence exists. Alternatively record the deferral in the plan as a user ruling.",
+      "original_evidence_refs": [
+        "docs/plans/phase-b/sprint-b-6-rebuild-to-spec.md:46"
+      ],
+      "source_report": "arch-qa.md",
+      "duplicates_or_overlaps": [
+        "ATM-QA-001"
+      ],
+      "status": "pending",
+      "current_evidence": [],
+      "disposition_note": "No filing-reviewer closure confirmation received.",
+      "verification": null,
+      "user_ruling": {
+        "date": "2026-10-30",
+        "source": "User yes/yes response to two explicit acceptance questions",
+        "decision": "Approved narrow Value exception and audited B6 proof replacing missing historical per-group reports, including documented additional parser corrections. Strict duplicate rejection retained.",
+        "verification_status": "Awaiting filing reviewer and quality-manager verification; not automatically closed."
+      }
+    },
+    {
+      "id": "ARCH-002",
+      "filing_reviewer": "arch-qa",
+      "severity": "blocking",
+      "owner": "crap",
+      "original_finding": "The phase plan's own gate, 'Ceilings hold across the phase' (lines 188-190, 'Line ceilings are hard limits' at 276), is still the original set: `extract.py` 200, `render.py` 60, `load_sqlite.py` 50, crate `src/` 700. Under that gate `crates/raptor-schema/src` is 1,227 lines (lib 75, schema 460, accept 389, emit 171, inventory 132) against 700, and `scripts/load_sqlite.py` is 60 against 50. The plan amendments B.6 requires (sprint-b-6:326-345) were not applied: the ceilings paragraph is unchanged and the Sprints table (lines 196-200) has no B.6 row. B.6 is mentioned only in prose at lines 202-206. The plan's internal gate governs, so it is not closed. Line counts here are raw line counts including blank lines.",
+      "original_acceptance_criterion": "Either bring the code under the plan's ceilings, or amend the plan's ceilings paragraph and sprints table through the operator and a recorded ruling, as sprint-b-6 lines 326-345 specify. Size increases are not authorized in this review.",
+      "original_evidence_refs": [
+        "docs/plans/phase-b/phase-b-plan.md:188"
+      ],
+      "source_report": "arch-qa.md",
+      "duplicates_or_overlaps": [
+        "ATM-QA-005",
+        "ATM-QA-006"
+      ],
+      "status": "fixed-verified",
+      "current_evidence": [
+        "User explicitly clarified that no crate limit was approved; whole-crate caps removed from both plans, existing per-file caps unchanged. Filing verification pending.",
+        "Round6 filing owner verified user-directed duplicate rejection/per-file policy; no regression."
+      ],
+      "disposition_note": "Verified against explicit user clarification, not approval of an unapproved aggregate cap or last-winner projection.",
+      "verification": {
+        "commit": "878b19c4f2faa012e3af770fdb8c314fdc4aecba",
+        "task": "RAP-B-POLICY-FIX-VERIFY-20261030-6",
+        "closed_by": "quality-mgr",
+        "filing_reviewer": "arch-qa",
+        "report": "https://github.com/randlee/raptor/pull/84#issuecomment-6539808771",
+        "source_message": "01M688GP075146FCYR0S1RDXH3"
+      }
+    },
+    {
+      "id": "ARCH-003",
+      "filing_reviewer": "arch-qa",
+      "severity": "important",
+      "owner": "arap",
+      "original_finding": "The B.6 ceilings (sprint-b-6:236-243) are exceeded. The crate `src/` totals 1,227 lines against 1,000. `schema.rs` has 460 lines against a 450 per-file limit. `crates/raptor-schema/tests/schema.rs` has 505 lines against the 400 test ceiling. This is known and reported, with no authorized increase. RULE-003 itself (no file over 1000 non-test lines) is not violated: the largest file is 460 lines.",
+      "original_acceptance_criterion": "Stop-and-report per B.6. Reduce below the ceilings by removing duplication (see ARCH-005, ARCH-007) rather than by packing lines (ARCH-009).",
+      "original_evidence_refs": [
+        "crates/raptor-schema/src/schema.rs:460"
+      ],
+      "source_report": "arch-qa.md",
+      "duplicates_or_overlaps": [
+        "ATM-QA-002",
+        "ATM-QA-003"
+      ],
+      "status": "fixed-verified",
+      "current_evidence": [
+        "User explicitly clarified that no crate limit was approved; whole-crate caps removed from both plans, existing per-file caps unchanged. Filing verification pending.",
+        "Round6 filing owner verified user-directed duplicate rejection/per-file policy; no regression."
+      ],
+      "disposition_note": "Verified against explicit user clarification, not approval of an unapproved aggregate cap or last-winner projection.",
+      "verification": {
+        "commit": "878b19c4f2faa012e3af770fdb8c314fdc4aecba",
+        "task": "RAP-B-POLICY-FIX-VERIFY-20261030-6",
+        "closed_by": "quality-mgr",
+        "filing_reviewer": "arch-qa",
+        "report": "https://github.com/randlee/raptor/pull/84#issuecomment-6539808771",
+        "source_message": "01M688GP075146FCYR0S1RDXH3"
+      }
+    },
+    {
+      "id": "ARCH-004",
+      "filing_reviewer": "arch-qa",
+      "severity": "important",
+      "owner": "arap",
+      "original_finding": "Table identity is defined three times. `ErrorTable {Req, Dec}` (accept.rs:64-71) mirrors `Table {Req, Dec, Both}` (schema.rs:315-320) and is bridged by `From<ErrorTable> for Table` (accept.rs:72-79). `emit::TABLES` (emit.rs:7-10) maps wire names to `ErrorTable`. `FieldMeta.table` repeats the names as strings (emit.rs:91-95). The `table_count` const-assert at emit.rs:11-17 is a hand-rolled guard against drift between the first two.",
+      "original_acceptance_criterion": "Keep one table enum in `schema.rs`, with `Both` marking a field scope only, or split `FieldScope` from `TableId`. Derive the wire name, the table list and the field-meta string from it, and drop `table_count`.",
+      "original_evidence_refs": [
+        "crates/raptor-schema/src/accept.rs:64"
+      ],
+      "source_report": "arch-qa.md",
+      "duplicates_or_overlaps": [
+        "RBP-F008",
+        "RBQA-F008"
+      ],
+      "status": "fixed-verified",
+      "current_evidence": [
+        "Current candidate refactor; exact committed head and filing-reviewer closure pending.",
+        "Developer reports: raptor-rust-qa-api-migration.md, raptor-python-qa-fixes.md, raptor-qa-tooling-report.txt.",
+        "Round-5 filing reviewer confirmed closure at1563b7e;7/7 fixed with no regressions."
+      ],
+      "disposition_note": "Filing reviewer verified the original criterion and quality-mgr recorded closure. Overall phase acceptance and unrelated user gates remain open.",
+      "verification": {
+        "commit": "1563b7e24a2631f532b22444644e2b9aeac70a98",
+        "task": "RAP-B-PHASE-FIX-VERIFY-20261030-5",
+        "closed_by": "quality-mgr",
+        "filing_reviewer": "arch-qa",
+        "report": "https://github.com/randlee/raptor/pull/84#issuecomment-6539174825",
+        "source_message": "01M684F1C24FKBZH3BVQ0102DH"
+      }
+    },
+    {
+      "id": "ARCH-005",
+      "filing_reviewer": "arch-qa",
+      "severity": "important",
+      "owner": "arap",
+      "original_finding": "The schema crate's modules form a dependency cycle. `schema.rs` imports `accept::{Error, ErrorCategory}` (schema.rs:1), so the base definition layer depends on the ingress layer. `accept.rs` imports `emit`, `schema` and `inventory` (accept.rs:1, 170, 387). `emit.rs` imports `accept::ErrorTable` (emit.rs:1). `inventory.rs` imports `accept` and `schema` (inventory.rs:1-4). The layering is not schema -> emit -> accept -> inventory, and `validate_scalar` in the schema layer returns the ingress error type. Architecture.md describes the schema crate as the single definition from which everything else is derived.",
+      "original_acceptance_criterion": "Move `Error`, `ErrorCategory` and the table id into a leaf `error.rs` or `schema.rs`. Then schema depends on nothing, emit on schema, accept on schema, emit and error, and inventory on accept.",
+      "original_evidence_refs": [
+        "crates/raptor-schema/src/schema.rs:1"
+      ],
+      "source_report": "arch-qa.md",
+      "duplicates_or_overlaps": [],
+      "status": "fixed-verified",
+      "current_evidence": [
+        "Current candidate refactor; exact committed head and filing-reviewer closure pending.",
+        "Developer reports: raptor-rust-qa-api-migration.md, raptor-python-qa-fixes.md, raptor-qa-tooling-report.txt.",
+        "Round-3 filing-owner verification at1caac05; no regression reported."
+      ],
+      "disposition_note": "Filing reviewer confirmed closure on exact pinned candidate; quality-mgr recorded this closure. Other findings remain independent.",
+      "verification": {
+        "commit": "1caac05149baabf1f75a8982a683a4fb86dc7e0e",
+        "task": "RAP-B-PHASE-FIX-VERIFY-20261030-3",
+        "closed_by": "quality-mgr",
+        "filing_reviewer": "arch-qa",
+        "report": "https://github.com/randlee/raptor/pull/84#issuecomment-6538783122",
+        "closure_artifact": "ATM share: raptor/qa-round3-closures-1caac05.json"
+      }
+    },
+    {
+      "id": "ARCH-006",
+      "filing_reviewer": "arch-qa",
+      "severity": "important",
+      "owner": "arap",
+      "original_finding": "The record is defined twice with nothing enforcing agreement. The row structs (schema.rs:111-313) and `FIELDS` (schema.rs:396-460) must be edited together. No test asserts that the struct properties in the emitted JSON Schema equal the FIELDS names. Tests only compare `field_table()` to `x-raptor-fields` (crates/raptor-schema/tests/schema.rs:437, tests/test_schema.py:17), which both come from FIELDS. ADR-RAP-0004 (docs/adr/adr-rap-product.md:186) and architecture.md say a field is named once. Drift between struct and FIELDS would surface only as qualifier or loader misbehaviour.",
+      "original_acceptance_criterion": "Add a crate test that the property names of each emitted schema, flattened and nested, match FIELDS (names, required, nullable) exactly. Add a compile-time or `build.rs` link if feasible.",
+      "original_evidence_refs": [
+        "crates/raptor-schema/src/schema.rs:396"
+      ],
+      "source_report": "arch-qa.md",
+      "duplicates_or_overlaps": [],
+      "status": "fixed-verified",
+      "current_evidence": [
+        "Current candidate refactor; exact committed head and filing-reviewer closure pending.",
+        "Developer reports: raptor-rust-qa-api-migration.md, raptor-python-qa-fixes.md, raptor-qa-tooling-report.txt."
+      ],
+      "disposition_note": "Verified fixed by filing reviewer and recorded by quality-mgr in round2.",
+      "verification": {
+        "reviewer": "arch-qa",
+        "quality_manager": "quality-mgr",
+        "round": 2,
+        "commit": "08865633afd601e7973514c974e82dd6f3fddfd6",
+        "report": "https://github.com/randlee/raptor/pull/84",
+        "closure_artifact": "qa-round2-closures-0886563.json"
+      }
+    },
+    {
+      "id": "ARCH-007",
+      "filing_reviewer": "arch-qa",
+      "severity": "important",
+      "owner": "arap",
+      "original_finding": "Scalar kinds are stringly typed and listed in several places. `scalar!` registers `stringify!($name)` (schema.rs:18, 24-26). `validate_scalar` re-matches on 'Id'/'Version'/'Date' (schema.rs:30, 38, 45) and again for categories (schema.rs:67-72). `accept::walk` hardcodes `matches!(name, \"Id\" | \"Version\" | \"Date\")` (accept.rs:194). The pyo3 entry point passes arbitrary text (lib.rs:56). Adding a scalar requires edits in four places, and a typo falls through to the `UnknownVariant` arm.",
+      "original_acceptance_criterion": "Introduce a closed `ScalarKind` enum used by the macro, `validate_scalar`, `walk` and the pyo3 boundary (parse once at the boundary). Drive the dispatch and category from it.",
+      "original_evidence_refs": [
+        "crates/raptor-schema/src/schema.rs:30"
+      ],
+      "source_report": "arch-qa.md",
+      "duplicates_or_overlaps": [
+        "RBP-F001",
+        "RBQA-F009"
+      ],
+      "status": "fixed-verified",
+      "current_evidence": [
+        "Current candidate refactor; exact committed head and filing-reviewer closure pending.",
+        "Developer reports: raptor-rust-qa-api-migration.md, raptor-python-qa-fixes.md, raptor-qa-tooling-report.txt."
+      ],
+      "disposition_note": "Verified fixed by filing reviewer and recorded by quality-mgr in round2.",
+      "verification": {
+        "reviewer": "arch-qa",
+        "quality_manager": "quality-mgr",
+        "round": 2,
+        "commit": "08865633afd601e7973514c974e82dd6f3fddfd6",
+        "report": "https://github.com/randlee/raptor/pull/84",
+        "closure_artifact": "qa-round2-closures-0886563.json"
+      }
+    },
+    {
+      "id": "ARCH-008",
+      "filing_reviewer": "arch-qa",
+      "severity": "important",
+      "owner": "python_qa_fixes",
+      "original_finding": "Schema vocabulary is held in Python and the guard that should catch it is weakened. The architecture test exempts an allowlist (`structural`: id, title, text, modal, checked, note, href, name, groups, requirements, decisions) from the 'no schema literal' check (test_extract.py:93-95). Those include real schema field and table names. The literals then appear in the scripts: qualify.py:132 (`checked`), 143 (`text`, `href`, `note`), 148 (`id`), 162 and 163 (`text`, `groups`, `properties`), 168 (`name`), and 157-164 (nested shape field names). render.py:15 and 29 hardcode the table names `decisions`/`requirements` and the template mapping, while load_sqlite.py derives them. qualify.py:91 infers modal labels by `.split()[-1]` of a label, which is hidden knowledge of label shape. extract.py:19 re-states the id grammar (`[A-Z]+-[A-Z]{2,5}-\\d{4}`) that `validate_scalar` owns. architecture.md and B.6 say Python holds no field names and no second scalar policy.",
+      "original_acceptance_criterion": "Narrow the allowlist to splitter-only keys (path, header, records, line, column, fields, sections, prose, labels, items, value). Take nested shape keys and table names from `json_schema()`. Derive the id pattern from the crate or drop it for `validate_scalar`. Replace the `split()[-1]` modal inference with schema data.",
+      "original_evidence_refs": [
+        "tests/test_extract.py:93"
+      ],
+      "source_report": "arch-qa.md",
+      "duplicates_or_overlaps": [
+        "ATM-QA-013",
+        "RBQA-F007"
+      ],
+      "status": "fixed-verified",
+      "current_evidence": [
+        "Current candidate refactor; exact committed head and filing-reviewer closure pending.",
+        "Developer reports: raptor-rust-qa-api-migration.md, raptor-python-qa-fixes.md, raptor-qa-tooling-report.txt."
+      ],
+      "disposition_note": "Verified fixed by filing reviewer and recorded by quality-mgr in round2.",
+      "verification": {
+        "reviewer": "arch-qa",
+        "quality_manager": "quality-mgr",
+        "round": 2,
+        "commit": "08865633afd601e7973514c974e82dd6f3fddfd6",
+        "report": "https://github.com/randlee/raptor/pull/84",
+        "closure_artifact": "qa-round2-closures-0886563.json"
+      }
+    },
+    {
+      "id": "ARCH-009",
+      "filing_reviewer": "arch-qa",
+      "severity": "important",
+      "owner": "python_qa_fixes",
+      "original_finding": "The loader imports `empty` and `resolve` from `qualify` (load_sqlite.py:12-14), coupling the SQLite loader to the Markdown qualifier module and its Qualifier class. The shared helpers are schema-walking utilities, not qualification. The loader also regenerates and re-parses `json_schema()` once per table (load_sqlite.py:24) and once per dumped row (load_sqlite.py:39).",
+      "original_acceptance_criterion": "Move `resolve` and `empty` into a small schema-helper module, such as `schema_json.py`, that qualify and load both import. Load the schema once per run.",
+      "original_evidence_refs": [
+        "scripts/load_sqlite.py:12"
+      ],
+      "source_report": "arch-qa.md",
+      "duplicates_or_overlaps": [
+        "RBQA-F011"
+      ],
+      "status": "fixed-verified",
+      "current_evidence": [
+        "Current candidate refactor; exact committed head and filing-reviewer closure pending.",
+        "Developer reports: raptor-rust-qa-api-migration.md, raptor-python-qa-fixes.md, raptor-qa-tooling-report.txt."
+      ],
+      "disposition_note": "Verified fixed by filing reviewer and recorded by quality-mgr in round2.",
+      "verification": {
+        "reviewer": "arch-qa",
+        "quality_manager": "quality-mgr",
+        "round": 2,
+        "commit": "08865633afd601e7973514c974e82dd6f3fddfd6",
+        "report": "https://github.com/randlee/raptor/pull/84",
+        "closure_artifact": "qa-round2-closures-0886563.json"
+      }
+    },
+    {
+      "id": "ARCH-010",
+      "filing_reviewer": "arch-qa",
+      "severity": "important",
+      "owner": "python_qa_fixes",
+      "original_finding": "`rustfmt.toml` sets `fn_call_width = 100` (default 60), which lets `cargo fmt` keep long call expressions on one line. B.6 requires 'cargo fmt output, zero skips, no line over 100' and says a sprint 'does not pack lines'. The Python scripts are packed: lines over 100 characters number 31 in qualify.py, 14 in extract.py, 4 in load_sqlite.py, 2 in markdown_content.py and 1 in render.py. extract.py:130 is over 200 characters, and qualify.py:73-75, 95, 96, 141 and 174 are well over 140. Several scripts sit just under their ceilings (qualify.py 246 of 250, extract.py 137 of 150). The configuration change and the packing look like ceiling-fitting that the plan forbids.",
+      "original_acceptance_criterion": "Remove the rustfmt override unless an ADR or lead ruling authorizes it. Wrap the Python to 100 columns, accept that the ceilings are exceeded, and report that rather than pack.",
+      "original_evidence_refs": [
+        "rustfmt.toml:1"
+      ],
+      "source_report": "arch-qa.md",
+      "duplicates_or_overlaps": [
+        "ATM-QA-019",
+        "QA-002"
+      ],
+      "status": "fixed-verified",
+      "current_evidence": [
+        "Current candidate refactor; exact committed head and filing-reviewer closure pending.",
+        "Developer reports: raptor-rust-qa-api-migration.md, raptor-python-qa-fixes.md, raptor-qa-tooling-report.txt."
+      ],
+      "disposition_note": "Verified fixed by filing reviewer and recorded by quality-mgr in round2.",
+      "verification": {
+        "reviewer": "arch-qa",
+        "quality_manager": "quality-mgr",
+        "round": 2,
+        "commit": "08865633afd601e7973514c974e82dd6f3fddfd6",
+        "report": "https://github.com/randlee/raptor/pull/84",
+        "closure_artifact": "qa-round2-closures-0886563.json"
+      }
+    },
+    {
+      "id": "ARCH-011",
+      "filing_reviewer": "arch-qa",
+      "severity": "important",
+      "owner": "python_qa_fixes",
+      "original_finding": "`Qualifier` carries its per-file and per-record state as attributes assigned outside `__init__`: `file`, `lines`, `record`, `bad` (qualify.py:189-190), `locations` (194), `table` (195) and `schema` (199). `issue`, `match`, `scalar`, `items` and `content` read them (e.g. qualify.py:70-76, 103, 145, 163). The methods are order-dependent. `issue` cannot run before `qualify`, and `map_error` rebinds `file`, `lines` and `record` by side effect (qualify.py:236). This is temporal coupling inside the one qualifier module, and it blocks decomposing the module.",
+      "original_acceptance_criterion": "Introduce a per-file or per-record context object passed explicitly, with `Qualifier` holding only the schema, aliases and accumulated results.",
+      "original_evidence_refs": [
+        "scripts/qualify.py:188"
+      ],
+      "source_report": "arch-qa.md",
+      "duplicates_or_overlaps": [],
+      "status": "fixed-verified",
+      "current_evidence": [
+        "Current candidate refactor; exact committed head and filing-reviewer closure pending.",
+        "Developer reports: raptor-rust-qa-api-migration.md, raptor-python-qa-fixes.md, raptor-qa-tooling-report.txt."
+      ],
+      "disposition_note": "Verified fixed by filing reviewer and recorded by quality-mgr in round2.",
+      "verification": {
+        "reviewer": "arch-qa",
+        "quality_manager": "quality-mgr",
+        "round": 2,
+        "commit": "08865633afd601e7973514c974e82dd6f3fddfd6",
+        "report": "https://github.com/randlee/raptor/pull/84",
+        "closure_artifact": "qa-round2-closures-0886563.json"
+      }
+    },
+    {
+      "id": "ARCH-012",
+      "filing_reviewer": "arch-qa",
+      "severity": "minor",
+      "owner": "arap",
+      "original_finding": "`accept` is about 110 lines (accept.rs:280-389) and `walk` is about 98 lines (accept.rs:181-278), with nested loops and let-chains. `accept` regenerates and serialises the full JSON Schema on every call (accept.rs:318) and then decodes each record again with serde, so a record is validated twice. The ad hoc JSON-Schema interpreter in `walk` (the $ref, anyOf, type, enum, properties and items subset) is a second validator beside schemars and serde.",
+      "original_acceptance_criterion": "Extract a per-record `check_record` and a `decode_record`, and build the schema once, for example in a `OnceLock`. Document the schema subset `walk` supports.",
+      "original_evidence_refs": [
+        "crates/raptor-schema/src/accept.rs:280"
+      ],
+      "source_report": "arch-qa.md",
+      "duplicates_or_overlaps": [
+        "RBP-F004"
+      ],
+      "status": "fixed-verified",
+      "current_evidence": [
+        "Current candidate refactor; exact committed head and filing-reviewer closure pending.",
+        "Developer reports: raptor-rust-qa-api-migration.md, raptor-python-qa-fixes.md, raptor-qa-tooling-report.txt.",
+        "Round-3 filing-owner verification at1caac05; no regression reported."
+      ],
+      "disposition_note": "Filing reviewer confirmed closure on exact pinned candidate; quality-mgr recorded this closure. Other findings remain independent.",
+      "verification": {
+        "commit": "1caac05149baabf1f75a8982a683a4fb86dc7e0e",
+        "task": "RAP-B-PHASE-FIX-VERIFY-20261030-3",
+        "closed_by": "quality-mgr",
+        "filing_reviewer": "arch-qa",
+        "report": "https://github.com/randlee/raptor/pull/84#issuecomment-6538783122",
+        "closure_artifact": "ATM share: raptor/qa-round3-closures-1caac05.json"
+      }
+    },
+    {
+      "id": "ARCH-013",
+      "filing_reviewer": "arch-qa",
+      "severity": "minor",
+      "owner": "python_qa_fixes",
+      "original_finding": "`rust-version = \"1.85\"` is likely understated. The code uses let-chains under edition 2024 (accept.rs:194, 212, 240, 248, 348; inventory.rs:79) and `is_multiple_of` (schema.rs:47). These need a newer toolchain than 1.85, so the declared MSRV is not what the build requires.",
+      "original_acceptance_criterion": "Verify with `cargo +1.85 check` and raise `rust-version` to the real minimum, or remove the newer constructs.",
+      "original_evidence_refs": [
+        "Cargo.toml:16"
+      ],
+      "source_report": "arch-qa.md",
+      "duplicates_or_overlaps": [],
+      "status": "fixed-verified",
+      "current_evidence": [
+        "Current candidate refactor; exact committed head and filing-reviewer closure pending.",
+        "Developer reports: raptor-rust-qa-api-migration.md, raptor-python-qa-fixes.md, raptor-qa-tooling-report.txt.",
+        "Round-3 filing-owner verification at1caac05; no regression reported."
+      ],
+      "disposition_note": "Filing reviewer confirmed closure on exact pinned candidate; quality-mgr recorded this closure. Other findings remain independent.",
+      "verification": {
+        "commit": "1caac05149baabf1f75a8982a683a4fb86dc7e0e",
+        "task": "RAP-B-PHASE-FIX-VERIFY-20261030-3",
+        "closed_by": "quality-mgr",
+        "filing_reviewer": "arch-qa",
+        "report": "https://github.com/randlee/raptor/pull/84#issuecomment-6538783122",
+        "closure_artifact": "ATM share: raptor/qa-round3-closures-1caac05.json"
+      }
+    },
+    {
+      "id": "ARCH-014",
+      "filing_reviewer": "arch-qa",
+      "severity": "minor",
+      "owner": "arap",
+      "original_finding": "`pyo3` (line 17), `rusqlite` (line 20) and `jsonschema` (line 21) pin versions inline, while the other third-party dependencies come from `[workspace.dependencies]`. Dependency versions are split between two places.",
+      "original_acceptance_criterion": "Declare them in the root `[workspace.dependencies]` and reference them with `.workspace = true`.",
+      "original_evidence_refs": [
+        "crates/raptor-schema/Cargo.toml:17"
+      ],
+      "source_report": "arch-qa.md",
+      "duplicates_or_overlaps": [],
+      "status": "fixed-verified",
+      "current_evidence": [
+        "Current candidate refactor; exact committed head and filing-reviewer closure pending.",
+        "Developer reports: raptor-rust-qa-api-migration.md, raptor-python-qa-fixes.md, raptor-qa-tooling-report.txt."
+      ],
+      "disposition_note": "Verified fixed by filing reviewer and recorded by quality-mgr in round2.",
+      "verification": {
+        "reviewer": "arch-qa",
+        "quality_manager": "quality-mgr",
+        "round": 2,
+        "commit": "08865633afd601e7973514c974e82dd6f3fddfd6",
+        "report": "https://github.com/randlee/raptor/pull/84",
+        "closure_artifact": "qa-round2-closures-0886563.json"
+      }
+    },
+    {
+      "id": "ARCH-015",
+      "filing_reviewer": "arch-qa",
+      "severity": "minor",
+      "owner": "arap",
+      "original_finding": "A design note ('record_position is set on nearly every error...') sits as stray comment lines between struct fields (accept.rs:44-46). The comment on the 120-byte size also asserts a clippy `result_large_err` threshold that nothing checks. lib.rs:5 puts `#[doc(inline)]` on a single re-export, which looks accidental.",
+      "original_acceptance_criterion": "Move the rationale into the type's doc comment, or drop it. Remove the stray `#[doc(inline)]` or apply it deliberately.",
+      "original_evidence_refs": [
+        "crates/raptor-schema/src/accept.rs:44"
+      ],
+      "source_report": "arch-qa.md",
+      "duplicates_or_overlaps": [
+        "RBP-F012"
+      ],
+      "status": "fixed-verified",
+      "current_evidence": [
+        "Current candidate refactor; exact committed head and filing-reviewer closure pending.",
+        "Developer reports: raptor-rust-qa-api-migration.md, raptor-python-qa-fixes.md, raptor-qa-tooling-report.txt."
+      ],
+      "disposition_note": "Verified fixed by filing reviewer and recorded by quality-mgr in round2.",
+      "verification": {
+        "reviewer": "arch-qa",
+        "quality_manager": "quality-mgr",
+        "round": 2,
+        "commit": "08865633afd601e7973514c974e82dd6f3fddfd6",
+        "report": "https://github.com/randlee/raptor/pull/84",
+        "closure_artifact": "qa-round2-closures-0886563.json"
+      }
+    }
+  ]
+}

@@ -1,0 +1,820 @@
+{
+  "schema_version": 1,
+  "phase": "b",
+  "reviewed_commit": "fb7ea189db3ca76d6963fec694978b6314e48917",
+  "filing_reviewer": "req-qa",
+  "finding_count": 24,
+  "findings": [
+    {
+      "id": "ATM-QA-001",
+      "filing_reviewer": "req-qa",
+      "severity": "blocking",
+      "owner": "consumer",
+      "original_finding": "consumer-run-b6.md is absent and no RAP-B-BASELINE-1 bundle is checked in. Required evidence is missing: index and dump row counts (537/51, 532/51), rule counts, rendered-file counts with zero diagnostics, and the per-record and per-group delta with attribution. The consumer-run.md B.5 report cannot substitute.",
+      "original_acceptance_criterion": "Produce consumer-run-b6.md (100 lines or fewer) with full-object comparison against the pinned baseline and an attributed delta for every difference. Make the baseline reviewable. Unexplained drift fails the sprint.",
+      "original_evidence_refs": [
+        "docs/plans/phase-b/"
+      ],
+      "source_report": "req-qa.md",
+      "duplicates_or_overlaps": [
+        "ARCH-001"
+      ],
+      "status": "pending",
+      "current_evidence": [],
+      "disposition_note": "No filing-reviewer closure confirmation received.",
+      "verification": null,
+      "acceptance_source_refs": [
+        "docs/plans/phase-b/sprint-b-6-rebuild-to-spec.md:46",
+        "docs/plans/phase-b/sprint-b-6-rebuild-to-spec.md:270-286",
+        "docs/plans/phase-b/sprint-b-6-rebuild-to-spec.md:312-319"
+      ],
+      "user_ruling": {
+        "date": "2026-10-30",
+        "source": "User yes/yes response to two explicit acceptance questions",
+        "decision": "Approved narrow Value exception and audited B6 proof replacing missing historical per-group reports, including documented additional parser corrections. Strict duplicate rejection retained.",
+        "verification_status": "Awaiting filing reviewer and quality-manager verification; not automatically closed."
+      }
+    },
+    {
+      "id": "ATM-QA-002",
+      "filing_reviewer": "req-qa",
+      "severity": "blocking",
+      "owner": "arap",
+      "original_finding": "Crate src/ totals 75+460+171+389+132 = 1,227 lines against the 1,000 ceiling. schema.rs (460) exceeds the 450 per-file limit. The sprint says a sprint that needs more must stop and report; it must not pack lines. No size increase is authorized.",
+      "original_acceptance_criterion": "Reduce to within the ceilings without packing lines, or obtain an operator decision recorded in the plan. Do not widen rustfmt.toml to compensate.",
+      "original_evidence_refs": [
+        "crates/raptor-schema/src/lib.rs:75",
+        "crates/raptor-schema/src/schema.rs:460",
+        "crates/raptor-schema/src/emit.rs:171",
+        "crates/raptor-schema/src/accept.rs:389",
+        "crates/raptor-schema/src/inventory.rs:132"
+      ],
+      "source_report": "req-qa.md",
+      "duplicates_or_overlaps": [
+        "ARCH-003",
+        "ATM-QA-003"
+      ],
+      "status": "fixed-verified",
+      "current_evidence": [
+        "User explicitly clarified that no crate limit was approved; whole-crate caps removed from both plans, existing per-file caps unchanged. Filing verification pending.",
+        "Round6 filing owner verified user-directed duplicate rejection/per-file policy; no regression."
+      ],
+      "disposition_note": "Verified against explicit user clarification, not approval of an unapproved aggregate cap or last-winner projection.",
+      "verification": {
+        "commit": "878b19c4f2faa012e3af770fdb8c314fdc4aecba",
+        "task": "RAP-B-POLICY-FIX-VERIFY-20261030-6",
+        "closed_by": "quality-mgr",
+        "filing_reviewer": "req-qa",
+        "report": "https://github.com/randlee/raptor/pull/84#issuecomment-6539808771",
+        "source_message": "01M688GP075146FCYR0S1RDXH3"
+      },
+      "acceptance_source_refs": [
+        "docs/plans/phase-b/sprint-b-6-rebuild-to-spec.md:236-243",
+        "docs/plans/phase-b/sprint-b-6-rebuild-to-spec.md:320-321"
+      ]
+    },
+    {
+      "id": "ATM-QA-003",
+      "filing_reviewer": "req-qa",
+      "severity": "blocking",
+      "owner": "arap",
+      "original_finding": "Crate tests are 505 lines against the 400 ceiling.",
+      "original_acceptance_criterion": "Cut to 400 or get a recorded operator ruling. Do not authorize or add size.",
+      "original_evidence_refs": [
+        "crates/raptor-schema/tests/schema.rs:505"
+      ],
+      "source_report": "req-qa.md",
+      "duplicates_or_overlaps": [
+        "ARCH-003",
+        "ATM-QA-002"
+      ],
+      "status": "fixed-verified",
+      "current_evidence": [
+        "User explicitly clarified that no crate limit was approved; whole-crate caps removed from both plans, existing per-file caps unchanged. Filing verification pending.",
+        "Round6 filing owner verified user-directed duplicate rejection/per-file policy; no regression."
+      ],
+      "disposition_note": "Verified against explicit user clarification, not approval of an unapproved aggregate cap or last-winner projection.",
+      "verification": {
+        "commit": "878b19c4f2faa012e3af770fdb8c314fdc4aecba",
+        "task": "RAP-B-POLICY-FIX-VERIFY-20261030-6",
+        "closed_by": "quality-mgr",
+        "filing_reviewer": "req-qa",
+        "report": "https://github.com/randlee/raptor/pull/84#issuecomment-6539808771",
+        "source_message": "01M688GP075146FCYR0S1RDXH3"
+      },
+      "acceptance_source_refs": [
+        "docs/plans/phase-b/sprint-b-6-rebuild-to-spec.md:240"
+      ]
+    },
+    {
+      "id": "ATM-QA-004",
+      "filing_reviewer": "req-qa",
+      "severity": "blocking",
+      "owner": "arap",
+      "original_finding": "Generated DDL has no CHECK constraints from the Status enum or the table's id prefixes. B.1 mandates them, B.6 does not retract them, and the SQL tests only execute the DDL.",
+      "original_acceptance_criterion": "Emit both CHECKs from the field table and enums and add tests that reject a bad status and a wrong-prefix id. Or have the operator amend B.1 explicitly.",
+      "original_evidence_refs": [
+        "crates/raptor-schema/src/emit.rs:128-171",
+        "crates/raptor-schema/tests/schema.rs:450-487",
+        "tests/test_schema.py:12"
+      ],
+      "source_report": "req-qa.md",
+      "duplicates_or_overlaps": [],
+      "status": "fixed-verified",
+      "current_evidence": [
+        "Current candidate refactor; exact committed head and filing-reviewer closure pending.",
+        "Developer reports: raptor-rust-qa-api-migration.md, raptor-python-qa-fixes.md, raptor-qa-tooling-report.txt."
+      ],
+      "disposition_note": "Verified fixed by filing reviewer and recorded by quality-mgr in round2.",
+      "verification": {
+        "reviewer": "req-qa",
+        "quality_manager": "quality-mgr",
+        "round": 2,
+        "commit": "08865633afd601e7973514c974e82dd6f3fddfd6",
+        "report": "https://github.com/randlee/raptor/pull/84",
+        "closure_artifact": "qa-round2-closures-0886563.json"
+      },
+      "acceptance_source_refs": [
+        "docs/plans/phase-b/sprint-b-1-raptor-schema-crate.md:111-114",
+        "docs/plans/phase-b/sprint-b-6-rebuild-to-spec.md:152-159"
+      ]
+    },
+    {
+      "id": "ATM-QA-005",
+      "filing_reviewer": "req-qa",
+      "severity": "blocking",
+      "owner": "crap",
+      "original_finding": "Plan/status reconciliation is open. project-plan.md lists Phase B as 'five sprints' and 'Planned' with no B.6 entry. The phase plan's sprints table has no B.6 row. The B.6 doc is status: draft, with branch and worktree feature/b-6-rebuild-to-spec while the reviewed work is on chore/phase-b-completion. B.1-B.5 docs remain status: planned.",
+      "original_acceptance_criterion": "The operator updates project-plan.md and the phase plan table and records the B.6 status. Reconcile each doc's frontmatter (status, branch, worktree) with the branch actually used. Do not declare the sprint complete until QA closes.",
+      "original_evidence_refs": [
+        "docs/project-plan.md:9",
+        "docs/plans/phase-b/phase-b-plan.md:188-206",
+        "docs/plans/phase-b/sprint-b-6-rebuild-to-spec.md:4"
+      ],
+      "source_report": "req-qa.md",
+      "duplicates_or_overlaps": [
+        "ARCH-002",
+        "ATM-QA-006"
+      ],
+      "status": "fixed-verified",
+      "current_evidence": [
+        "Round-3 filing-owner verification at1caac05; no regression reported."
+      ],
+      "disposition_note": "Filing reviewer confirmed closure on exact pinned candidate; quality-mgr recorded this closure. Other findings remain independent.",
+      "verification": {
+        "commit": "1caac05149baabf1f75a8982a683a4fb86dc7e0e",
+        "task": "RAP-B-PHASE-FIX-VERIFY-20261030-3",
+        "closed_by": "quality-mgr",
+        "filing_reviewer": "req-qa",
+        "report": "https://github.com/randlee/raptor/pull/84#issuecomment-6538783122",
+        "closure_artifact": "ATM share: raptor/qa-round3-closures-1caac05.json"
+      },
+      "acceptance_source_refs": [
+        "docs/plans/phase-b/sprint-b-6-rebuild-to-spec.md:324-345",
+        "docs/plans/phase-b/sprint-b-6-rebuild-to-spec.md:4-6"
+      ]
+    },
+    {
+      "id": "ATM-QA-006",
+      "filing_reviewer": "req-qa",
+      "severity": "blocking",
+      "owner": "crap",
+      "original_finding": "The phase plan 'Ceilings hold across the phase' still reads extract.py 200, render.py 60, load_sqlite.py 50, crate src 700. B.6 sets 150/36/60/1,000 and says the amendment was applied. The 'sprints table row' amendment is also unapplied. The size and plan reconciliation is therefore open.",
+      "original_acceptance_criterion": "Rewrite the ceilings paragraph to the B.6 numbers (formatted code, zero skips). Add the B.6 table row. Resolve against the actual sizes in ATM-QA-002 and ATM-QA-003.",
+      "original_evidence_refs": [
+        "docs/plans/phase-b/phase-b-plan.md:188-190"
+      ],
+      "source_report": "req-qa.md",
+      "duplicates_or_overlaps": [
+        "ARCH-002",
+        "ATM-QA-005"
+      ],
+      "status": "fixed-verified",
+      "current_evidence": [
+        "User explicitly clarified that no crate limit was approved; whole-crate caps removed from both plans, existing per-file caps unchanged. Filing verification pending.",
+        "Round6 filing owner verified user-directed duplicate rejection/per-file policy; no regression."
+      ],
+      "disposition_note": "Verified against explicit user clarification, not approval of an unapproved aggregate cap or last-winner projection.",
+      "verification": {
+        "commit": "878b19c4f2faa012e3af770fdb8c314fdc4aecba",
+        "task": "RAP-B-POLICY-FIX-VERIFY-20261030-6",
+        "closed_by": "quality-mgr",
+        "filing_reviewer": "req-qa",
+        "report": "https://github.com/randlee/raptor/pull/84#issuecomment-6539808771",
+        "source_message": "01M688GP075146FCYR0S1RDXH3"
+      },
+      "acceptance_source_refs": [
+        "docs/plans/phase-b/phase-b-plan.md:188-190",
+        "docs/plans/phase-b/sprint-b-6-rebuild-to-spec.md:236-243",
+        "docs/plans/phase-b/sprint-b-6-rebuild-to-spec.md:340-341"
+      ]
+    },
+    {
+      "id": "ATM-QA-007",
+      "filing_reviewer": "req-qa",
+      "severity": "blocking",
+      "owner": "consumer",
+      "original_finding": "Corpus attribution is open. B.3 report is 412 lines against 60 and states all Section values are null, so the required section column is empty. B.4 report is 18 lines, aggregated by rule, omits MISSING_ID, has no per-group before/after table and records no commit, per-table counts or exit code. B.5 consumer-run.md records 'dump equals index: no' and 'every column non-null: no', aggregates by rule, and shows B.4 as 'not recorded'. Its acceptance is false on its own text.",
+      "original_acceptance_criterion": "Regenerate the reports with per-group tables (rule, section, label, count, files, allowed) and the B.3/B.4/current comparison. Or record an operator ruling that B.6's consumer-run-b6.md supersedes them and amend B.3-B.5 acceptance.",
+      "original_evidence_refs": [
+        "docs/plans/phase-b/corpus-run-b3.md:18-22",
+        "docs/plans/phase-b/corpus-run-b4.md:7-18",
+        "docs/plans/phase-b/consumer-run.md:13-14",
+        "docs/plans/phase-b/consumer-run.md:21-39"
+      ],
+      "source_report": "req-qa.md",
+      "duplicates_or_overlaps": [
+        "ATM-QA-020"
+      ],
+      "status": "pending",
+      "current_evidence": [],
+      "disposition_note": "No filing-reviewer closure confirmation received.",
+      "verification": null,
+      "acceptance_source_refs": [
+        "docs/plans/phase-b/sprint-b-3-req-nfr-columns.md:119-123",
+        "docs/plans/phase-b/sprint-b-3-req-nfr-columns.md:137",
+        "docs/plans/phase-b/sprint-b-4-adr-columns.md:84-87",
+        "docs/plans/phase-b/sprint-b-5-inventory-consumer-run.md:36-41",
+        "docs/plans/phase-b/sprint-b-5-inventory-consumer-run.md:59-60"
+      ],
+      "user_ruling": {
+        "date": "2026-10-30",
+        "source": "User yes/yes response to two explicit acceptance questions",
+        "decision": "Approved narrow Value exception and audited B6 proof replacing missing historical per-group reports, including documented additional parser corrections. Strict duplicate rejection retained.",
+        "verification_status": "Awaiting filing reviewer and quality-manager verification; not automatically closed."
+      }
+    },
+    {
+      "id": "ATM-QA-008",
+      "filing_reviewer": "req-qa",
+      "severity": "important",
+      "owner": "python_qa_fixes",
+      "original_finding": "Every summary group is built with section=None, but the plan's group object includes section and B.3/B.5 reports require a Section column. The omission of section context in grouped diagnostics is the root cause of the empty Section column.",
+      "original_acceptance_criterion": "Carry the section into the issue object and the group key, or amend the plan group shape.",
+      "original_evidence_refs": [
+        "scripts/extract.py:126",
+        "docs/plans/phase-b/corpus-run-b3.md:18"
+      ],
+      "source_report": "req-qa.md",
+      "duplicates_or_overlaps": [],
+      "status": "fixed-verified",
+      "current_evidence": [
+        "Current candidate refactor; exact committed head and filing-reviewer closure pending.",
+        "Developer reports: raptor-rust-qa-api-migration.md, raptor-python-qa-fixes.md, raptor-qa-tooling-report.txt."
+      ],
+      "disposition_note": "Verified fixed by filing reviewer and recorded by quality-mgr in round2.",
+      "verification": {
+        "reviewer": "req-qa",
+        "quality_manager": "quality-mgr",
+        "round": 2,
+        "commit": "08865633afd601e7973514c974e82dd6f3fddfd6",
+        "report": "https://github.com/randlee/raptor/pull/84",
+        "closure_artifact": "qa-round2-closures-0886563.json"
+      },
+      "acceptance_source_refs": [
+        "docs/plans/phase-b/phase-b-plan.md:118-121"
+      ]
+    },
+    {
+      "id": "ATM-QA-009",
+      "filing_reviewer": "req-qa",
+      "severity": "important",
+      "owner": "python_qa_fixes",
+      "original_finding": "No test or assertion runs PRAGMA foreign_key_check. A workspace search finds the string only in the sprint doc.",
+      "original_acceptance_criterion": "Add an explicit foreign_key_check-empty assertion to the load test over the supersession fixture.",
+      "original_evidence_refs": [
+        "tests/test_load.py:14-46",
+        "tests/test_extract.py:137-145"
+      ],
+      "source_report": "req-qa.md",
+      "duplicates_or_overlaps": [],
+      "status": "fixed-verified",
+      "current_evidence": [
+        "Current candidate refactor; exact committed head and filing-reviewer closure pending.",
+        "Developer reports: raptor-rust-qa-api-migration.md, raptor-python-qa-fixes.md, raptor-qa-tooling-report.txt.",
+        "Round-3 filing-owner verification at1caac05; no regression reported."
+      ],
+      "disposition_note": "Filing reviewer confirmed closure on exact pinned candidate; quality-mgr recorded this closure. Other findings remain independent.",
+      "verification": {
+        "commit": "1caac05149baabf1f75a8982a683a4fb86dc7e0e",
+        "task": "RAP-B-PHASE-FIX-VERIFY-20261030-3",
+        "closed_by": "quality-mgr",
+        "filing_reviewer": "req-qa",
+        "report": "https://github.com/randlee/raptor/pull/84#issuecomment-6538783122",
+        "closure_artifact": "ATM share: raptor/qa-round3-closures-1caac05.json"
+      },
+      "acceptance_source_refs": [
+        "docs/plans/phase-b/sprint-b-4-adr-columns.md:82"
+      ]
+    },
+    {
+      "id": "ATM-QA-010",
+      "filing_reviewer": "req-qa",
+      "severity": "important",
+      "owner": "lrap",
+      "original_finding": "The B.2 gate `rg -n 'pydantic|record\\.py|schema\\.sql\\b' scripts tests .github` does not print nothing. ci_scope.py:23 names tests/test_record.py (a deleted file, now a stale comment) and test_ci_scope.py:19 names schema/schema.sql. The ci_scope.py comment is a stale reference, not just a classification string.",
+      "original_acceptance_criterion": "Remove or reword the stale reference and the test string, or have the operator amend the gate.",
+      "original_evidence_refs": [
+        ".github/scripts/ci_scope.py:23",
+        "tests/test_ci_scope.py:19"
+      ],
+      "source_report": "req-qa.md",
+      "duplicates_or_overlaps": [
+        "RBQA-F013"
+      ],
+      "status": "fixed-verified",
+      "current_evidence": [
+        "Current candidate refactor; exact committed head and filing-reviewer closure pending.",
+        "Developer reports: raptor-rust-qa-api-migration.md, raptor-python-qa-fixes.md, raptor-qa-tooling-report.txt."
+      ],
+      "disposition_note": "Verified fixed by filing reviewer and recorded by quality-mgr in round2.",
+      "verification": {
+        "reviewer": "req-qa",
+        "quality_manager": "quality-mgr",
+        "round": 2,
+        "commit": "08865633afd601e7973514c974e82dd6f3fddfd6",
+        "report": "https://github.com/randlee/raptor/pull/84",
+        "closure_artifact": "qa-round2-closures-0886563.json"
+      },
+      "acceptance_source_refs": [
+        "docs/plans/phase-b/sprint-b-2-python-on-crate.md:115-116"
+      ]
+    },
+    {
+      "id": "ATM-QA-011",
+      "filing_reviewer": "req-qa",
+      "severity": "important",
+      "owner": "crap",
+      "original_finding": "The B.6 doc lists seven pyo3 functions including check_inventory and summarize. The phase plan, architecture and implementation expose five and keep inventory crate-internal.",
+      "original_acceptance_criterion": "Amend the B.6 doc to the five-function boundary, or change the code and test. Resolve one way.",
+      "original_evidence_refs": [
+        "crates/raptor-schema/src/lib.rs:66-74",
+        "tests/test_schema.py:9-11"
+      ],
+      "source_report": "req-qa.md",
+      "duplicates_or_overlaps": [],
+      "status": "fixed-verified",
+      "current_evidence": [
+        "Current candidate refactor; exact committed head and filing-reviewer closure pending.",
+        "Developer reports: raptor-rust-qa-api-migration.md, raptor-python-qa-fixes.md, raptor-qa-tooling-report.txt."
+      ],
+      "disposition_note": "Verified fixed by filing reviewer and recorded by quality-mgr in round2.",
+      "verification": {
+        "reviewer": "req-qa",
+        "quality_manager": "quality-mgr",
+        "round": 2,
+        "commit": "08865633afd601e7973514c974e82dd6f3fddfd6",
+        "report": "https://github.com/randlee/raptor/pull/84",
+        "closure_artifact": "qa-round2-closures-0886563.json"
+      },
+      "acceptance_source_refs": [
+        "docs/plans/phase-b/sprint-b-6-rebuild-to-spec.md:146-148",
+        "docs/plans/phase-b/phase-b-plan.md:119-121",
+        "docs/architecture.md:27-28"
+      ]
+    },
+    {
+      "id": "ATM-QA-012",
+      "filing_reviewer": "req-qa",
+      "severity": "important",
+      "owner": "crap",
+      "original_finding": "The B.6 doc specifies `accept(json) -> Result<Batch, Vec<Error>>`. The phase plan and code return an Accepted struct (batch, errors) and compute the summary. The doc also says the check walks 'the field table', but accept.rs:181-278 walks the emitted JSON Schema.",
+      "original_acceptance_criterion": "Align the sprint doc to the implemented contract, or align the code. Record the decision.",
+      "original_evidence_refs": [
+        "crates/raptor-schema/src/accept.rs:280",
+        "crates/raptor-schema/src/accept.rs:158-162"
+      ],
+      "source_report": "req-qa.md",
+      "duplicates_or_overlaps": [],
+      "status": "fixed-verified",
+      "current_evidence": [
+        "Current candidate refactor; exact committed head and filing-reviewer closure pending.",
+        "Developer reports: raptor-rust-qa-api-migration.md, raptor-python-qa-fixes.md, raptor-qa-tooling-report.txt.",
+        "Round-3 filing-owner verification at1caac05; no regression reported."
+      ],
+      "disposition_note": "Filing reviewer confirmed closure on exact pinned candidate; quality-mgr recorded this closure. Other findings remain independent.",
+      "verification": {
+        "commit": "1caac05149baabf1f75a8982a683a4fb86dc7e0e",
+        "task": "RAP-B-PHASE-FIX-VERIFY-20261030-3",
+        "closed_by": "quality-mgr",
+        "filing_reviewer": "req-qa",
+        "report": "https://github.com/randlee/raptor/pull/84#issuecomment-6538783122",
+        "closure_artifact": "ATM share: raptor/qa-round3-closures-1caac05.json"
+      },
+      "acceptance_source_refs": [
+        "docs/plans/phase-b/sprint-b-6-rebuild-to-spec.md:117",
+        "docs/plans/phase-b/phase-b-plan.md:115-116"
+      ]
+    },
+    {
+      "id": "ATM-QA-013",
+      "filing_reviewer": "req-qa",
+      "severity": "important",
+      "owner": "python_qa_fixes",
+      "original_finding": "qualify.py holds nested field-name literals (text, modal, checked, note, href, groups, id) and shape-name literals (StatementList, Checklist, IdList, LinkList). It also hard-codes the id-prefix/dash grammar at line 195. The architecture test whitelists the nested names, which weakens the 'no field literal in scripts/' gate.",
+      "original_acceptance_criterion": "Derive item shapes and keys from json_schema/field_table, or have the operator explicitly authorize a structural vocabulary. Narrow the test whitelist.",
+      "original_evidence_refs": [
+        "scripts/qualify.py:126-145",
+        "scripts/qualify.py:195",
+        "scripts/qualify.py:159",
+        "tests/test_extract.py:93-95"
+      ],
+      "source_report": "req-qa.md",
+      "duplicates_or_overlaps": [
+        "ARCH-008",
+        "RBQA-F007"
+      ],
+      "status": "fixed-verified",
+      "current_evidence": [
+        "Current candidate refactor; exact committed head and filing-reviewer closure pending.",
+        "Developer reports: raptor-rust-qa-api-migration.md, raptor-python-qa-fixes.md, raptor-qa-tooling-report.txt.",
+        "Round-4 filing-owner verification at51156fc; no regression reported."
+      ],
+      "disposition_note": "Filing reviewer confirmed original-criterion closure on pinned51156fc; quality-mgr recorded closure. Other findings remain independent.",
+      "verification": {
+        "commit": "51156fcee451dd78f9f338bb2860d2427b03b214",
+        "task": "RAP-B-PHASE-FIX-VERIFY-20261030-4",
+        "closed_by": "quality-mgr",
+        "filing_reviewer": "req-qa",
+        "report": "https://github.com/randlee/raptor/pull/84#issuecomment-6538940737",
+        "closure_artifact": "ATM share: raptor/qa-round4-closures-51156fc.json"
+      },
+      "acceptance_source_refs": [
+        "docs/plans/phase-b/sprint-b-6-rebuild-to-spec.md:163-166",
+        "docs/plans/phase-b/sprint-b-6-rebuild-to-spec.md:305-309",
+        "docs/plans/phase-b/phase-b-plan.md:173-175"
+      ]
+    },
+    {
+      "id": "ATM-QA-014",
+      "filing_reviewer": "req-qa",
+      "severity": "important",
+      "owner": "python_qa_fixes",
+      "original_finding": "HEADING hard-codes `[A-Z]+-[A-Z]{2,5}-\\d{4}`, a second id policy in Python. The doc says Python holds no second policy and validate_scalar is the single implementation.",
+      "original_acceptance_criterion": "Make the heading regex structural (any `## token: title`) and let validate_scalar decide validity.",
+      "original_evidence_refs": [
+        "scripts/extract.py:19"
+      ],
+      "source_report": "req-qa.md",
+      "duplicates_or_overlaps": [
+        "RBQA-F004"
+      ],
+      "status": "fixed-verified",
+      "current_evidence": [
+        "Current candidate refactor; exact committed head and filing-reviewer closure pending.",
+        "Developer reports: raptor-rust-qa-api-migration.md, raptor-python-qa-fixes.md, raptor-qa-tooling-report.txt."
+      ],
+      "disposition_note": "Verified fixed by filing reviewer and recorded by quality-mgr in round2.",
+      "verification": {
+        "reviewer": "req-qa",
+        "quality_manager": "quality-mgr",
+        "round": 2,
+        "commit": "08865633afd601e7973514c974e82dd6f3fddfd6",
+        "report": "https://github.com/randlee/raptor/pull/84",
+        "closure_artifact": "qa-round2-closures-0886563.json"
+      },
+      "acceptance_source_refs": [
+        "docs/plans/phase-b/sprint-b-6-rebuild-to-spec.md:177-178",
+        "docs/plans/phase-b/sprint-b-6-rebuild-to-spec.md:112-113"
+      ]
+    },
+    {
+      "id": "ATM-QA-015",
+      "filing_reviewer": "req-qa",
+      "severity": "important",
+      "owner": "python_qa_fixes",
+      "original_finding": "Column is computed by str.find on the raw line. If not found, line 72 defaults to 1 and line 95 yields 0 (find returns -1, plus 1). That violates the 1-based, offending-token column requirement and fails silently. qualify.py:102 uses next() with no default and can raise StopIteration instead of producing a diagnostic.",
+      "original_acceptance_criterion": "Carry exact columns from the splitter and fail loudly or emit a diagnostic when the token cannot be located. Guard the anyOf lookup.",
+      "original_evidence_refs": [
+        "scripts/qualify.py:72",
+        "scripts/qualify.py:95"
+      ],
+      "source_report": "req-qa.md",
+      "duplicates_or_overlaps": [],
+      "status": "fixed-verified",
+      "current_evidence": [
+        "Current candidate refactor; exact committed head and filing-reviewer closure pending.",
+        "Developer reports: raptor-rust-qa-api-migration.md, raptor-python-qa-fixes.md, raptor-qa-tooling-report.txt.",
+        "Round-4 filing-owner verification at51156fc; no regression reported."
+      ],
+      "disposition_note": "Filing reviewer confirmed original-criterion closure on pinned51156fc; quality-mgr recorded closure. Other findings remain independent.",
+      "verification": {
+        "commit": "51156fcee451dd78f9f338bb2860d2427b03b214",
+        "task": "RAP-B-PHASE-FIX-VERIFY-20261030-4",
+        "closed_by": "quality-mgr",
+        "filing_reviewer": "req-qa",
+        "report": "https://github.com/randlee/raptor/pull/84#issuecomment-6538940737",
+        "closure_artifact": "ATM share: raptor/qa-round4-closures-51156fc.json"
+      },
+      "acceptance_source_refs": [
+        "docs/plans/phase-b/sprint-b-6-rebuild-to-spec.md:207-212"
+      ]
+    },
+    {
+      "id": "ATM-QA-016",
+      "filing_reviewer": "req-qa",
+      "severity": "important",
+      "owner": "python_qa_fixes",
+      "original_finding": "The acceptance command `python scripts/extract.py --project-root .` cannot run because --output is required (exit 2). No automated test runs the extractor over Raptor's own two record files to prove issues empty, exit 0 and one row per REQ-RAP/ADR-RAP id.",
+      "original_acceptance_criterion": "Make --output optional with a documented default or amend the acceptance text. Add a repository self-inventory test.",
+      "original_evidence_refs": [
+        "scripts/extract.py:106",
+        "tests/test_extract.py"
+      ],
+      "source_report": "req-qa.md",
+      "duplicates_or_overlaps": [],
+      "status": "fixed-verified",
+      "current_evidence": [
+        "Current candidate refactor; exact committed head and filing-reviewer closure pending.",
+        "Developer reports: raptor-rust-qa-api-migration.md, raptor-python-qa-fixes.md, raptor-qa-tooling-report.txt."
+      ],
+      "disposition_note": "Verified fixed by filing reviewer and recorded by quality-mgr in round2.",
+      "verification": {
+        "reviewer": "req-qa",
+        "quality_manager": "quality-mgr",
+        "round": 2,
+        "commit": "08865633afd601e7973514c974e82dd6f3fddfd6",
+        "report": "https://github.com/randlee/raptor/pull/84",
+        "closure_artifact": "qa-round2-closures-0886563.json"
+      },
+      "acceptance_source_refs": [
+        "docs/plans/phase-b/sprint-b-6-rebuild-to-spec.md:292-293",
+        "docs/plans/phase-b/sprint-b-5-inventory-consumer-run.md:55-57"
+      ]
+    },
+    {
+      "id": "ATM-QA-017",
+      "filing_reviewer": "req-qa",
+      "severity": "important",
+      "owner": "python_qa_fixes",
+      "original_finding": "No automated architecture test implements the crate-src `rg` checks (rustfmt::skip, link/bold/checkbox patterns, serde_json::Value outside accept.rs, unwrap/expect/panic!). The pattern search is clean today, but it is not enforced.",
+      "original_acceptance_criterion": "Add a test that scans crate src for the forbidden patterns.",
+      "original_evidence_refs": [
+        "tests/test_extract.py:92-106",
+        "crates/raptor-schema/tests/schema.rs"
+      ],
+      "source_report": "req-qa.md",
+      "duplicates_or_overlaps": [],
+      "status": "pending",
+      "current_evidence": [],
+      "disposition_note": "No filing-reviewer closure confirmation received.",
+      "verification": null,
+      "acceptance_source_refs": [
+        "docs/plans/phase-b/sprint-b-6-rebuild-to-spec.md:148-150",
+        "docs/plans/phase-b/sprint-b-6-rebuild-to-spec.md:308-311"
+      ],
+      "user_ruling": {
+        "date": "2026-10-30",
+        "source": "User yes/yes response to two explicit acceptance questions",
+        "decision": "Approved narrow Value exception and audited B6 proof replacing missing historical per-group reports, including documented additional parser corrections. Strict duplicate rejection retained.",
+        "verification_status": "Awaiting filing reviewer and quality-manager verification; not automatically closed."
+      }
+    },
+    {
+      "id": "ATM-QA-018",
+      "filing_reviewer": "req-qa",
+      "severity": "important",
+      "owner": "crap",
+      "original_finding": "Files outside B.6 Exact Targets: rustfmt.toml (fn_call_width = 100), scripts/markdown_content.py and tests/test_markdown_content.py. The rustfmt override changes formatting and therefore the measured line counts, and prior sprints did not set it. A sprint must deliver exactly the named deliverables.",
+      "original_acceptance_criterion": "Either remove them (and re-measure) or have the operator add them to Exact Targets with measured ceilings.",
+      "original_evidence_refs": [
+        "rustfmt.toml:1",
+        "scripts/markdown_content.py:1-42",
+        "tests/test_markdown_content.py:1-48"
+      ],
+      "source_report": "req-qa.md",
+      "duplicates_or_overlaps": [],
+      "status": "fixed-verified",
+      "current_evidence": [
+        "Current candidate refactor; exact committed head and filing-reviewer closure pending.",
+        "Developer reports: raptor-rust-qa-api-migration.md, raptor-python-qa-fixes.md, raptor-qa-tooling-report.txt.",
+        "Round-3 filing-owner verification at1caac05; no regression reported."
+      ],
+      "disposition_note": "Filing reviewer confirmed closure on exact pinned candidate; quality-mgr recorded this closure. Other findings remain independent.",
+      "verification": {
+        "commit": "1caac05149baabf1f75a8982a683a4fb86dc7e0e",
+        "task": "RAP-B-PHASE-FIX-VERIFY-20261030-3",
+        "closed_by": "quality-mgr",
+        "filing_reviewer": "req-qa",
+        "report": "https://github.com/randlee/raptor/pull/84#issuecomment-6538783122",
+        "closure_artifact": "ATM share: raptor/qa-round3-closures-1caac05.json"
+      },
+      "acceptance_source_refs": [
+        "docs/plans/phase-b/sprint-b-6-rebuild-to-spec.md:34-46",
+        "docs/plans/phase-b/phase-b-plan.md:267-268",
+        "docs/plans/phase-b/sprint-b-6-rebuild-to-spec.md:66"
+      ]
+    },
+    {
+      "id": "ATM-QA-019",
+      "filing_reviewer": "req-qa",
+      "severity": "important",
+      "owner": "python_qa_fixes",
+      "original_finding": "Ceilings are met by packing lines. 52 Python lines exceed 100 characters (qualify.py 31, extract.py 14, load_sqlite.py 4, markdown_content.py 2, render.py 1). test_qualify.py joins statements with semicolons. records.json is 10 lines with very long lines. The sprint says a sprint that needs more stops and does not pack lines. Separately, test_load.py is 46 lines against the surviving B.4 ceiling of 40, and test_schema.py is 27 against 25.",
+      "original_acceptance_criterion": "Reformat to normal width and re-measure, or get a recorded ruling on the Python ceilings.",
+      "original_evidence_refs": [
+        "scripts/qualify.py",
+        "scripts/extract.py",
+        "scripts/load_sqlite.py",
+        "scripts/markdown_content.py",
+        "tests/test_qualify.py:116-118",
+        "tests/test_load.py",
+        "tests/fixtures/records.json:1-10"
+      ],
+      "source_report": "req-qa.md",
+      "duplicates_or_overlaps": [
+        "ARCH-010",
+        "QA-002"
+      ],
+      "status": "fixed-verified",
+      "current_evidence": [
+        "Current candidate refactor; exact committed head and filing-reviewer closure pending.",
+        "Developer reports: raptor-rust-qa-api-migration.md, raptor-python-qa-fixes.md, raptor-qa-tooling-report.txt.",
+        "Round-3 filing-owner verification at1caac05; no regression reported."
+      ],
+      "disposition_note": "Filing reviewer confirmed closure on exact pinned candidate; quality-mgr recorded this closure. Other findings remain independent.",
+      "verification": {
+        "commit": "1caac05149baabf1f75a8982a683a4fb86dc7e0e",
+        "task": "RAP-B-PHASE-FIX-VERIFY-20261030-3",
+        "closed_by": "quality-mgr",
+        "filing_reviewer": "req-qa",
+        "report": "https://github.com/randlee/raptor/pull/84#issuecomment-6538783122",
+        "closure_artifact": "ATM share: raptor/qa-round3-closures-1caac05.json"
+      },
+      "acceptance_source_refs": [
+        "docs/plans/phase-b/sprint-b-6-rebuild-to-spec.md:238-243",
+        "docs/plans/phase-b/sprint-b-4-adr-columns.md:97-99",
+        "docs/plans/phase-b/phase-b-plan.md:276-277"
+      ]
+    },
+    {
+      "id": "ATM-QA-020",
+      "filing_reviewer": "req-qa",
+      "severity": "important",
+      "owner": "consumer",
+      "original_finding": "B.5 requires every emitted row to have every column non-null, but the plan makes supersedes and superseded_by nullable, so the criterion is unsatisfiable as written. 'dump equals index' fails because duplicate ids collapse on INSERT OR REPLACE (537 vs 532 rows).",
+      "original_acceptance_criterion": "Amend the B.5 criterion to the two nullable columns. Define the dump-equality comparison under duplicate ids, to be stated in consumer-run-b6.md.",
+      "original_evidence_refs": [
+        "docs/plans/phase-b/consumer-run.md:13-14"
+      ],
+      "source_report": "req-qa.md",
+      "duplicates_or_overlaps": [
+        "ATM-QA-007"
+      ],
+      "status": "fixed-verified",
+      "current_evidence": [
+        "User requires duplicate IDs invalid. B5 now requires rejection before SQLite writes, equality only for unique canonical input; no first/last-winner projection. Strict code and tests pending pinned verification.",
+        "Round6 filing owner verified user-directed duplicate rejection/per-file policy; no regression."
+      ],
+      "disposition_note": "Verified against explicit user clarification, not approval of an unapproved aggregate cap or last-winner projection.",
+      "verification": {
+        "commit": "878b19c4f2faa012e3af770fdb8c314fdc4aecba",
+        "task": "RAP-B-POLICY-FIX-VERIFY-20261030-6",
+        "closed_by": "quality-mgr",
+        "filing_reviewer": "req-qa",
+        "report": "https://github.com/randlee/raptor/pull/84#issuecomment-6539808771",
+        "source_message": "01M688GP075146FCYR0S1RDXH3"
+      },
+      "acceptance_source_refs": [
+        "docs/plans/phase-b/sprint-b-5-inventory-consumer-run.md:59-60",
+        "docs/plans/phase-b/phase-b-plan.md:80-81"
+      ]
+    },
+    {
+      "id": "ATM-QA-021",
+      "filing_reviewer": "req-qa",
+      "severity": "minor",
+      "owner": "consumer",
+      "original_finding": "The corpus-run-b3.md label column reproduces consumer document text, and line 19 admits six labels were redacted. The domain-specific labels are potentially identifying. The phase plan example group uses a domain-specific path (`calibration/requirements/req-cal-dark.md`) in an example. Neutrality is required in reports and requirements.",
+      "original_acceptance_criterion": "Replace identifying label text with neutral placeholders, or strip it from the committed reports. Neutralize the example path.",
+      "original_evidence_refs": [
+        "docs/plans/phase-b/corpus-run-b3.md:19",
+        "docs/plans/phase-b/corpus-run-b3.md:32-264",
+        "docs/plans/phase-b/phase-b-plan.md:157"
+      ],
+      "source_report": "req-qa.md",
+      "duplicates_or_overlaps": [],
+      "status": "fixed-verified",
+      "current_evidence": [
+        "Round-3 filing-owner verification at1caac05; no regression reported."
+      ],
+      "disposition_note": "Filing reviewer confirmed closure on exact pinned candidate; quality-mgr recorded this closure. Other findings remain independent.",
+      "verification": {
+        "commit": "1caac05149baabf1f75a8982a683a4fb86dc7e0e",
+        "task": "RAP-B-PHASE-FIX-VERIFY-20261030-3",
+        "closed_by": "quality-mgr",
+        "filing_reviewer": "req-qa",
+        "report": "https://github.com/randlee/raptor/pull/84#issuecomment-6538783122",
+        "closure_artifact": "ATM share: raptor/qa-round3-closures-1caac05.json"
+      },
+      "acceptance_source_refs": [
+        "docs/requirements.md:159",
+        "docs/plans/phase-b/sprint-b-3-req-nfr-columns.md:121-125",
+        "docs/plans/phase-b/sprint-b-6-rebuild-to-spec.md:319"
+      ]
+    },
+    {
+      "id": "ATM-QA-022",
+      "filing_reviewer": "req-qa",
+      "severity": "minor",
+      "owner": "arap",
+      "original_finding": "The role match uses `_` wildcard arms for Header and Label, though the doc says one exhaustive match with no fallback arm. sql_type is the literal \"TEXT\" and not emitted from the shape. sql_ddl compares level and shape by string, so a new variant would not fail to compile.",
+      "original_acceptance_criterion": "Enumerate the shapes in those arms. Derive sql_type from Shape. Compare typed values.",
+      "original_evidence_refs": [
+        "crates/raptor-schema/src/emit.rs:58-59",
+        "crates/raptor-schema/src/emit.rs:98",
+        "crates/raptor-schema/src/emit.rs:137"
+      ],
+      "source_report": "req-qa.md",
+      "duplicates_or_overlaps": [
+        "RBP-F002"
+      ],
+      "status": "fixed-verified",
+      "current_evidence": [
+        "Current candidate refactor; exact committed head and filing-reviewer closure pending.",
+        "Developer reports: raptor-rust-qa-api-migration.md, raptor-python-qa-fixes.md, raptor-qa-tooling-report.txt.",
+        "Round-3 filing-owner verification at1caac05; no regression reported."
+      ],
+      "disposition_note": "Filing reviewer confirmed closure on exact pinned candidate; quality-mgr recorded this closure. Other findings remain independent.",
+      "verification": {
+        "commit": "1caac05149baabf1f75a8982a683a4fb86dc7e0e",
+        "task": "RAP-B-PHASE-FIX-VERIFY-20261030-3",
+        "closed_by": "quality-mgr",
+        "filing_reviewer": "req-qa",
+        "report": "https://github.com/randlee/raptor/pull/84#issuecomment-6538783122",
+        "closure_artifact": "ATM share: raptor/qa-round3-closures-1caac05.json"
+      },
+      "acceptance_source_refs": [
+        "docs/plans/phase-b/sprint-b-6-rebuild-to-spec.md:89-93",
+        "docs/plans/phase-b/sprint-b-6-rebuild-to-spec.md:109-110"
+      ]
+    },
+    {
+      "id": "ATM-QA-023",
+      "filing_reviewer": "req-qa",
+      "severity": "minor",
+      "owner": "python_qa_fixes",
+      "original_finding": "accept errors are returned as JSON inside the result, not as a structured Python exception. Only validate_scalar raises SchemaError. qualify.py:86-93 adds an unspecified rewrite of modal words inside labels using `normal(label).split()[-1]`, which is not documented in the sprint.",
+      "original_acceptance_criterion": "Clarify in the doc or implement as specified. Document the modal-word alias behavior or remove it.",
+      "original_evidence_refs": [
+        "crates/raptor-schema/src/lib.rs:62-65",
+        "scripts/qualify.py:86-93"
+      ],
+      "source_report": "req-qa.md",
+      "duplicates_or_overlaps": [
+        "RBQA-F012"
+      ],
+      "status": "fixed-verified",
+      "current_evidence": [
+        "Current candidate refactor; exact committed head and filing-reviewer closure pending.",
+        "Developer reports: raptor-rust-qa-api-migration.md, raptor-python-qa-fixes.md, raptor-qa-tooling-report.txt.",
+        "Round-4 filing-owner verification at51156fc; no regression reported."
+      ],
+      "disposition_note": "Filing reviewer confirmed original-criterion closure on pinned51156fc; quality-mgr recorded closure. Other findings remain independent.",
+      "verification": {
+        "commit": "51156fcee451dd78f9f338bb2860d2427b03b214",
+        "task": "RAP-B-PHASE-FIX-VERIFY-20261030-4",
+        "closed_by": "quality-mgr",
+        "filing_reviewer": "req-qa",
+        "report": "https://github.com/randlee/raptor/pull/84#issuecomment-6538940737",
+        "closure_artifact": "ATM share: raptor/qa-round4-closures-51156fc.json"
+      },
+      "acceptance_source_refs": [
+        "docs/plans/phase-b/sprint-b-6-rebuild-to-spec.md:136-139",
+        "docs/plans/phase-b/sprint-b-6-rebuild-to-spec.md:210-217"
+      ]
+    },
+    {
+      "id": "ATM-QA-024",
+      "filing_reviewer": "req-qa",
+      "severity": "minor",
+      "owner": "crap",
+      "original_finding": "project-plan.md marks Phase A 'Done', but all four Phase A sprint docs (changed in this diff) and phase-a-plan.md still read status: planned. The B.1-B.5 docs read status: planned too.",
+      "original_acceptance_criterion": "Set doc status consistently with the project-plan state at phase close.",
+      "original_evidence_refs": [
+        "docs/plans/phase-a/sprint-a-2-extractor-validation.md:4",
+        "docs/plans/phase-a/sprint-a-3-script-skills.md:4",
+        "docs/plans/phase-a/sprint-a-4-sc-compose-templates.md:4"
+      ],
+      "source_report": "req-qa.md",
+      "duplicates_or_overlaps": [],
+      "status": "fixed-verified",
+      "current_evidence": [
+        "Round-3 filing-owner verification at1caac05; no regression reported."
+      ],
+      "disposition_note": "Filing reviewer confirmed closure on exact pinned candidate; quality-mgr recorded this closure. Other findings remain independent.",
+      "verification": {
+        "commit": "1caac05149baabf1f75a8982a683a4fb86dc7e0e",
+        "task": "RAP-B-PHASE-FIX-VERIFY-20261030-3",
+        "closed_by": "quality-mgr",
+        "filing_reviewer": "req-qa",
+        "report": "https://github.com/randlee/raptor/pull/84#issuecomment-6538783122",
+        "closure_artifact": "ATM share: raptor/qa-round3-closures-1caac05.json"
+      },
+      "acceptance_source_refs": [
+        "docs/project-plan.md:8",
+        "docs/plans/phase-a/sprint-a-1-pydantic-record-model.md:4"
+      ]
+    }
+  ]
+}

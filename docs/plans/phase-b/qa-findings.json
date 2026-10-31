@@ -1,0 +1,102 @@
+{
+  "schema_version": 1,
+  "phase": "b",
+  "pr": 84,
+  "reviewed_commit": "fb7ea189db3ca76d6963fec694978b6314e48917",
+  "evidence_baseline_commit": "6ac6160",
+  "purpose": "Canonical per-ID disposition and filing-reviewer verification scope for round-1 findings. The triaging-findings skill is absent; this file records the equivalent scope transparently.",
+  "status_values": [
+    "pending",
+    "implemented-unverified",
+    "fixed-verified",
+    "rejected-with-reason"
+  ],
+  "closure_rule": "Only the filing reviewer may confirm fixed-verified. Overlap links never close another reviewer finding automatically. Rejections require an explicit ruling and reason.",
+  "report_location": "ATM share: raptor/qa-round1-fb7ea18/",
+  "quality_manager_report": "https://github.com/randlee/raptor/pull/84#issuecomment-6538022716",
+  "reviewer_report_counts": {
+    "arch-qa": 15,
+    "flaky-test-qa": 2,
+    "req-qa": 24,
+    "rust-best-practices-agent": 12,
+    "rust-qa-agent": 4,
+    "rust-service-hardening-agent": 0,
+    "ruthless-boundary-qa": 13,
+    "schema-reviewer": 5
+  },
+  "finding_count": 79,
+  "summary_blocker_aliases": {
+    "B-1": [
+      "ATM-QA-001",
+      "ARCH-001"
+    ],
+    "B-2": [
+      "ATM-QA-002",
+      "ATM-QA-003",
+      "ARCH-003"
+    ],
+    "B-3": [
+      "ATM-QA-004"
+    ],
+    "B-4": [
+      "ATM-QA-005"
+    ],
+    "B-5": [
+      "ATM-QA-006",
+      "ARCH-002"
+    ],
+    "B-6": [
+      "ATM-QA-007"
+    ],
+    "B-7": [
+      "ATM-QA-001",
+      "ATM-QA-002",
+      "ATM-QA-006",
+      "ATM-QA-007"
+    ]
+  },
+  "summary_note": "B-1 through B-7 are quality-manager aggregate labels, not additional reviewer findings. Retain every underlying ID, including minors; numeric summary counts do not replace the source reports.",
+  "reviewers": [
+    {
+      "filing_reviewer": "arch-qa",
+      "file": "qa-findings/arch-qa.json",
+      "finding_count": 15
+    },
+    {
+      "filing_reviewer": "flaky-test-qa",
+      "file": "qa-findings/flaky-test-qa.json",
+      "finding_count": 2
+    },
+    {
+      "filing_reviewer": "quality-mgr",
+      "file": "qa-findings/quality-mgr.json",
+      "finding_count": 4
+    },
+    {
+      "filing_reviewer": "req-qa",
+      "file": "qa-findings/req-qa.json",
+      "finding_count": 24
+    },
+    {
+      "filing_reviewer": "rust-best-practices-agent",
+      "file": "qa-findings/rust-best-practices-agent.json",
+      "finding_count": 12
+    },
+    {
+      "filing_reviewer": "rust-qa-agent",
+      "file": "qa-findings/rust-qa-agent.json",
+      "finding_count": 4
+    },
+    {
+      "filing_reviewer": "ruthless-boundary-qa",
+      "file": "qa-findings/ruthless-boundary-qa.json",
+      "finding_count": 13
+    },
+    {
+      "filing_reviewer": "schema-reviewer",
+      "file": "qa-findings/schema-reviewer.json",
+      "finding_count": 5
+    }
+  ],
+  "supplemental_report": "https://github.com/randlee/raptor/pull/84#issuecomment-6538982691"
+}

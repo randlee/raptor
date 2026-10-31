@@ -1,0 +1,22 @@
+---
+name: record
+version: 1.0.0
+description: Render a schema-derived Markdown layout.
+required_variables: [document]
+---
+# {{ document.heading_label }}: {{ document.caption }}
+
+{% for field in document.headers %}**{{ field.caption }}:** {{ field.body }}{{ '  ' }}
+{% endfor %}
+---
+
+## {{ document.token }}: {{ document.caption }}
+
+{% for field in document.item_fields %}**{{ field.caption }}:** {{ field.body }}{{ '  ' }}
+{% endfor %}{% for section in document.sections %}### {{ section.caption }}
+
+{% for node in section.nodes %}{% if node.kind == "subheading" %}#### {{ node.body }}
+{% elif node.kind == "label" %}**{{ node.body }}:**
+{% elif node.kind == "item" %}- {{ node.body | replace("\n", "\n  ") }}
+{% else %}{{ node.body }}
+{% endif %}{% if node.kind != "item" %}{{ '\n' }}{% endif %}{% endfor %}{{ '\n' }}{% endfor %}{{ '\n' }}
