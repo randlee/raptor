@@ -1,4 +1,4 @@
-# Consumer run B.6 — strict duplicate comparison incomplete
+# Consumer run B.6 — audited strict duplicate comparison
 
 Runtime proof SHA: `fc961ce19f605a209c9e09650bbacf6d4cf782c8`.
 Baseline extractor: `0fd132c50c7fc4f9136e0cea67bdf39865b64025`.
@@ -69,7 +69,7 @@ witnesses; no unrelated retained-data or parser drift is accepted.
 | Total changed baseline occurrences | 414 |
 
 The duplicate category includes 11 previously content-rejected occurrences and
-16 newly excluded accepted rows. Current nonduplicate unresolved mechanisms total
+16 newly excluded accepted rows. Current nonduplicate changed mechanisms total
 164. The user approved the original 175 historical parser corrections on
 2026-10-30 ("yes/yes"), including the documented diagnostic-contract changes.
 Duplicate exclusion of 11 cases remains separately governed by strict rejection.
@@ -82,14 +82,12 @@ accepted arrays equal their input. Entire acceptance results match, with only
 the same 14 dangling-reference errors and no duplicate errors. This covers
 retained rows only, while original rendered-file count remains 0.
 
-Earlier evidence preserves structural-heading recognition, section attribution,
-Rust-owned heading validation, exact source offsets, and stricter schema contracts.
-The detailed historical pre-B.4 rule table disagrees with its later classification
-summary but agrees in total; it is not an attribution oracle.
-Reported checks: 101 Python passes plus one literal Value guard failure;
-58 Rust tests and 5 doctests pass. The official 0.8.0 pure function audit finds
-no advisories or violations; source/test file caps pass. A pre-existing CLI line
-is 108 characters; no integrated lint enforcement is claimed.
+Earlier proof covers structural headings, section attribution, Rust-owned heading
+validation, source offsets and strict schema contracts. The historical pre-B.4
+rule table and later summary disagree on classification, but agree in total.
+At final candidate `52249dc`, 102 Python tests and 59 Rust tests plus 5 doctests
+pass; all nine CI jobs pass. The official 0.8.0 function audit and per-file caps
+pass. The pre-existing CLI line is 108 characters; integrated lint is not claimed.
 
 The user accepted this audited B6 before/after proof in place of missing historical
 per-group reports and accepted the documented additional parser corrections on
