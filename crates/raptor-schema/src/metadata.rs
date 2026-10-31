@@ -48,6 +48,27 @@ pub(crate) enum Shape {
     Group,
     Derived,
 }
+impl Shape {
+    /// Scalars are text; composite values are encoded as JSON text in SQLite.
+    pub fn sql_type(self) -> &'static str {
+        match self {
+            Self::Text
+            | Self::Date
+            | Self::Version
+            | Self::Status
+            | Self::Id
+            | Self::Supersession
+            | Self::IdList
+            | Self::TextList
+            | Self::StatementList
+            | Self::Statements(_)
+            | Self::Checklist
+            | Self::LinkList
+            | Self::Group
+            | Self::Derived => "TEXT",
+        }
+    }
+}
 #[derive(Clone, Copy, PartialEq, Eq)]
 pub(crate) enum Section {
     Statement,

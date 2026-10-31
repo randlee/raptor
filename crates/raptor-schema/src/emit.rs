@@ -51,8 +51,16 @@ fn binding(level: Level, shape: Shape) -> (Role, MetaShape, Option<Modal>) {
             Date | Version | Status | Supersession | IdList | TextList | StatementList
             | Statements(_) | Checklist | LinkList | Group | Derived,
         ) => Role::ItemLabel,
-        (Level::Header, _) => Role::HeaderLabel,
-        (Level::Label(_), _) => Role::SectionLabel,
+        (
+            Level::Header,
+            Text | Date | Version | Status | Id | Supersession | IdList | TextList | StatementList
+            | Statements(_) | Checklist | LinkList | Group | Derived,
+        ) => Role::HeaderLabel,
+        (
+            Level::Label(_),
+            Text | Date | Version | Status | Id | Supersession | IdList | TextList | StatementList
+            | Statements(_) | Checklist | LinkList | Group | Derived,
+        ) => Role::SectionLabel,
         (Level::Section, Group) => Role::Group,
         (
             Level::Section,
@@ -98,7 +106,7 @@ pub fn field_table(table: TableId) -> Vec<FieldMeta> {
                 required: presence == Presence::Required,
                 nullable: presence == Presence::Nullable,
                 supersession: shape_source == Shape::Supersession,
-                sql_type: "TEXT",
+                sql_type: shape_source.sql_type(),
             }
         })
         .collect()
@@ -340,7 +348,8 @@ mod tests {
     }
 
     #[test]
-    fn field_exports_cover_all_63_entries_with_derived_attributes() {
+    fn field_exports_cover_all_63_entries_with_derived_attributes() -> Result<(), serde_json::Error>
+    {
         let mut exported = BTreeSet::new();
         for table in [TableId::Req, TableId::Dec] {
             let fields = field_table(table);
@@ -364,9 +373,9 @@ mod tests {
                     FieldScope::Only(TableId::Dec) => "Dec",
                     FieldScope::All => "Both",
                 };
-                assert_eq!(serde_json::to_value(field.table).unwrap(), scope);
+                assert_eq!(serde_json::to_value(field.table)?, scope);
                 assert_eq!(field.section.is_some(), field.level == MetaLevel::Label);
-                exported.insert(serde_json::to_string(field).unwrap());
+                exported.insert(serde_json::to_string(field)?);
             }
         }
         assert_eq!(exported.len(), 63);
@@ -377,5 +386,6 @@ mod tests {
             .collect();
         let expected = ["Must", "Should", "MustNot"].map(String::from).into();
         assert_eq!(modals, expected);
+        Ok(())
     }
 }

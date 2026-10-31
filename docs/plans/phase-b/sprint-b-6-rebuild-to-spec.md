@@ -70,6 +70,18 @@ attributes, and completeness tests require every reference shape to have one. In
 a shared fixture module. These splits preserve all checks and do not establish
 compliance with aggregate size budgets; those remain measured acceptance items.
 
+The corrective targets also include the leaf Rust `error.rs`, `rule.rs`,
+`batch.rs`, `protocol.rs` and `boundary.rs` modules, plus the error/metadata
+contract integration tests. Python's cohesive helper targets are `aliases.py`,
+`schema_json.py`, `record_context.py`, `shape_content.py`, `markdown_splitter.py`,
+`import_corpus.py`, `sqlite_records.py`, `render_context.py` and
+`markdown_renderer.py`; rendering uses `templates/record.md.j2`. Focused boundary,
+protocol, loader, alias, heading and diagnostic tests and shared test helpers
+cover those modules. These are refactor boundaries, not increased ceilings:
+new Python helpers and tests stay within 150 lines each, Rust source files within
+450, and Rust test files within 400. Original narrower file ceilings still apply.
+The JSON fixture is normally indented data, with unchanged decoded values.
+
 ## What is carried over, and nothing else
 
 The schema definition is information, and it is unchanged: the `Status`,

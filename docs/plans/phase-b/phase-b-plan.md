@@ -153,7 +153,7 @@ handful of patterns, and the summary presents them that way:
   "groups": [
     { "rule": "UNKNOWN_LABEL", "section": "Success Criteria", "label": "Acceptance",
       "allowed": ["Acceptance Criteria", "Test Evidence"], "count": 37,
-      "files": { "calibration/requirements/req-cal-dark.md": [44, 91, 130], ... },
+      "files": { "docs/requirements/req-example.md": [44, 91, 130], ... },
       "remedy": "Rename the label to one of `allowed`, or remove the line." } ] }
 ```
 

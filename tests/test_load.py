@@ -12,6 +12,8 @@ def test_load_and_dump_are_idempotent(tmp_path: Path):
     run(str(index), str(database))
     second = run(str(database), "--dump")
     assert json.loads(first.stdout) == json.loads(second.stdout) == json.loads(index.read_text())
+    with sqlite3.connect(database) as connection:
+        assert connection.execute("PRAGMA foreign_key_check").fetchall() == []
 
 
 def test_dump_keeps_text_that_looks_like_json(tmp_path: Path):
