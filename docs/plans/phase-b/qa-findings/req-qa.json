@@ -27,7 +27,13 @@
         "docs/plans/phase-b/sprint-b-6-rebuild-to-spec.md:46",
         "docs/plans/phase-b/sprint-b-6-rebuild-to-spec.md:270-286",
         "docs/plans/phase-b/sprint-b-6-rebuild-to-spec.md:312-319"
-      ]
+      ],
+      "user_ruling": {
+        "date": "2026-10-30",
+        "source": "User yes/yes response to two explicit acceptance questions",
+        "decision": "Approved narrow Value exception and audited B6 proof replacing missing historical per-group reports, including documented additional parser corrections. Strict duplicate rejection retained.",
+        "verification_status": "Awaiting filing reviewer and quality-manager verification; not automatically closed."
+      }
     },
     {
       "id": "ATM-QA-002",
@@ -230,7 +236,13 @@
         "docs/plans/phase-b/sprint-b-4-adr-columns.md:84-87",
         "docs/plans/phase-b/sprint-b-5-inventory-consumer-run.md:36-41",
         "docs/plans/phase-b/sprint-b-5-inventory-consumer-run.md:59-60"
-      ]
+      ],
+      "user_ruling": {
+        "date": "2026-10-30",
+        "source": "User yes/yes response to two explicit acceptance questions",
+        "decision": "Approved narrow Value exception and audited B6 proof replacing missing historical per-group reports, including documented additional parser corrections. Strict duplicate rejection retained.",
+        "verification_status": "Awaiting filing reviewer and quality-manager verification; not automatically closed."
+      }
     },
     {
       "id": "ATM-QA-008",
@@ -550,7 +562,13 @@
       "acceptance_source_refs": [
         "docs/plans/phase-b/sprint-b-6-rebuild-to-spec.md:148-150",
         "docs/plans/phase-b/sprint-b-6-rebuild-to-spec.md:308-311"
-      ]
+      ],
+      "user_ruling": {
+        "date": "2026-10-30",
+        "source": "User yes/yes response to two explicit acceptance questions",
+        "decision": "Approved narrow Value exception and audited B6 proof replacing missing historical per-group reports, including documented additional parser corrections. Strict duplicate rejection retained.",
+        "verification_status": "Awaiting filing reviewer and quality-manager verification; not automatically closed."
+      }
     },
     {
       "id": "ATM-QA-018",

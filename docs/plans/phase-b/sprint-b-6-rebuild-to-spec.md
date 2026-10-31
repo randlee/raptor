@@ -1,7 +1,7 @@
 ---
 id: b-6
 title: Rebuild the crate to specification; Python qualifies
-status: in_progress
+status: complete
 branch: chore/phase-b-completion
 worktree: ../raptor-worktrees/chore/phase-b-completion
 target: integrate/phase-b
@@ -235,7 +235,11 @@ back; `accept`'s Python return is the `Accepted` value serialised with a
 `summary` member from `summarize` beside `batch` and `errors`.
 Acceptance check for the whole crate:
 `rg -n 'rustfmt::skip|\]\(|\*\*|- \[|serde_json::Value' crates/raptor-schema/src/`
-prints nothing, `serde_json::Value` excepted inside `accept.rs`.
+prints nothing except approved JSON boundary uses: `accept.rs` inspects submitted
+records; `emit.rs` and `boundary.rs` construct generated schemas/metadata;
+`error.rs` carries diagnostic payloads. The user approved these narrow exceptions
+on 2026-10-30 ("yes/yes"). Accepted records remain typed; these exceptions do
+not permit raw record traversal outside `accept.rs`.
 
 ### SQL
 

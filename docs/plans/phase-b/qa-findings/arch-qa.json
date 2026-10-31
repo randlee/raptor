@@ -22,7 +22,13 @@
       "status": "pending",
       "current_evidence": [],
       "disposition_note": "No filing-reviewer closure confirmation received.",
-      "verification": null
+      "verification": null,
+      "user_ruling": {
+        "date": "2026-10-30",
+        "source": "User yes/yes response to two explicit acceptance questions",
+        "decision": "Approved narrow Value exception and audited B6 proof replacing missing historical per-group reports, including documented additional parser corrections. Strict duplicate rejection retained.",
+        "verification_status": "Awaiting filing reviewer and quality-manager verification; not automatically closed."
+      }
     },
     {
       "id": "ARCH-002",

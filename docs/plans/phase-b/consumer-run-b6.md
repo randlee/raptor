@@ -70,8 +70,9 @@ witnesses; no unrelated retained-data or parser drift is accepted.
 
 The duplicate category includes 11 previously content-rejected occurrences and
 16 newly excluded accepted rows. Current nonduplicate unresolved mechanisms total
-164; the original 175 unapproved parser corrections remain a separate historical
-gate. Duplicate exclusion of 11 such cases does not approve their parser changes.
+164. The user approved the original 175 historical parser corrections on
+2026-10-30 ("yes/yes"), including the documented diagnostic-contract changes.
+Duplicate exclusion of 11 cases remains separately governed by strict rejection.
 All 978 changed full baseline groups retain complete before/after occurrence proof.
 There is no candidate raw-dump delta because the raw load is correctly rejected.
 
@@ -90,8 +91,11 @@ Reported checks: 101 Python passes plus one literal Value guard failure;
 no advisories or violations; source/test file caps pass. A pre-existing CLI line
 is 108 characters; no integrated lint enforcement is claimed.
 
-Acceptance remains incomplete: the original 175 parser corrections and changed
-historical diagnostic contracts lack approval; the literal Value guard is open.
-No cause waiver or whole-crate size limit is inferred from the duplicate decision.
+The user accepted this audited B6 before/after proof in place of missing historical
+per-group reports and accepted the documented additional parser corrections on
+2026-10-30 ("yes/yes"). Historical reports are not recreated or relabelled.
+The narrow generated-schema/metadata and diagnostic Value exceptions were also
+approved. Final quality-manager verification remains required; strict duplicate
+rejection and existing per-file limits remain in force.
 Evidence summary SHA-256:
 `1b0a61e31d761c0a1d31998369d340c626814bb2096254bfb5e898bb0dc57b26`.

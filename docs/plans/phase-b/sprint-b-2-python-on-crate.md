@@ -1,7 +1,7 @@
 ---
 id: b-2
 title: Python on the crate
-status: in_progress
+status: complete
 branch: feature/b-2-python-on-crate
 worktree: ../raptor-worktrees/feature/b-2-python-on-crate
 target: feature/b-1-schema-crate

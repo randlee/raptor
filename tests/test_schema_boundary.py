@@ -23,5 +23,6 @@ def test_crate_source_has_no_forbidden_input_panics_or_markdown_policy():
         source = path.read_text()
         assert not forbidden.search(source), path
         assert not re.search(r"\]\(|\*\*|- \[", source), path
-        if path.name != "accept.rs":
+        relative = path.relative_to(ROOT / "crates/raptor-schema/src").as_posix()
+        if relative not in {"accept.rs", "emit.rs", "boundary.rs", "error.rs"}:
             assert "serde_json::Value" not in source, path
