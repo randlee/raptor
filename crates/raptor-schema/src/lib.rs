@@ -1,14 +1,26 @@
 mod accept;
+mod batch;
+mod boundary;
 mod emit;
+mod error;
+mod fields;
 mod inventory;
 mod metadata;
 mod schema;
-#[doc(inline)]
-pub use accept::{Accepted, Batch, Error, ErrorCategory, ErrorTable, accept};
-pub use emit::{FieldMeta, field_table, json_schema, sql_ddl};
+pub use accept::{Accepted, accept};
+pub use batch::Batch;
+pub use emit::{FieldMeta, MetaLevel, MetaShape, Role, field_table, json_schema, sql_ddl};
+pub use error::{Error, ErrorCategory, ErrorTable, ItemIndex, RecordPosition};
+pub use fields::FIELDS;
 pub use inventory::{Rule, Summary};
-pub use metadata::*;
-pub use schema::*;
+pub use metadata::{Field, Level, Presence, Section, Shape, Table};
+pub use schema::{
+    Alternative, Alternatives, CheckItem, Consequences, Context, Date, Decision, DecisionRationale,
+    DecisionSection, Dependencies, Id, IdItem, Identity, ImpactAnalysis, Implementation,
+    ImplementationNotes, Lifecycle, LinkItem, Modal, ProductApplicability, RecordKind,
+    RelatedDocuments, Requirement, RequirementStatement, Statement, Status, SuccessCriteria,
+    TestStrategy, Version, validate_scalar,
+};
 
 #[cfg(feature = "python")]
 mod python {
@@ -16,14 +28,21 @@ mod python {
     use pyo3::{exceptions::PyValueError, prelude::*, types::PyDict};
     pyo3::create_exception!(raptor_schema, SchemaError, PyValueError);
 
-    fn json(value: impl serde::Serialize) -> PyResult<String> {
-        serde_json::to_string(&value).map_err(|error| PyValueError::new_err(error.to_string()))
+    fn json(py: Python<'_>, value: impl serde::Serialize) -> PyResult<String> {
+        match serde_json::to_string(&value) {
+            Ok(output) => Ok(output),
+            Err(error) => fail(py, Error::serialization("a serializable result", error)),
+        }
     }
     fn fail<T>(py: Python<'_>, error: Error) -> PyResult<T> {
         let exception = SchemaError::new_err(error.to_string());
         let fields = py
             .import("json")?
-            .call_method1("loads", (json(&error)?,))?
+            .call_method1(
+                "loads",
+                (serde_json::to_string(&error)
+                    .map_err(|failure| PyValueError::new_err(failure.to_string()))?,),
+            )?
             .downcast_into::<PyDict>()?;
         for (name, value) in fields.iter() {
             exception
@@ -37,13 +56,16 @@ mod python {
         emit::sql_ddl()
     }
     #[pyfunction]
-    fn json_schema() -> PyResult<String> {
-        json(emit::json_schema().map_err(|error| PyValueError::new_err(error.to_string()))?)
+    fn json_schema(py: Python<'_>) -> PyResult<String> {
+        json(py, emit::json_schema())
     }
     #[pyfunction]
     fn field_table(py: Python<'_>, table: &str) -> PyResult<String> {
-        match emit::TABLES.iter().find(|(name, _)| *name == table) {
-            Some((_, kind)) => json(emit::field_table((*kind).into())),
+        match super::ErrorTable::ALL
+            .iter()
+            .find(|kind| kind.name() == table)
+        {
+            Some(kind) => json(py, emit::field_table((*kind).into())),
             None => fail(
                 py,
                 Error::scalar(
@@ -62,8 +84,8 @@ mod python {
         }
     }
     #[pyfunction]
-    fn accept(input: &str) -> PyResult<String> {
-        json(crate::accept(input))
+    fn accept(py: Python<'_>, input: &str) -> PyResult<String> {
+        json(py, crate::accept(input))
     }
     #[pymodule]
     fn raptor_schema(module: &Bound<'_, PyModule>) -> PyResult<()> {

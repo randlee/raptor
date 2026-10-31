@@ -23,13 +23,26 @@ fn duplicates_report_every_occurrence_within_and_across_tables() {
             (source, 0),
             (destination, usize::from(source == destination)),
         ]) {
-            check_error(error, "DuplicateId", Some(table), Some(position), "/id", None, &id);
+            check_error(
+                error,
+                "DuplicateId",
+                Some(table),
+                Some(position),
+                "/id",
+                None,
+                &id,
+            );
             assert_eq!(
                 error.cause.as_ref(),
                 "a unique identifier; first occurrence is record position 0"
             );
-            assert_eq!(error.first_occurrence_record_position.as_deref(), Some(&0));
-            assert!(error.allowed_values.is_none());
+            assert_eq!(
+                error
+                    .first_occurrence_record_position()
+                    .map(|position| position.0),
+                Some(0)
+            );
+            assert!(error.allowed_values().is_none());
             assert!(error.message.contains(error.cause.as_ref()));
         }
         assert_eq!(
@@ -79,7 +92,10 @@ fn every_reference_group_and_supersession_reports_dangling_targets() {
             assert!(result.errors[0].message.contains(target));
             let output = serde_json::to_value(result).unwrap();
             assert_eq!(output["errors"][0]["table"], table);
-            assert_eq!(output["summary"]["counts"], json!({"DANGLING_REFERENCE": 1}));
+            assert_eq!(
+                output["summary"]["counts"],
+                json!({"DANGLING_REFERENCE": 1})
+            );
         }
     }
 }
@@ -124,5 +140,76 @@ fn dangling_reference_wire_matches_695781b() {
         r#""recovery":"Create the referenced record or correct the reference.","#,
         r#""allowed_values":null,"first_occurrence_record_position":null}"#,
     );
-    assert_eq!(serde_json::to_vec(&result.errors[0]).unwrap(), expected.as_bytes());
+    assert_eq!(
+        serde_json::to_vec(&result.errors[0]).unwrap(),
+        expected.as_bytes()
+    );
+}
+
+#[test]
+fn every_metadata_reference_is_checked() {
+    for (table_name, table, target) in [
+        ("requirements", Table::Req, "REQ-FIX-9999"),
+        ("decisions", Table::Dec, "ADR-FIX-9999"),
+    ] {
+        let mut input = fixture();
+        let fields = field_table(table);
+        let mut paths = std::collections::BTreeSet::new();
+        for field in &fields {
+            if field.supersession {
+                input[table_name][0][field.name] = json!(target);
+                paths.insert(format!("/{}", field.name));
+            } else if field.level == MetaLevel::Label && field.shape == MetaShape::IdList {
+                let parent = fields
+                    .iter()
+                    .find(|parent| {
+                        parent.level == MetaLevel::Section && Some(parent.label) == field.section
+                    })
+                    .unwrap();
+                input[table_name][0][parent.name][field.name] =
+                    json!([{"id": target, "note": null}]);
+                paths.insert(format!("/{}/{}", parent.name, field.name));
+            }
+        }
+        let result = accept(&input.to_string());
+        let found = result
+            .errors
+            .iter()
+            .filter(|error| {
+                error.category == ErrorCategory::DanglingReference
+                    && error.table
+                        == Some(if table == Table::Req {
+                            ErrorTable::Req
+                        } else {
+                            ErrorTable::Dec
+                        })
+            })
+            .map(|error| error.field_path.to_string())
+            .collect();
+        assert_eq!(paths, found);
+    }
+}
+
+#[test]
+fn inventory_diagnostic_order_preserves_related_dependencies_then_supersession() {
+    let mut input = fixture();
+    input["requirements"][0]["related_documents"]["requirements"] =
+        json!([{"id": "REQ-FIX-9998", "note": null}]);
+    input["requirements"][0]["dependencies"]["requires"] =
+        json!([{"id": "REQ-FIX-9999", "note": null}]);
+    input["requirements"][0]["supersedes"] = json!("REQ-FIX-9997");
+    let result = accept(&input.to_string());
+    let paths: Vec<_> = result
+        .errors
+        .iter()
+        .map(|error| error.field_path.as_ref())
+        .collect();
+    assert_eq!(
+        paths,
+        [
+            "/related_documents/requirements",
+            "/dependencies/requires",
+            "/supersedes"
+        ]
+    );
 }

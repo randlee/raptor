@@ -185,9 +185,12 @@ so that none can be added by habit.
   equal full objects and no diagnostics. Hand-written documents are the
   diagnostic corpus. Consumer runs compare full objects against a pinned
   baseline, attribute every delta and report the actual rendered-file count.
-- **Ceilings hold across the phase.** `extract.py` 200 lines, `render.py`
-  60, `load_sqlite.py` 50, the crate's `src/` 700. A sprint that needs more
-  stops and reports.
+- **Ceilings follow the governing sprint.** Later approved sprint limits
+  supersede earlier estimates for the files they rebuild. B.6 specifies
+  1,000 Rust source lines in total, 450 per source file, 400 crate test lines,
+  and its named Python/test file ceilings. These remain hard acceptance
+  constraints; the refactor does not waive aggregate overruns.
+
 
 ## Sprints
 
@@ -198,6 +201,7 @@ so that none can be added by habit.
 | B.3 REQ and NFR columns | `requirement_statement`, `rationale`, `success_criteria`, `dependencies`, `product_applicability`, `test_strategy`, `implementation_notes`, RelatedDocuments; `statement_list`, `checklist`, `id_list`, `link_list` shapes; edges view; corpus run | B.2 |
 | B.4 ADR columns | `context`, `decision`, `rationale`, `consequences`, `alternatives`, `implementation`, `impact_analysis`, `decision_date`, `supersedes`, `superseded_by`; `group` shape; foreign keys; corpus run | B.3 |
 | B.5 Own inventory; consumer run | ingest set trimmed to Raptor's two record files, which already follow the schema; importer clean over Raptor; the grouped non-compliance report | B.4 |
+| B.6 Rebuild to specification | strict Rust ingress; Python qualification; full-object consumer comparison and phase acceptance | B.5 |
 
 The table above records the original B.1–B.5 sequence. The separately
 approved [B.6 rebuild](sprint-b-6-rebuild-to-spec.md) follows their merge into

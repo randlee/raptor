@@ -9,7 +9,15 @@ fn reject(path: &str, value: Value, category: &str, item: Option<usize>) {
     assert_eq!(result.batch.requirements().count(), 0);
     assert_eq!(result.batch.decisions().count(), 1);
     assert_eq!(result.errors.len(), 1, "{:?}", result.errors);
-    check_error(&result.errors[0], category, Some("requirements"), Some(0), path, item, &value);
+    check_error(
+        &result.errors[0],
+        category,
+        Some("requirements"),
+        Some(0),
+        path,
+        item,
+        &value,
+    );
     if category == "CrossKindSupersession" {
         assert_eq!(
             result.errors[0].message.as_ref(),
@@ -27,7 +35,7 @@ fn reject(path: &str, value: Value, category: &str, item: Option<usize>) {
                 .contains(result.errors[0].cause.as_ref())
         );
         assert_eq!(
-            serde_json::to_value(&result.errors[0].allowed_values).unwrap(),
+            serde_json::to_value(result.errors[0].allowed_values()).unwrap(),
             json!([
                 "Draft",
                 "Proposed",
@@ -43,11 +51,18 @@ fn reject(path: &str, value: Value, category: &str, item: Option<usize>) {
             result.errors[0].cause.as_ref(),
             "an ID with REQ, NFR, or ADR prefix and four digits"
         );
-        assert!(result.errors[0].allowed_values.is_none());
-        assert!(result.errors[0].first_occurrence_record_position.is_none());
+        assert!(result.errors[0].allowed_values().is_none());
+        assert!(
+            result.errors[0]
+                .first_occurrence_record_position()
+                .is_none()
+        );
     }
     let output = serde_json::to_value(&result).unwrap();
-    assert_eq!(output["errors"][0]["recovery"], json!(result.errors[0].recovery));
+    assert_eq!(
+        output["errors"][0]["recovery"],
+        json!(result.errors[0].recovery)
+    );
     if category == "InvalidId" {
         assert!(output["errors"][0]["allowed_values"].is_null());
         assert!(output["errors"][0]["first_occurrence_record_position"].is_null());
@@ -122,8 +137,18 @@ fn strict_values_have_structured_errors() {
         ("/created", json!("2026-13-01"), "InvalidDate", None),
         ("/created", json!("2025-02-29"), "InvalidDate", None),
         ("/created", json!("1900-02-29"), "InvalidDate", None),
-        ("/supersedes", json!("ADR-FIX-0001"), "CrossKindSupersession", None),
-        ("/requirement_statement/statements/0/modal", json!("must"), "UnknownVariant", Some(0)),
+        (
+            "/supersedes",
+            json!("ADR-FIX-0001"),
+            "CrossKindSupersession",
+            None,
+        ),
+        (
+            "/requirement_statement/statements/0/modal",
+            json!("must"),
+            "UnknownVariant",
+            Some(0),
+        ),
     ] {
         reject(path, value, category, item);
     }
@@ -137,11 +162,21 @@ fn strict_values_have_structured_errors() {
 fn unknown_and_missing_keys_are_rejected_at_every_depth() {
     for (parent, key, item, missing) in [
         ("", "extra", None, false),
-        ("/requirement_statement/statements/0", "extra", Some(0), false),
+        (
+            "/requirement_statement/statements/0",
+            "extra",
+            Some(0),
+            false,
+        ),
         ("", "owner", None, true),
         ("", "supersedes", None, true),
         ("", "superseded_by", None, true),
-        ("/success_criteria/acceptance_criteria/0", "checked", Some(0), true),
+        (
+            "/success_criteria/acceptance_criteria/0",
+            "checked",
+            Some(0),
+            true,
+        ),
     ] {
         let mut input = fixture();
         let object = input["requirements"][0]
@@ -190,13 +225,24 @@ fn malformed_batch_has_one_root_error() {
             "TypeMismatch"
         };
         let result = accept(&input.to_string());
-        assert_eq!(result.batch.requirements().count() + result.batch.decisions().count(), 0);
+        assert_eq!(
+            result.batch.requirements().count() + result.batch.decisions().count(),
+            0
+        );
         assert_eq!(result.errors.len(), 1);
         check_error(&result.errors[0], category, None, None, "", None, &input);
     }
     let result = accept("{");
     assert_eq!(result.errors.len(), 1);
-    check_error(&result.errors[0], "TypeMismatch", None, None, "", None, &json!("{"));
+    check_error(
+        &result.errors[0],
+        "TypeMismatch",
+        None,
+        None,
+        "",
+        None,
+        &json!("{"),
+    );
 }
 
 #[test]
@@ -224,5 +270,34 @@ fn mixed_batch_keeps_original_positions_and_collects_all_errors() {
     input["requirements"][0]["status"] = json!("active");
     let result = accept(&input.to_string());
     assert_eq!(result.errors.len(), 3);
-    assert_eq!(serde_json::to_value(result).unwrap()["summary"]["counts"], json!({"BAD_VALUE": 3}));
+    assert_eq!(
+        serde_json::to_value(result).unwrap()["summary"]["counts"],
+        json!({"BAD_VALUE": 3})
+    );
+}
+
+#[test]
+fn validated_ids_cache_kind_and_preserve_string_wire_format() {
+    for (text, kind) in [
+        ("REQ-FIX-0001", RecordKind::Req),
+        ("NFR-FIX-0001", RecordKind::Nfr),
+        ("ADR-FIX-0001", RecordKind::Adr),
+    ] {
+        let id = Id::try_from(text.to_owned()).unwrap();
+        assert_eq!(id.kind(), kind);
+        assert_eq!(id.as_str(), text);
+        assert_eq!(serde_json::to_value(&id).unwrap(), json!(text));
+        let decoded: Id = serde_json::from_value(json!(text)).unwrap();
+        assert_eq!(decoded, id);
+    }
+    assert!(Id::try_from("REQ-X-1".to_owned()).is_err());
+}
+
+#[test]
+fn errors_keep_typed_positions_and_bounded_size() {
+    assert!(std::mem::size_of::<Error>() <= 128);
+    let error =
+        Error::new(ErrorCategory::TypeMismatch, json!(3), "a string").at("/items/0", Some(0));
+    assert_eq!(error.item_index(), Some(ItemIndex(0)));
+    assert_eq!(serde_json::to_value(error).unwrap()["item_index"], 0);
 }

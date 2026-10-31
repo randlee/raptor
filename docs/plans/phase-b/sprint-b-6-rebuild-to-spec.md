@@ -1,9 +1,9 @@
 ---
 id: b-6
 title: Rebuild the crate to specification; Python qualifies
-status: draft
-branch: feature/b-6-rebuild-to-spec
-worktree: ../raptor-worktrees/feature/b-6-rebuild-to-spec
+status: in_progress
+branch: chore/phase-b-completion
+worktree: ../raptor-worktrees/chore/phase-b-completion
 target: integrate/phase-b
 depends_on: [b-5]
 relation: must_follow the merge of stack #46 into integrate/phase-b
@@ -50,6 +50,15 @@ RAP-B-AUDIT-1 and RAP-B-BASELINE-1.
 - `docs/plans/phase-b/consumer-run-b6.md` (new)
 
 ### Corrective refactor boundaries
+
+Round-one review fixes preserve the five-operation Python interface. JSON Schema
+exports rule remedies, rejection/category policy, table rendering metadata and
+neutral semantic property roles; Python consumes those exports rather than
+copying canonical field names. The generic record template replaces duplicated
+table-specific rendering blocks. Source qualification uses explicit per-record
+context and separate schema, alias, content and diagnostic helpers. The loader
+validates canonical rows and never fills missing fields independently.
+
 
 The content helper owns raw source reconstruction and list continuation grouping;
 the qualifier retains schema interpretation. Metadata is separated as one cohesive
@@ -166,8 +175,9 @@ item index, offending value, cause, message. The category enum is
 `UnknownKey`, `MissingKey`, `TypeMismatch`, `NullNotAllowed`,
 `InvalidId`, `InvalidVersion`, `InvalidDate`, `UnknownVariant`,
 `CrossKindSupersession`, `DuplicateId`, `DanglingReference`; variants may
-be added, never renamed or removed, and Python matches on the name. It crosses pyo3 as a
-structured Python exception with the same members. No `unwrap`, `expect`,
+be added, never renamed or removed, and Python matches on the name. Scalar validation raises a structured Python exception with the same members.
+Batch acceptance returns structured errors beside accepted records, so one
+rejected record does not prevent the others from being accepted. No `unwrap`, `expect`,
 `panic!`, slice index or arithmetic on input data outside tests; every
 input-dependent path returns `Result`.
 
@@ -272,7 +282,7 @@ with its category in `message`.
 ## Out of scope
 
 Any new column or field; any ADR; any change to `render.py`; any template
-change beyond preserving multiline list content; any edit to a consumer document; auto-correction of source
+change beyond generic metadata-driven rendering and preserving multiline list content; any edit to a consumer document; auto-correction of source
 files; an alias mechanism beyond the three tables above; fuzzy matching;
 Dolt; a configuration system, plugin or derive macro of our own. A choice
 this document does not make stops the sprint with the choice stated in the
@@ -341,7 +351,8 @@ repository.
 
 - Round trip on the fixture: render, split, qualify, accept, compare
   equal; `issues` empty.
-- `python scripts/extract.py --project-root .` over Raptor: `issues`
+- `python scripts/extract.py --project-root . --output <scratch>/index.json`
+  over Raptor: `issues`
   empty, exit `0`, one row per REQ-RAP and ADR-RAP id.
 - `cargo fmt --check`, `cargo clippy -- -D warnings`, `cargo test`,
   `pip install . && python -m pytest -q tests/` pass.

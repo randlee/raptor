@@ -1,0 +1,265 @@
+{
+  "schema_version": 1,
+  "phase": "b",
+  "reviewed_commit": "fb7ea189db3ca76d6963fec694978b6314e48917",
+  "filing_reviewer": "rust-best-practices-agent",
+  "finding_count": 12,
+  "findings": [
+    {
+      "id": "RBP-F001",
+      "filing_reviewer": "rust-best-practices-agent",
+      "severity": "important",
+      "owner": "arap",
+      "original_finding": "`validate_scalar(kind: &str, text: &str)` picks the validator by matching the string \"Id\", \"Version\" or \"Date\". The `scalar!` macro passes `stringify!($name)`, and accept.rs:194 matches the same literals on schema `$ref` names. Any other string falls through to a fake `UnknownVariant` error at schema.rs:71.",
+      "original_acceptance_criterion": "Replace the `&str` selector with a `ScalarKind { Id, Version, Date }` enum, or with per-type `FromStr`/`TryFrom<&str>` validators. Map the `$ref` name to the enum once, at the schema boundary. The python binding (lib.rs:56) should parse the kind string once at its edge.",
+      "original_evidence_refs": [
+        "crates/raptor-schema/src/schema.rs:27"
+      ],
+      "source_report": "rust-best-practices-agent.md",
+      "duplicates_or_overlaps": [
+        "ARCH-007",
+        "RBQA-F009"
+      ],
+      "status": "implemented-unverified",
+      "current_evidence": [
+        "Current candidate refactor; exact committed head and filing-reviewer closure pending.",
+        "Developer reports: raptor-rust-qa-api-migration.md, raptor-python-qa-fixes.md, raptor-qa-tooling-report.txt."
+      ],
+      "disposition_note": "Implementation supplied; this is not a verified closure. Aggregate-budget, Value-boundary and final corpus acceptance remain separate open gates.",
+      "verification": null
+    },
+    {
+      "id": "RBP-F002",
+      "filing_reviewer": "rust-best-practices-agent",
+      "severity": "important",
+      "owner": "arap",
+      "original_finding": "`FieldMeta` carries `level`, `shape`, `role` and `table` as `&'static str`. The enums `Level`, `Shape` and `Table` already exist, and `binding()` and `field_table()` convert them to strings. `sql_ddl` then branches on those strings, so the type information is thrown away and re-parsed.",
+      "original_acceptance_criterion": "Keep typed enums (`Level`, `Shape`, `Role`, `Table`) in `FieldMeta` and derive `Serialize` on them to get the same JSON. Make `sql_ddl` match on the enums.",
+      "original_evidence_refs": [
+        "crates/raptor-schema/src/emit.rs:19"
+      ],
+      "source_report": "rust-best-practices-agent.md",
+      "duplicates_or_overlaps": [
+        "ATM-QA-022"
+      ],
+      "status": "implemented-unverified",
+      "current_evidence": [
+        "Current candidate refactor; exact committed head and filing-reviewer closure pending.",
+        "Developer reports: raptor-rust-qa-api-migration.md, raptor-python-qa-fixes.md, raptor-qa-tooling-report.txt."
+      ],
+      "disposition_note": "Implementation supplied; this is not a verified closure. Aggregate-budget, Value-boundary and final corpus acceptance remain separate open gates.",
+      "verification": null
+    },
+    {
+      "id": "RBP-F003",
+      "filing_reviewer": "rust-best-practices-agent",
+      "severity": "important",
+      "owner": "arap",
+      "original_finding": "`emit::json_schema()` returns `Result<_, serde_json::Error>`, but it only serializes compile-time-known static data (emit.rs:104-126). `accept()` builds a full error branch for it (accept.rs:318-328), mislabelled as `TypeMismatch`. That error cannot occur at runtime. The `else { continue }` at line 330 also silently skips a missing table.",
+      "original_acceptance_criterion": "Make schema generation infallible and use `expect` with a reason on the `to_value` calls, since they are programming-error panics under M-PANIC-ON-BUG. Alternatively, build the schemas once in a `OnceLock`. Remove the dead error branch, and replace the silent `continue` with an invariant.",
+      "original_evidence_refs": [
+        "crates/raptor-schema/src/accept.rs:318"
+      ],
+      "source_report": "rust-best-practices-agent.md",
+      "duplicates_or_overlaps": [],
+      "status": "implemented-unverified",
+      "current_evidence": [
+        "Current candidate refactor; exact committed head and filing-reviewer closure pending.",
+        "Developer reports: raptor-rust-qa-api-migration.md, raptor-python-qa-fixes.md, raptor-qa-tooling-report.txt."
+      ],
+      "disposition_note": "Implementation supplied; this is not a verified closure. Aggregate-budget, Value-boundary and final corpus acceptance remain separate open gates.",
+      "verification": null
+    },
+    {
+      "id": "RBP-F004",
+      "filing_reviewer": "rust-best-practices-agent",
+      "severity": "important",
+      "owner": "arap",
+      "original_finding": "`accept()` does avoidable work on every call and every record. It rebuilds and serializes both RootSchemas on each call (line 318). It clones `definitions` once per table (line 333). It calls `emit::field_table(...)`, which allocates a `Vec<FieldMeta>`, inside the per-record loop (line 342). It clones each record `Value` just to deserialize it (lines 365 and 367), though `Requirement::deserialize(record)` can work from `&Value`.",
+      "original_acceptance_criterion": "Compute schemas and field tables once, before the loops, or cache them in a `OnceLock`. Borrow `definitions` instead of cloning it. Deserialize from `&Value` (`T::deserialize(record)`) so no clone is needed. Take the nullable-field list once per table.",
+      "original_evidence_refs": [
+        "crates/raptor-schema/src/accept.rs:342"
+      ],
+      "source_report": "rust-best-practices-agent.md",
+      "duplicates_or_overlaps": [
+        "ARCH-012"
+      ],
+      "status": "implemented-unverified",
+      "current_evidence": [
+        "Current candidate refactor; exact committed head and filing-reviewer closure pending.",
+        "Developer reports: raptor-rust-qa-api-migration.md, raptor-python-qa-fixes.md, raptor-qa-tooling-report.txt."
+      ],
+      "disposition_note": "Implementation supplied; this is not a verified closure. Aggregate-budget, Value-boundary and final corpus acceptance remain separate open gates.",
+      "verification": null
+    },
+    {
+      "id": "RBP-F005",
+      "filing_reviewer": "rust-best-practices-agent",
+      "severity": "important",
+      "owner": "arap",
+      "original_finding": "`RaptorError` is the core error type, but it has one `Io` variant. It has no stable code, no recovery guidance, and no path or operation context, because `#[from] std::io::Error` discards what was being read or written. It also does not align with the structured `raptor_schema::Error` that carries category, cause and recovery.",
+      "original_acceptance_criterion": "Add stable machine-readable codes and recovery text to `RaptorError`. Carry the operation and path as context on I/O failures instead of using a bare `#[from]`. Pick one JSON error envelope shared with the schema `Error`.",
+      "original_evidence_refs": [
+        "crates/raptor-core/src/error.rs:4"
+      ],
+      "source_report": "rust-best-practices-agent.md",
+      "duplicates_or_overlaps": [],
+      "status": "rejected-with-reason",
+      "current_evidence": [
+        "ATM message 01M67Y2WJY74TT5E1T4RT2F3TS: quality-mgr acceptance of rejection",
+        "crates/raptor-core/src/error.rs unchanged against develop; zero callsites (quality-manager verification)"
+      ],
+      "disposition_note": "Quality manager verified and accepted rejection: unchanged pre-existing unused core placeholder, with no callsites. This is a rejection, not deferred work.",
+      "verification": {
+        "reviewer": "quality-mgr",
+        "result": "rejection-accepted",
+        "evidence": "ATM message 01M67Y2WJY74TT5E1T4RT2F3TS",
+        "authority": "parent relayed authoritative quality-manager confirmation"
+      }
+    },
+    {
+      "id": "RBP-F006",
+      "filing_reviewer": "rust-best-practices-agent",
+      "severity": "minor",
+      "owner": "arap",
+      "original_finding": "In the python binding, `json()` and `json_schema()` convert `serde_json::Error` to `PyValueError::new_err(error.to_string())`. This drops the structured category, cause and recovery fields that `fail()` preserves for other errors. `Error::from_serde` (accept.rs:117-119) also folds the serde error into a cause string.",
+      "original_acceptance_criterion": "Route these failures through the `SchemaError` path with `category`, `cause` and `recovery`, so Python callers get one consistent machine-readable shape.",
+      "original_evidence_refs": [
+        "crates/raptor-schema/src/lib.rs:18"
+      ],
+      "source_report": "rust-best-practices-agent.md",
+      "duplicates_or_overlaps": [],
+      "status": "pending",
+      "current_evidence": [],
+      "disposition_note": "No filing-reviewer closure confirmation received.",
+      "verification": null
+    },
+    {
+      "id": "RBP-F007",
+      "filing_reviewer": "rust-best-practices-agent",
+      "severity": "minor",
+      "owner": "arap",
+      "original_finding": "`Rule::MissingId`, `MissingField`, `UnknownSection` and `UnknownLabel` are public variants that `summarize()` never produces (inventory.rs:113-125). They are dead and misleading in the public API and in the serialized summary contract.",
+      "original_acceptance_criterion": "Remove the unused variants. If they are reserved, document that and mark the enum `#[non_exhaustive]`.",
+      "original_evidence_refs": [
+        "crates/raptor-schema/src/inventory.rs:11"
+      ],
+      "source_report": "rust-best-practices-agent.md",
+      "duplicates_or_overlaps": [
+        "RBQA-F001"
+      ],
+      "status": "implemented-unverified",
+      "current_evidence": [
+        "Current candidate refactor; exact committed head and filing-reviewer closure pending.",
+        "Developer reports: raptor-rust-qa-api-migration.md, raptor-python-qa-fixes.md, raptor-qa-tooling-report.txt."
+      ],
+      "disposition_note": "Implementation supplied; this is not a verified closure. Aggregate-budget, Value-boundary and final corpus acceptance remain separate open gates.",
+      "verification": null
+    },
+    {
+      "id": "RBP-F008",
+      "filing_reviewer": "rust-best-practices-agent",
+      "severity": "minor",
+      "owner": "arap",
+      "original_finding": "`table_count` returns the constant `1` for every variant. It is a contrived exhaustiveness check, and its assert (line 17) only compares `TABLES.len()` with `1 + 1`, which does not verify that each variant appears exactly once in `TABLES`, as the doc comment at line 6 claims.",
+      "original_acceptance_criterion": "Drop the helper, or derive `TABLES` from an `ErrorTable::ALL` array with a match-based `name()` method. That makes the one-entry-per-variant guarantee real.",
+      "original_evidence_refs": [
+        "crates/raptor-schema/src/emit.rs:11"
+      ],
+      "source_report": "rust-best-practices-agent.md",
+      "duplicates_or_overlaps": [
+        "ARCH-004",
+        "RBQA-F008"
+      ],
+      "status": "implemented-unverified",
+      "current_evidence": [
+        "Current candidate refactor; exact committed head and filing-reviewer closure pending.",
+        "Developer reports: raptor-rust-qa-api-migration.md, raptor-python-qa-fixes.md, raptor-qa-tooling-report.txt."
+      ],
+      "disposition_note": "Implementation supplied; this is not a verified closure. Aggregate-budget, Value-boundary and final corpus acceptance remain separate open gates.",
+      "verification": null
+    },
+    {
+      "id": "RBP-F009",
+      "filing_reviewer": "rust-best-practices-agent",
+      "severity": "minor",
+      "owner": "arap",
+      "original_finding": "Positions are bare `usize` values with different meanings: `record_position`, `item_index`, and `first_occurrence_record_position` (accept.rs:41,48,60). Rows are stored as unlabelled `(usize, T)` tuples (accept.rs:136,138). inventory.rs:57 and :61 pass four-element tuples (`ErrorTable`, `position`, `&Identity`, targets). `Field` (schema.rs:387) is a six-element positional tuple with two adjacent `&'static str` values.",
+      "original_acceptance_criterion": "Introduce `RecordPosition` and `ItemIndex` newtypes, plus a small `PositionedRow<T>` struct. Turn the `Field` tuple and the inventory row tuples into named structs.",
+      "original_evidence_refs": [
+        "crates/raptor-schema/src/accept.rs:136"
+      ],
+      "source_report": "rust-best-practices-agent.md",
+      "duplicates_or_overlaps": [],
+      "status": "implemented-unverified",
+      "current_evidence": [
+        "Current candidate refactor; exact committed head and filing-reviewer closure pending.",
+        "Developer reports: raptor-rust-qa-api-migration.md, raptor-python-qa-fixes.md, raptor-qa-tooling-report.txt."
+      ],
+      "disposition_note": "Implementation supplied; this is not a verified closure. Aggregate-budget, Value-boundary and final corpus acceptance remain separate open gates.",
+      "verification": null
+    },
+    {
+      "id": "RBP-F010",
+      "filing_reviewer": "rust-best-practices-agent",
+      "severity": "minor",
+      "owner": "arap",
+      "original_finding": "`Id` is validated, but its kind is re-derived from the raw string each time with `RecordKind::from_id`. This happens at accept.rs:343-350 and again inside `validate_scalar` at schema.rs:32. Scalar `Id` validation also runs twice, once in `walk` (accept.rs:194-199) and again in `TryFrom<String>` during deserialization.",
+      "original_acceptance_criterion": "Have `Id::try_from` store the parsed `RecordKind`, and expose it as `Id::kind()`. Use that instead of re-parsing strings.",
+      "original_evidence_refs": [
+        "crates/raptor-schema/src/accept.rs:343"
+      ],
+      "source_report": "rust-best-practices-agent.md",
+      "duplicates_or_overlaps": [],
+      "status": "implemented-unverified",
+      "current_evidence": [
+        "Current candidate refactor; exact committed head and filing-reviewer closure pending.",
+        "Developer reports: raptor-rust-qa-api-migration.md, raptor-python-qa-fixes.md, raptor-qa-tooling-report.txt."
+      ],
+      "disposition_note": "Implementation supplied; this is not a verified closure. Aggregate-budget, Value-boundary and final corpus acceptance remain separate open gates.",
+      "verification": null
+    },
+    {
+      "id": "RBP-F011",
+      "filing_reviewer": "rust-best-practices-agent",
+      "severity": "minor",
+      "owner": "arap",
+      "original_finding": "The `scalar!` newtypes `Id`, `Version` and `Date` expose only `as_str()`. They have no `AsRef<str>`, `Borrow<str>` or `Display`, and no `Clone`, `PartialEq`, `Eq`, `Hash` or `Ord`. Callers have to reach in with `.as_str()` on every use, for example in the inventory maps and lookups (inventory.rs:67, 79, 86, 91).",
+      "original_acceptance_criterion": "Add `AsRef<str>`, `Display` and the common derives (`Clone`, `PartialEq`, `Eq`, `Hash`, `PartialOrd`, `Ord`). Add `Borrow<str>` only if the `Hash`/`Eq` semantics are consistent with `str`. Do not add `Deref`, since the wrapper carries validation semantics.",
+      "original_evidence_refs": [
+        "crates/raptor-schema/src/schema.rs:5"
+      ],
+      "source_report": "rust-best-practices-agent.md",
+      "duplicates_or_overlaps": [],
+      "status": "implemented-unverified",
+      "current_evidence": [
+        "Current candidate refactor; exact committed head and filing-reviewer closure pending.",
+        "Developer reports: raptor-rust-qa-api-migration.md, raptor-python-qa-fixes.md, raptor-qa-tooling-report.txt."
+      ],
+      "disposition_note": "Implementation supplied; this is not a verified closure. Aggregate-budget, Value-boundary and final corpus acceptance remain separate open gates.",
+      "verification": null
+    },
+    {
+      "id": "RBP-F012",
+      "filing_reviewer": "rust-best-practices-agent",
+      "severity": "minor",
+      "owner": "arap",
+      "original_finding": "`item_index: Option<Box<usize>>` and `first_occurrence_record_position: Option<Box<usize>>` heap-allocate an 8-byte integer to shrink the struct. `allowed_values: Option<Box<Vec<Value>>>` adds a double indirection. The explanatory comment (lines 44-46) sits between fields and detached from the code it justifies.",
+      "original_acceptance_criterion": "Use plain `Option<usize>`. If `Error` size matters for `result_large_err`, box the rare-path data as one `Option<Box<ErrorDetail>>`, or use `Box<[Value]>` instead of `Box<Vec<Value>>`. Move the comment onto the struct.",
+      "original_evidence_refs": [
+        "crates/raptor-schema/src/accept.rs:48"
+      ],
+      "source_report": "rust-best-practices-agent.md",
+      "duplicates_or_overlaps": [
+        "ARCH-015"
+      ],
+      "status": "implemented-unverified",
+      "current_evidence": [
+        "Current candidate refactor; exact committed head and filing-reviewer closure pending.",
+        "Developer reports: raptor-rust-qa-api-migration.md, raptor-python-qa-fixes.md, raptor-qa-tooling-report.txt."
+      ],
+      "disposition_note": "Implementation supplied; this is not a verified closure. Aggregate-budget, Value-boundary and final corpus acceptance remain separate open gates.",
+      "verification": null
+    }
+  ]
+}

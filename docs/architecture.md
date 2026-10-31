@@ -18,16 +18,19 @@ checks qualified JSON, excludes invalid records individually and returns an
 accepted batch plus structured errors and inventory diagnostics. The batch
 has no public unchecked constructor. Rust parses no Markdown.
 
-The Python splitter in `scripts/extract.py` knows Markdown structure and
+The Python splitter in `scripts/markdown_splitter.py` knows Markdown structure and
 source locations, but no field names. `scripts/qualify.py` reads schema exports,
 normalizes source spellings, applies explicit repository aliases, tokenizes
 links and lists, and produces canonical JSON. Scalar rules remain in Rust.
-The loader inserts through the emitted schema; the renderer iterates the
-field table through one Jinja2 template per table. The Python extension is
+The loader accepts records through the crate before inserting them through
+the emitted schema. The renderer iterates the field table and exported
+semantic roles through one generic Jinja2 record template. The Python extension is
 built with maturin and exposes `sql_ddl`, `json_schema`, `field_table`,
 `validate_scalar` and `accept`.
 
-Source diagnostics carry file, line, column and the offending value. The
+Source diagnostics carry file, line, column, canonical section and the
+offending value. Rule remedies and rejection policy come from exported Rust
+metadata; Python does not maintain a parallel taxonomy. The
 qualifier maps Rust record/item positions back to those locations. Inventory
 checks report duplicate ids and dangling references; edges derive from JSON
 columns instead of being stored twice. Only the two supersession columns

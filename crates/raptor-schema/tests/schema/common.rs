@@ -50,9 +50,9 @@ pub(super) fn check_error(
 ) {
     assert_eq!(json!(error.category), category);
     assert_eq!(serde_json::to_value(error.table).unwrap(), json!(table));
-    assert_eq!(error.record_position, position);
+    assert_eq!(error.record_position.map(|position| position.0), position);
     assert_eq!(error.field_path.as_ref(), path);
-    assert_eq!(error.item_index.as_deref(), item.as_ref());
+    assert_eq!(error.item_index().map(|index| index.0), item);
     assert_eq!(error.offending_value.as_ref(), value);
     assert!(!error.cause.is_empty());
     assert!(!error.message.is_empty());

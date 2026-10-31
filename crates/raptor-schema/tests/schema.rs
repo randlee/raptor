@@ -1,3 +1,5 @@
+#[path = "schema/boundary.rs"]
+mod boundary;
 #[path = "schema/common.rs"]
 mod common;
 #[path = "schema/emission.rs"]

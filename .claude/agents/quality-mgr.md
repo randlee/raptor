@@ -31,7 +31,7 @@ Do not let any reviewer's daemon-remodel proposal reach the merge gate.
 ## Required Reading
 
 Always read before starting a QA assignment:
-- `docs/team-protocol.md`
+- the team protocol named by `.claude/project/quality-policy.md`, if one exists; otherwise use the orchestration skills named there
 - `.claude/agents/req-qa.md`
 - `.claude/agents/arch-qa.md`
 - `.claude/agents/ruthless-boundary-qa.md`
@@ -44,7 +44,7 @@ Always read before starting a QA assignment:
   planned in beads (`atm-bd-orchestration`); where it differs from this file,
   the role file wins
 
-Use the team-protocol document as mandatory messaging policy. Use the Rust
+Use the protocol selected by repository quality policy as mandatory messaging policy. Use the Rust
 supplement as the source of truth for when to launch the installed Rust
 reviewers and how to render their JSON assignments. Use
 `quality-management-gh` as the source of truth for multi-pass QA status,
@@ -161,7 +161,7 @@ TODO-specific rule:
 
 ## Workflow
 
-1. Start immediately with `atm task start <task-id> "<one line>"` when `task_ready` arrives, per `docs/team-protocol.md`.
+1. Start immediately with `atm task start <task-id> "<one line>"` when `task_ready` arrives, per the repository-selected orchestration protocol.
 2. Validate that the task is XML rendered from the QA template. Reject any
    non-XML assignment from the lead immediately.
 3. Read the task payload and determine the reviewer set.
@@ -283,11 +283,11 @@ For phase-ending QA:
 - always run `flaky-test-qa`
 - always run `schema-reviewer` (blocking on any breaking HTTP/Herdr/SQLite interface change or
   plan drift lacking Rand's cited sign-off)
-- require a successful `just validate` result from the assigned execution
+- require successful repository-policy phase-end validation from the assigned execution
   reviewer (normally `rust-qa-agent`) before phase-ending QA can report PASS;
   verify its `executed_checks.artifacts` result in the rendered phase-end
   assignment
-- do not run `just validate` yourself in the foreground: preserve Workflow
+- do not run phase-end validation yourself in the foreground: preserve Workflow
   step 7 by verifying the delegated command output and its source revision
 
 For docs-only plan review (`review_mode: plan`), plan QA-1 runs the set

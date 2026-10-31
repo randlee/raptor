@@ -81,15 +81,27 @@ differ.
 
 ## Validation Policy
 
-These are the commands CI runs (`.github/workflows/ci.yml`) and the values
-of `lint_command` / `test_command` in `.claude/agents/registry.yaml`.
+Lint and test invocations match CI (`.github/workflows/ci.yml`) and the
+`lint_command` / `test_command` values in `.claude/agents/registry.yaml`.
+Python tests require the extension to be built and installed in the same
+environment first; a bare pytest invocation is not a phase-end artifact
+check.
 
 - Lint: `cargo fmt --check --all && cargo clippy --all-targets --all-features -- -D warnings`
-- Tests: `cargo test && python3 -m pytest -q tests`
-- Phase-end validation: `cargo build` plus the lint and test commands above;
-  quality-mgr passes them to `rust-qa-agent` as `artifact_commands` on every
-  `phase_end` assignment and never runs them in the foreground. There is no
-  release preflight yet.
+- Python test setup: `python3 -m pip install maturin pytest markdown sc-compose && python3 -m pip install .`
+- Tests: `cargo test && python3 -m pytest -q tests` (after Python test setup)
+- Phase-end validation: `cargo build` plus lint and test commands above.
+  Every phase-end `artifact_commands` value sent to `rust-qa-agent` must
+  include Python test setup before pytest, in the same Python environment;
+  quality-mgr delegates these commands and verifies their results. There is
+  no release preflight yet.
+
+`sc-lint` 0.8.0 is not a Raptor CI or size-enforcement gate. This repository
+has no `sc-lint.toml` or `boundaries` inventory. Its `lint line-counts`
+source-maintainer command requires the `boundaries` sentinel, and consumer
+profiles do not expose a built-in file-size rule. Do not claim automated
+sc-lint size enforcement or add it to CI until a documented, supported
+consumer integration exists.
 
 ## Plan Naming
 
@@ -116,11 +128,21 @@ mechanics: the `sc-gh-stack` and `sc-gh-stack-view` skills.
 
 ## Governed Interfaces
 
-Raptor has no governed interfaces yet. When the record schema
-(`crates/raptor-schema`, ADR-RAP-0004) or the CLI's JSON output contract ships,
-add it here with its versioning rule and evidence paths, and retarget
-`schema-reviewer` (`.claude/agents/schema-reviewer.md`, currently written for
-atm-core) to it. Until then `schema-reviewer` is not dispatched.
+The record JSON schema, generated SQLite schema, and exported Python metadata
+contract are governed interfaces. Their source is `crates/raptor-schema`,
+with the design decision in ADR-RAP-0004 and the Phase B plan. The current
+crate version is `0.1.0`; no further release-versioning rule is established
+here. The fixture, generated JSON Schema / SQLite DDL, and schema tests are
+the compatibility evidence.
+
+`schema-reviewer` (`.claude/agents/schema-reviewer.md`) reviews these
+interfaces in plan review and phase-ending review whenever they are in scope.
+It compares the change with ADR-RAP-0004 and the agreed Phase B specification,
+the fixture and field/schema completeness, and the available compatibility
+evidence. The agreed initial Phase B implementation is not a released-product
+migration. A genuine breaking change beyond that agreed specification
+requires the operator's recorded decision before it is accepted. Do not
+apply atm-core ADR-061 rules or invent additional release/versioning rules.
 
 ## Repository Exceptions
 

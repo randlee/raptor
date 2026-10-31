@@ -1,0 +1,288 @@
+{
+  "schema_version": 1,
+  "phase": "b",
+  "reviewed_commit": "fb7ea189db3ca76d6963fec694978b6314e48917",
+  "filing_reviewer": "ruthless-boundary-qa",
+  "finding_count": 13,
+  "findings": [
+    {
+      "id": "RBQA-F001",
+      "filing_reviewer": "ruthless-boundary-qa",
+      "severity": "important",
+      "owner": "python_qa_fixes",
+      "original_finding": "The rule taxonomy and the error-category-to-rule decision are owned twice. Rust's Rule enum and summarize() make the decision. Python redefines the rule names (REMEDIES) and re-maps categories itself (map_error). Rust declares four rules it never emits.",
+      "original_acceptance_criterion": "Make the crate the single owner of rule names, remedies and category-to-rule mapping. Serialize rule and remedy on each Error, or expose a rule table, and delete REMEDIES and the dict at qualify.py:243. Move the rules Python really produces (MissingId, MissingField, UnknownSection, UnknownLabel) behind a crate API, or drop them from Rule. Remove the manual count merge at extract.py:118-119.",
+      "original_evidence_refs": [
+        "scripts/qualify.py:243"
+      ],
+      "source_report": "ruthless-boundary-qa.md",
+      "duplicates_or_overlaps": [
+        "RBP-F007"
+      ],
+      "status": "implemented-unverified",
+      "current_evidence": [
+        "Current candidate refactor; exact committed head and filing-reviewer closure pending.",
+        "Developer reports: raptor-rust-qa-api-migration.md, raptor-python-qa-fixes.md, raptor-qa-tooling-report.txt."
+      ],
+      "disposition_note": "Implementation supplied; this is not a verified closure. Aggregate-budget, Value-boundary and final corpus acceptance remain separate open gates.",
+      "verification": null
+    },
+    {
+      "id": "RBQA-F002",
+      "filing_reviewer": "ruthless-boundary-qa",
+      "severity": "important",
+      "owner": "arap",
+      "original_finding": "The decision of which fields are references is made in two places in Rust and again in Python. The dangling-reference check hand-lists four JSON paths instead of deriving them from FIELDS.",
+      "original_acceptance_criterion": "Derive reference paths for the dangling and duplicate check from FIELDS (IdList fields plus the nullable supersession fields), the same way emit::sql_ddl derives the edges view. Remove the hand-written path strings.",
+      "original_evidence_refs": [
+        "crates/raptor-schema/src/inventory.rs:25"
+      ],
+      "source_report": "ruthless-boundary-qa.md",
+      "duplicates_or_overlaps": [],
+      "status": "implemented-unverified",
+      "current_evidence": [
+        "Current candidate refactor; exact committed head and filing-reviewer closure pending.",
+        "Developer reports: raptor-rust-qa-api-migration.md, raptor-python-qa-fixes.md, raptor-qa-tooling-report.txt."
+      ],
+      "disposition_note": "Implementation supplied; this is not a verified closure. Aggregate-budget, Value-boundary and final corpus acceptance remain separate open gates.",
+      "verification": null
+    },
+    {
+      "id": "RBQA-F003",
+      "filing_reviewer": "ruthless-boundary-qa",
+      "severity": "important",
+      "owner": "python_qa_fixes",
+      "original_finding": "The loader fabricates defaults for missing or null optional fields. The crate's accept path rejects that shape with MissingKey or NullNotAllowed. The two paths disagree about what a valid record is, and Presence::Optional has no Rust meaning beyond the Python extractor.",
+      "original_acceptance_criterion": "Make the loader consume only accept()ed output and drop the defaults logic. Or move 'Optional' defaulting into the crate so accept() and the loader agree. Delete the duplicated empty() construction reused from qualify.",
+      "original_evidence_refs": [
+        "scripts/load_sqlite.py:26"
+      ],
+      "source_report": "ruthless-boundary-qa.md",
+      "duplicates_or_overlaps": [],
+      "status": "implemented-unverified",
+      "current_evidence": [
+        "Current candidate refactor; exact committed head and filing-reviewer closure pending.",
+        "Developer reports: raptor-rust-qa-api-migration.md, raptor-python-qa-fixes.md, raptor-qa-tooling-report.txt."
+      ],
+      "disposition_note": "Implementation supplied; this is not a verified closure. Aggregate-budget, Value-boundary and final corpus acceptance remain separate open gates.",
+      "verification": null
+    },
+    {
+      "id": "RBQA-F004",
+      "filing_reviewer": "ruthless-boundary-qa",
+      "severity": "important",
+      "owner": "python_qa_fixes",
+      "original_finding": "The record-ID grammar is duplicated in a Python regex. Its divergence from Rust's Id grammar turns BAD_VALUE cases into MISSING_ID, and the ID prefix is derived a second time at qualify.py:195.",
+      "original_acceptance_criterion": "Let the splitter detect headings with a looser structural pattern, for example any '## <token>:'. Let raptor_schema.validate_scalar('Id') decide validity, so malformed IDs surface as BAD_VALUE from the one owner.",
+      "original_evidence_refs": [
+        "scripts/extract.py:19"
+      ],
+      "source_report": "ruthless-boundary-qa.md",
+      "duplicates_or_overlaps": [
+        "ATM-QA-014"
+      ],
+      "status": "implemented-unverified",
+      "current_evidence": [
+        "Current candidate refactor; exact committed head and filing-reviewer closure pending.",
+        "Developer reports: raptor-rust-qa-api-migration.md, raptor-python-qa-fixes.md, raptor-qa-tooling-report.txt."
+      ],
+      "disposition_note": "Implementation supplied; this is not a verified closure. Aggregate-budget, Value-boundary and final corpus acceptance remain separate open gates.",
+      "verification": null
+    },
+    {
+      "id": "RBQA-F005",
+      "filing_reviewer": "ruthless-boundary-qa",
+      "severity": "important",
+      "owner": "python_qa_fixes",
+      "original_finding": "The Python-side templates embed schema knowledge and are near-duplicates of each other. Both hard-code the derived 'ID Range' output. The decision template also hard-codes the 'alternatives' field name and the 'Alternative N:' group heading. The label-rendering block is copied between the two templates.",
+      "original_acceptance_criterion": "Collapse requirement.md.j2 and decision.md.j2 into one template driven by the field table, so render.py:15 needs no table-to-template choice. Move the Group rendering and the derived-field computation into field metadata, or into a crate-provided render context. Extend the literal lint to cover templates.",
+      "original_evidence_refs": [
+        "templates/decision.md.j2:19"
+      ],
+      "source_report": "ruthless-boundary-qa.md",
+      "duplicates_or_overlaps": [],
+      "status": "implemented-unverified",
+      "current_evidence": [
+        "Current candidate refactor; exact committed head and filing-reviewer closure pending.",
+        "Developer reports: raptor-rust-qa-api-migration.md, raptor-python-qa-fixes.md, raptor-qa-tooling-report.txt."
+      ],
+      "disposition_note": "Implementation supplied; this is not a verified closure. Aggregate-budget, Value-boundary and final corpus acceptance remain separate open gates.",
+      "verification": null
+    },
+    {
+      "id": "RBQA-F006",
+      "filing_reviewer": "ruthless-boundary-qa",
+      "severity": "important",
+      "owner": "arap",
+      "original_finding": "Presence::Nullable is overloaded to mean 'supersession foreign key'. The SQL FK generation and the cross-kind supersession check each key off the flag independently.",
+      "original_acceptance_criterion": "Add an explicit role or shape for supersession links, such as Shape::Supersession or a Reference variant. Have the DDL generator and the cross-kind check consume that one marker. Fold the cross-kind check into inventory.rs with the other cross-record rules.",
+      "original_evidence_refs": [
+        "crates/raptor-schema/src/emit.rs:142"
+      ],
+      "source_report": "ruthless-boundary-qa.md",
+      "duplicates_or_overlaps": [],
+      "status": "implemented-unverified",
+      "current_evidence": [
+        "Current candidate refactor; exact committed head and filing-reviewer closure pending.",
+        "Developer reports: raptor-rust-qa-api-migration.md, raptor-python-qa-fixes.md, raptor-qa-tooling-report.txt."
+      ],
+      "disposition_note": "Implementation supplied; this is not a verified closure. Aggregate-budget, Value-boundary and final corpus acceptance remain separate open gates.",
+      "verification": null
+    },
+    {
+      "id": "RBQA-F007",
+      "filing_reviewer": "ruthless-boundary-qa",
+      "severity": "important",
+      "owner": "python_qa_fixes",
+      "original_finding": "The only machine guard against Python re-owning schema vocabulary is incomplete. It covers scripts/*.py string constants for field names, labels, sections and enum values. It does not cover the crate-owned shape, level and role vocabulary, regex literals, templates, or table names. Many real duplicates therefore pass.",
+      "original_acceptance_criterion": "Extend the lint. Add the Shape, Level and role strings emitted by FieldMeta, and the table names 'requirements' and 'decisions'. Remove those two names from the 'structural' allow-list. Scan regex patterns for the ID grammar, and scan templates/*.j2. Add a Rust-side test pinning the Python-consumed vocabulary.",
+      "original_evidence_refs": [
+        "tests/test_extract.py:92"
+      ],
+      "source_report": "ruthless-boundary-qa.md",
+      "duplicates_or_overlaps": [
+        "ARCH-008",
+        "ATM-QA-013"
+      ],
+      "status": "implemented-unverified",
+      "current_evidence": [
+        "Current candidate refactor; exact committed head and filing-reviewer closure pending.",
+        "Developer reports: raptor-rust-qa-api-migration.md, raptor-python-qa-fixes.md, raptor-qa-tooling-report.txt."
+      ],
+      "disposition_note": "Implementation supplied; this is not a verified closure. Aggregate-budget, Value-boundary and final corpus acceptance remain separate open gates.",
+      "verification": null
+    },
+    {
+      "id": "RBQA-F008",
+      "filing_reviewer": "ruthless-boundary-qa",
+      "severity": "minor",
+      "owner": "arap",
+      "original_finding": "The table list is written twice in emit.rs. Three enums describe two tables: Table, ErrorTable and the TABLES tuple. The table_count const assertion adds ceremony without guarding anything beyond match exhaustiveness.",
+      "original_acceptance_criterion": "Build json_schema() by iterating TABLES. Collapse ErrorTable into Table, with Both modelled separately as a FieldMeta scope. Delete table_count and the tautological assertion, and delete the unreachable Table::Both arm at emit.rs:117.",
+      "original_evidence_refs": [
+        "crates/raptor-schema/src/emit.rs:106"
+      ],
+      "source_report": "ruthless-boundary-qa.md",
+      "duplicates_or_overlaps": [
+        "ARCH-004",
+        "RBP-F008"
+      ],
+      "status": "implemented-unverified",
+      "current_evidence": [
+        "Current candidate refactor; exact committed head and filing-reviewer closure pending.",
+        "Developer reports: raptor-rust-qa-api-migration.md, raptor-python-qa-fixes.md, raptor-qa-tooling-report.txt."
+      ],
+      "disposition_note": "Implementation supplied; this is not a verified closure. Aggregate-budget, Value-boundary and final corpus acceptance remain separate open gates.",
+      "verification": null
+    },
+    {
+      "id": "RBQA-F009",
+      "filing_reviewer": "ruthless-boundary-qa",
+      "severity": "minor",
+      "owner": "arap",
+      "original_finding": "The scalar-kind list {Id, Version, Date} is stringly typed and repeated in four places. validate_scalar dispatches on a &str kind, so an unknown kind falls into the UnknownVariant arm at runtime instead of being a compile error. Callers pass the same strings from outside the crate.",
+      "original_acceptance_criterion": "Introduce a ScalarKind enum, or make each scalar newtype implement a trait that carries its own validate function. Have walk() and the PyO3 validate_scalar parse the $ref name once into that enum.",
+      "original_evidence_refs": [
+        "crates/raptor-schema/src/schema.rs:27"
+      ],
+      "source_report": "ruthless-boundary-qa.md",
+      "duplicates_or_overlaps": [
+        "ARCH-007",
+        "RBP-F001"
+      ],
+      "status": "implemented-unverified",
+      "current_evidence": [
+        "Current candidate refactor; exact committed head and filing-reviewer closure pending.",
+        "Developer reports: raptor-rust-qa-api-migration.md, raptor-python-qa-fixes.md, raptor-qa-tooling-report.txt."
+      ],
+      "disposition_note": "Implementation supplied; this is not a verified closure. Aggregate-budget, Value-boundary and final corpus acceptance remain separate open gates.",
+      "verification": null
+    },
+    {
+      "id": "RBQA-F010",
+      "filing_reviewer": "ruthless-boundary-qa",
+      "severity": "minor",
+      "owner": "arap",
+      "original_finding": "pub use schema::* re-exports the entire internal metadata surface, including the 6-tuple Field alias, FIELDS, Presence, Level, Shape, Section and the scalar newtypes. The Python surface is guarded by tests/test_schema.py:11, but nothing guards the Rust surface.",
+      "original_acceptance_criterion": "Replace the glob with an explicit export list, limited to the records, the scalar types, Status, Modal, RecordKind and validate_scalar. Keep FIELDS, the Field tuple alias and Level, Shape and Presence pub(crate). Expose only FieldMeta through field_table. Add a compile-fail or API-surface test.",
+      "original_evidence_refs": [
+        "crates/raptor-schema/src/lib.rs:9"
+      ],
+      "source_report": "ruthless-boundary-qa.md",
+      "duplicates_or_overlaps": [],
+      "status": "implemented-unverified",
+      "current_evidence": [
+        "Current candidate refactor; exact committed head and filing-reviewer closure pending.",
+        "Developer reports: raptor-rust-qa-api-migration.md, raptor-python-qa-fixes.md, raptor-qa-tooling-report.txt."
+      ],
+      "disposition_note": "Implementation supplied; this is not a verified closure. Aggregate-budget, Value-boundary and final corpus acceptance remain separate open gates.",
+      "verification": null
+    },
+    {
+      "id": "RBQA-F011",
+      "filing_reviewer": "ruthless-boundary-qa",
+      "severity": "minor",
+      "owner": "python_qa_fixes",
+      "original_finding": "The loader re-derives crate output repeatedly instead of resolving it once. It also hard-codes its own table list in two other scripts.",
+      "original_acceptance_criterion": "Compute the schema once per load() or dump() call. Expose the table names and template selection from one crate accessor, for example field_table metadata or a tables() function, and use it from load_sqlite.py:16, render.py:15 and render.py:29.",
+      "original_evidence_refs": [
+        "scripts/load_sqlite.py:24"
+      ],
+      "source_report": "ruthless-boundary-qa.md",
+      "duplicates_or_overlaps": [
+        "ARCH-009"
+      ],
+      "status": "implemented-unverified",
+      "current_evidence": [
+        "Current candidate refactor; exact committed head and filing-reviewer closure pending.",
+        "Developer reports: raptor-rust-qa-api-migration.md, raptor-python-qa-fixes.md, raptor-qa-tooling-report.txt."
+      ],
+      "disposition_note": "Implementation supplied; this is not a verified closure. Aggregate-budget, Value-boundary and final corpus acceptance remain separate open gates.",
+      "verification": null
+    },
+    {
+      "id": "RBQA-F012",
+      "filing_reviewer": "ruthless-boundary-qa",
+      "severity": "minor",
+      "owner": "python_qa_fixes",
+      "original_finding": "Value-alias label synthesis is unjustified and currently dead. It rebuilds labels like 'MUST statements' by splicing an alias onto the last word of a canonical label. It re-implements the label grammar already in FIELDS, and a mistaken composition silently remaps labels.",
+      "original_acceptance_criterion": "Delete the branch at lines 86-93 unless a retained requirement needs value aliases for labels. If the feature is wanted, express the alias for modal labels in the crate's FIELDS or field metadata.",
+      "original_evidence_refs": [
+        "scripts/qualify.py:86"
+      ],
+      "source_report": "ruthless-boundary-qa.md",
+      "duplicates_or_overlaps": [
+        "ATM-QA-023"
+      ],
+      "status": "implemented-unverified",
+      "current_evidence": [
+        "Current candidate refactor; exact committed head and filing-reviewer closure pending.",
+        "Developer reports: raptor-rust-qa-api-migration.md, raptor-python-qa-fixes.md, raptor-qa-tooling-report.txt."
+      ],
+      "disposition_note": "Implementation supplied; this is not a verified closure. Aggregate-budget, Value-boundary and final corpus acceptance remain separate open gates.",
+      "verification": null
+    },
+    {
+      "id": "RBQA-F013",
+      "filing_reviewer": "ruthless-boundary-qa",
+      "severity": "minor",
+      "owner": "python_qa_fixes",
+      "original_finding": "The README still documents the deleted Pydantic pipeline and an invalid CLI invocation. Sprint B-2 deleted schema/record.py and schema/record.schema.json, so the pointer to regenerating them no longer works.",
+      "original_acceptance_criterion": "Replace the install and regeneration section with the maturin flow: `pip install .` or `maturin develop`. Drop pydantic. Fix the extract command to `python scripts/extract.py --project-root <root> --output <file>`. Update the stale path comments and fixtures that mention deleted files.",
+      "original_evidence_refs": [
+        "README.md:9"
+      ],
+      "source_report": "ruthless-boundary-qa.md",
+      "duplicates_or_overlaps": [
+        "ATM-QA-010"
+      ],
+      "status": "implemented-unverified",
+      "current_evidence": [
+        "Current candidate refactor; exact committed head and filing-reviewer closure pending.",
+        "Developer reports: raptor-rust-qa-api-migration.md, raptor-python-qa-fixes.md, raptor-qa-tooling-report.txt."
+      ],
+      "disposition_note": "Implementation supplied; this is not a verified closure. Aggregate-budget, Value-boundary and final corpus acceptance remain separate open gates.",
+      "verification": null
+    }
+  ]
+}

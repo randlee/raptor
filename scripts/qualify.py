@@ -1,238 +1,135 @@
 """Qualify splitter trees using the crate's field metadata and JSON Schemas."""
+
 import json
-import re
-import tomllib
-from collections import Counter
-from pathlib import Path
 
 import raptor_schema
+
 if __package__:
-    from .diagnostics import issue, section_for_path
-    from .markdown_content import list_entries, normal, populated, source_text
+    from .aliases import load_aliases
+    from .diagnostics import section_for_path
+    from .markdown_content import populated
+    from .record_context import RecordContext
+    from .schema_json import empty, schemas
+    from .shape_content import parse_content
 else:
-    from diagnostics import issue, section_for_path
-    from markdown_content import list_entries, normal, populated, source_text
-
-
-
-def resolve(node, root):
-    return root["definitions"][node["$ref"].rsplit("/", 1)[-1]] if "$ref" in node else node
-
-
-def empty(node, root):
-    node = resolve(node, root)
-    if "null" in node.get("type", []) or any(part.get("type") == "null" for part in node.get("anyOf", [])):
-        return None
-    if "properties" in node:
-        return {name: empty(child, root) for name, child in node["properties"].items()}
-    return [] if node.get("type") == "array" else ""
+    from aliases import load_aliases
+    from diagnostics import section_for_path
+    from markdown_content import populated
+    from record_context import RecordContext
+    from schema_json import empty, schemas
+    from shape_content import parse_content
 
 
 class Qualifier:
     def __init__(self, root):
-        self.schemas = json.loads(raptor_schema.json_schema())
-        self.fields = {table: json.loads(raptor_schema.field_table(table)) for table in self.schemas}
-        self.kinds = {kind.upper(): table for table, schema in self.schemas.items() for kind in schema["x-raptor-kinds"]}
-        self.rows, self.sources = ({table: [] for table in self.schemas} for _ in range(2))
-        self.issues, self.counts, self.aliases = [], {}, {}
-        fields = [field for fields in self.fields.values() for field in fields]
-        choices = {"labels": {f["label"] for f in fields if f["level"] != "Section"},
-                   "sections": {f["label"] for f in fields if f["level"] == "Section"},
-                   "values": {v for s in self.schemas.values() for d in s["definitions"].values() for v in d.get("enum", [])}}
-        path = Path(root) / ".raptor/aliases.toml"
-        text = path.read_text() if path.exists() else ""
-        try:
-            aliases = tomllib.loads(text)
-        except tomllib.TOMLDecodeError as error:
-            raise ValueError(f"{path}: {error}") from error
-        alias_lines, group = {}, ""
-        for number, raw in enumerate(text.splitlines(), 1):
-            if heading := re.match(r"\s*\[([\w]+)\]", raw):
-                group = heading[1]
-            if assignment := re.match(r'''\s*(?:"([^"]+)"|'([^']+)'|([\w-]+))\s*=''', raw):
-                alias_lines[group, next(value for value in assignment.groups() if value is not None)] = number
-        for group, mapping in aliases.items():
-            if group not in choices or not isinstance(mapping, dict):
-                raise ValueError(f"{path}:1: expected only labels, sections and values tables")
-            for key, target in mapping.items():
-                line = alias_lines.get((group, key), 1)
-                if not isinstance(target, str) or target not in choices[group]:
-                    raise ValueError(f"{path}:{line}: unknown alias target {target!r}; expected {sorted(choices[group])}")
-                self.aliases.setdefault(group, {})[normal(key)] = (key, target)
-
-    issue = issue
-
-    def match(self, group, value, choices, node, rule, message=None):
-        token = normal(value)
-        if token in self.aliases.get(group, {}):
-            source, target = self.aliases[group][token]
-            counts = self.counts.setdefault(group, Counter())
-            counts[f"{source} -> {target}"] += 1
-            token = normal(target)
-        found = next((choice for choice in choices if normal(choice) == token), None)
-        if found is None and group == "labels":
-            for alias, (source, target) in self.aliases.get("values", {}).items():
-                for fields in self.fields.values():
-                    for field in fields:
-                        if field["modal"] == target and field["label"] in choices:
-                            if token == f"{alias} {normal(field['label']).split()[-1]}":
-                                self.counts.setdefault("values", Counter())[f"{source} -> {target}"] += 1
-                                return field["label"]
-        if found is None:
-            source = dict(node, column=self.lines[node["line"] - 1].find(value) + 1) if group != "values" else node
-            self.issue(rule, source, value, value if group != "values" else node.get("name"), list(choices), message=message)
-        return found
-
-    def scalar(self, value, specification, node):
-        text = value.strip()
-        if "anyOf" in specification:
-            specification = next(part for part in specification["anyOf"] if part.get("type") != "null")
-        shape = resolve(specification, self.schema)
-        if "enum" in shape:
-            return self.match("values", value, shape["enum"], node, "BAD_VALUE")
-        if "$ref" in specification and shape.get("type") == "string":
-            try:
-                raptor_schema.validate_scalar(specification["$ref"].rsplit("/", 1)[-1], text)
-            except raptor_schema.SchemaError as error:
-                self.issue("BAD_VALUE", node, value, node.get("name"), message=f"{error.category}: {error.message}")
-        return text
-
-    def items(self, node, field, specification, path, offset):
-        out = []
-        entries, detached = list_entries(node)
-        for entry in detached:
-            self.issue("BAD_VALUE", entry, entry["text"], field["label"],
-                       message="Expected a list item or its continuation.")
-        for entry in entries:
-            entry = dict(entry, name=field["label"])
-            raw = entry["text"]
-            text = raw.strip()
-            shape = field["shape"]
-            item_path = f"{path}/{offset + len(out)}"
-            self.locations[item_path] = (entry, raw, field["label"])
-            if shape == "StatementList":
-                item = dict(modal=field["modal"], text=text)
-            elif shape == "Checklist":
-                box = re.match(r"^\[([ xX])\]\s+(.*)$", text, re.DOTALL)
-                if text.startswith("[") and not box:
-                    self.issue("BAD_VALUE", entry, raw, field["label"], message=f"Found {raw!r}; expected [ ] text or [x] text.")
-                item = dict(text=box[2] if box else text, checked=box[1].casefold() == "x" if box else None)
-            elif shape in ("IdList", "LinkList"):
-                link = re.fullmatch(r"\[([^\]]+)\]\(([^\s)]+)\)(?:\s+(.*))?", text, re.DOTALL)
-                if link:
-                    token, href, note = link.groups()
-                else:
-                    token, _, note = text.partition(" ")
-                    href = ""
-                if (text.startswith("[") and not link) or (shape == "LinkList" and not link):
-                    self.issue("BAD_VALUE", entry, raw, field["label"], message=f"Found {raw!r}; expected [text](href) with an optional note.")
-                note = note.lstrip("—- ").strip() if note else None
-                item = dict(text=token, href=href, note=note) if shape == "LinkList" else dict(id=token, note=note)
-                if shape == "IdList":
-                    props = resolve(specification["items"], self.schema)["properties"]
-                    source = dict(entry, column=entry["column"] + raw.find(token))
-                    self.locations[item_path] = (source, token, field["label"])
-                    item["id"] = self.scalar(token, props["id"], source)
-            else:
-                item = text
-            out.append(item)
-        return out
-
-    def content(self, node, field, specification, path):
-        shape = resolve(specification, self.schema)
-        text = source_text(node)
-        if shape.get("type") == "string":
-            for child in node.get("labels", []) + node.get("groups", []):
-                self.issue("UNKNOWN_LABEL" if "items" in child else "UNKNOWN_SECTION", child, child["name"], allowed=[])
-            return text
-        result = empty(specification, self.schema)
-        result["text"] = text
-        labels = {f["label"]: f for f in self.fields[self.table] if f["section"] == field["label"] and f["name"] in shape["properties"]}
-        if "groups" in shape["properties"]:
-            for index, group in enumerate(node.get("groups", [])):
-                target = self.content(group, field, shape["properties"]["groups"]["items"], f"{path}/groups/{index}")
-                target.pop("text", None)
-                target["name"] = group["name"].split(":", 1)[-1].strip()
-                result["groups"].append(target)
-        else:
-            for group in node.get("groups", []):
-                self.issue("UNKNOWN_SECTION", group, group["name"], field["label"], [])
-        for label in node.get("labels", []):
-            canonical = self.match("labels", label["name"], labels, label, "UNKNOWN_LABEL", f"Found {label['name']!r} under {field['label']!r}; expected a label defined at this level.")
-            if canonical is None:
-                continue
-            member = labels[canonical]
-            key = member["name"]
-            prop = shape["properties"][key]
-            target_path = f"{path}/{key}"
-            self.locations[target_path] = (label, label["name"], canonical)
-            if resolve(prop, self.schema).get("type") == "array":
-                result[key].extend(self.items(label, member, resolve(prop, self.schema), target_path, len(result[key])))
-            else:
-                result[key] = source_text(label)
-        return result
+        self.schemas = schemas()
+        self.fields = {
+            table: json.loads(raptor_schema.field_table(table)) for table in self.schemas
+        }
+        self.kinds = {
+            kind.upper(): table
+            for table, schema in self.schemas.items()
+            for kind in schema["x-raptor-kinds"]
+        }
+        self.rows = {table: [] for table in self.schemas}
+        self.sources = {table: [] for table in self.schemas}
+        self.issues, self.counts = [], {}
+        self.aliases = load_aliases(root, self.schemas, self.fields)
+        self.rules = next(iter(self.schemas.values()))["x-raptor-rules"]
+        self.error_rules = {
+            category: rule
+            for rule, metadata in self.rules.items()
+            for category in metadata["categories"]
+        }
 
     def qualify(self, tree, text):
-        self.file, self.lines = tree["path"], text.splitlines()
-        self.record, self.bad, self.section = {}, False, None
+        lines = text.splitlines()
         if not tree["records"]:
-            self.issue("MISSING_ID", {}, "", allowed=["a record heading"])
+            context = RecordContext(self, tree["path"], lines, {})
+            context.issue("MISSING_ID", {}, "", allowed=["a record heading"])
         for record in tree["records"]:
-            self.record, self.bad, self.locations, self.section = record, False, {}, None
-            self.table = self.kinds.get(record["id"].partition("-")[0])
-            if self.table is None:
-                self.issue("BAD_VALUE", record, record["id"], allowed=list(self.kinds))
+            context = RecordContext(self, tree["path"], lines, record)
+            context.table = self.kinds.get(record["heading_id"].partition("-")[0])
+            if context.table is None:
+                context.issue("BAD_VALUE", record, record["heading_id"], allowed=list(self.kinds))
                 continue
-            self.schema = self.schemas[self.table]
-            fields = self.fields[self.table]
-            result = empty(self.schema, self.schema)
-            headers = {field["label"]: field for field in fields if field["level"] in ("Header", "Item")}
-            supplied = {}
-            for name, node in (tree["header"] | record["fields"]).items():
-                canonical = self.match("labels", name, headers, node, "UNKNOWN_LABEL")
-                if canonical:
-                    supplied[canonical] = dict(node, name=canonical)
-            top = {f["name"]: f for f in fields if f["level"] in ("Header", "Item") and f["shape"] != "Derived"}
-            for field in top.values():
-                key = field["name"]
-                node = dict(record, value=record[key]) if field["role"].startswith("heading_") else supplied.get(field["label"])
-                if node is not None and node["value"].strip():
-                    self.locations[f"/{key}"] = (node, node["value"], field["label"])
-                    result[key] = self.scalar(node["value"], self.schema["properties"][key], node)
-                elif field["required"]:
-                    self.issue("MISSING_FIELD", record, "", field["label"])
-            sections = {field["label"]: field for field in fields if field["level"] == "Section"}
-            present = set()
-            for node in record["sections"]:
-                canonical = self.match("sections", node["name"], sections, node, "UNKNOWN_SECTION")
-                if canonical is not None:
-                    field = sections[canonical]
-                    path = f"/{field['name']}"
-                    self.locations[path] = (node, node["name"], canonical)
-                    self.section = canonical
-                    result[field["name"]] = self.content(node, field, self.schema["properties"][field["name"]], path)
-                    self.section = None
-                    present.add(canonical)
-            for label, field in sections.items():
-                if field["required"] and (label not in present or not populated(result[field["name"]])):
-                    self.section = label
-                    self.issue("MISSING_FIELD", record, "", label)
-                    self.section = None
-            if not self.bad:
-                self.rows[self.table].append(result)
-                self.sources[self.table].append((self.file, self.lines, record, self.locations))
+            context.schema = self.schemas[context.table]
+            result = self.qualify_record(context, tree["header"] | record["fields"])
+            if not context.bad:
+                self.rows[context.table].append(result)
+                self.sources[context.table].append(context)
         return self.rows
 
+    def qualify_record(self, context, supplied_fields):
+        fields = self.fields[context.table]
+        result = empty(context.schema, context.schema)
+        headers = {
+            field["label"]: field for field in fields if field["level"] in ("Header", "Item")
+        }
+        supplied = {}
+        for name, node in supplied_fields.items():
+            canonical = context.match("labels", name, headers, node, "UNKNOWN_LABEL")
+            if canonical:
+                supplied[canonical] = dict(node, token=canonical)
+        top = {
+            field["name"]: field
+            for field in fields
+            if field["level"] in ("Header", "Item") and field["shape"] != "Derived"
+        }
+        for field in top.values():
+            key = field["name"]
+            if field["role"].startswith("heading_"):
+                node = dict(context.record, value=context.record[field["role"]])
+            else:
+                node = supplied.get(field["label"])
+            if node is not None and node["value"].strip():
+                context.locations[f"/{key}"] = (node, node["value"], field["label"])
+                prop = context.schema["properties"][key]
+                result[key] = context.scalar(node["value"], prop, node)
+            elif field["required"]:
+                context.issue("MISSING_FIELD", context.record, "", field["label"])
+        self.qualify_sections(context, result, fields)
+        return result
+
+    def qualify_sections(self, context, result, fields):
+        sections = {field["label"]: field for field in fields if field["level"] == "Section"}
+        present = set()
+        for node in context.record["sections"]:
+            canonical = context.match("sections", node["token"], sections, node, "UNKNOWN_SECTION")
+            if canonical is None:
+                continue
+            field = sections[canonical]
+            path = f"/{field['name']}"
+            context.locations[path] = (node, node["token"], canonical)
+            context.section = canonical
+            prop = context.schema["properties"][field["name"]]
+            result[field["name"]] = parse_content(context, node, field, prop, path)
+            context.section = None
+            present.add(canonical)
+        for label, field in sections.items():
+            if field["required"] and (label not in present or not populated(result[field["name"]])):
+                context.section = label
+                context.issue("MISSING_FIELD", context.record, "", label)
+                context.section = None
+
     def map_error(self, error):
-        self.file, self.lines, self.record, locations = self.sources[error["table"]][error["record_position"]]
+        context = self.sources[error["table"]][error["record_position"]]
         path = error["field_path"]
-        self.section = section_for_path(self.fields[error["table"]], path)
-        if error["item_index"] is not None and not any(part.isdigit() for part in path.split("/")):
+        context.section = section_for_path(self.fields[error["table"]], path)
+        if error["item_index"] is not None and not any(p.isdigit() for p in path.split("/")):
             path += f"/{error['item_index']}"
-        while path not in locations and path:
+        while path not in context.locations and path:
             path = path.rsplit("/", 1)[0]
-        node, value, label = locations.get(path, (self.record, error["offending_value"], None))
-        rule = {"DuplicateId": "DUPLICATE_ID", "DanglingReference": "DANGLING_REFERENCE"}.get(error["category"], "BAD_VALUE")
-        expected = {"DUPLICATE_ID": "a unique identifier", "DANGLING_REFERENCE": "an identifier declared in this inventory"}.get(rule)
-        message = f"Found {value!r}; expected {expected}." if expected else f"{error['category']}: {error['message']}"
-        self.issue(rule, node, value, label, message=message)
+        fallback = (context.record, error["offending_value"], None)
+        node, value, label = context.locations.get(path, fallback)
+        rule = self.error_rules[error["category"]]
+        context.issue(
+            rule,
+            node,
+            value,
+            label,
+            message=(
+                f"Found {value!r}; expected valid schema input. "
+                f"{error['category']}: {error['message']}"
+            ),
+        )

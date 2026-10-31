@@ -1,0 +1,69 @@
+{
+  "schema_version": 1,
+  "phase": "b",
+  "reviewed_commit": "fb7ea189db3ca76d6963fec694978b6314e48917",
+  "filing_reviewer": "rust-qa-agent",
+  "finding_count": 3,
+  "findings": [
+    {
+      "id": "QA-001",
+      "filing_reviewer": "rust-qa-agent",
+      "severity": "important",
+      "owner": "lrap",
+      "original_finding": "The assigned artifact_commands string ends in a bare `python3 -m pytest -q tests`. It fails with exit 2 (4 collection errors, `No module named 'raptor_schema'`) because the pyo3/maturin extension is not installed. The tests only pass after `pip install .`, which CI runs and the policy command string does not.",
+      "original_acceptance_criterion": "Add `pip install maturin pytest markdown sc-compose && pip install .` (ideally in a venv) before pytest in the phase-end command block. Alternatively, expose one `just validate` or script target that includes the install step. Without it the phase-end proof fails or silently depends on whatever is installed in the host Python.",
+      "original_evidence_refs": [
+        ".github/workflows/ci.yml:107"
+      ],
+      "source_report": "rust-qa-agent.md",
+      "duplicates_or_overlaps": [],
+      "status": "implemented-unverified",
+      "current_evidence": [
+        "Current candidate refactor; exact committed head and filing-reviewer closure pending.",
+        "Developer reports: raptor-rust-qa-api-migration.md, raptor-python-qa-fixes.md, raptor-qa-tooling-report.txt."
+      ],
+      "disposition_note": "Implementation supplied; this is not a verified closure. Aggregate-budget, Value-boundary and final corpus acceptance remain separate open gates.",
+      "verification": null
+    },
+    {
+      "id": "QA-002",
+      "filing_reviewer": "rust-qa-agent",
+      "severity": "minor",
+      "owner": "lrap",
+      "original_finding": "`fn_call_width = 100` makes rustfmt print a warning on every `cargo fmt` invocation. The warning says the value exceeds `max_width` and is being clamped, so the setting has no effect and may be noise or a misconfiguration.",
+      "original_acceptance_criterion": "Remove the line, or set `max_width` explicitly to at least the intended value so the setting takes effect. Confirm that `cargo fmt --check` then prints no warning.",
+      "original_evidence_refs": [
+        "rustfmt.toml:1"
+      ],
+      "source_report": "rust-qa-agent.md",
+      "duplicates_or_overlaps": [
+        "ARCH-010",
+        "ATM-QA-019"
+      ],
+      "status": "implemented-unverified",
+      "current_evidence": [
+        "Current candidate refactor; exact committed head and filing-reviewer closure pending.",
+        "Developer reports: raptor-rust-qa-api-migration.md, raptor-python-qa-fixes.md, raptor-qa-tooling-report.txt."
+      ],
+      "disposition_note": "Implementation supplied; this is not a verified closure. Aggregate-budget, Value-boundary and final corpus acceptance remain separate open gates.",
+      "verification": null
+    },
+    {
+      "id": "QA-003",
+      "filing_reviewer": "rust-qa-agent",
+      "severity": "minor",
+      "owner": "crap",
+      "original_finding": "`cargo test` runs 14 Rust tests in a single integration binary. Every other binary, doctest and unit-test harness ran 0 tests. Line coverage is 93.5%, with 4 of 60 functions uncovered and 51 uncovered regions. Branch coverage is not instrumented.",
+      "original_acceptance_criterion": "Identify the 4 uncovered functions with `cargo llvm-cov --text`. Add tests for any on an error path.",
+      "original_evidence_refs": [
+        "crates/:None"
+      ],
+      "source_report": "rust-qa-agent.md",
+      "duplicates_or_overlaps": [],
+      "status": "pending",
+      "current_evidence": [],
+      "disposition_note": "No filing-reviewer closure confirmation received.",
+      "verification": null
+    }
+  ]
+}

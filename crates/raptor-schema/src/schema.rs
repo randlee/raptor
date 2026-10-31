@@ -1,10 +1,12 @@
-use crate::accept::{Error, ErrorCategory};
+use crate::error::{Error, ErrorCategory};
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 
 macro_rules! scalar {
     ($name:ident) => {
-        #[derive(Debug, Serialize, Deserialize, JsonSchema)]
+        #[derive(
+            Clone, Debug, PartialEq, Eq, PartialOrd, Ord, Hash, Serialize, Deserialize, JsonSchema,
+        )]
         #[serde(try_from = "String")]
         pub struct $name(String);
         impl $name {
@@ -12,37 +14,131 @@ macro_rules! scalar {
                 &self.0
             }
         }
+        impl AsRef<str> for $name {
+            fn as_ref(&self) -> &str {
+                self.as_str()
+            }
+        }
+        impl std::fmt::Display for $name {
+            fn fmt(&self, formatter: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+                formatter.write_str(self.as_str())
+            }
+        }
         impl TryFrom<String> for $name {
             type Error = Error;
             fn try_from(text: String) -> Result<Self, Error> {
-                validate_scalar(stringify!($name), &text)?;
+                validate_typed_scalar(ScalarKind::$name, &text)?;
                 Ok(Self(text))
             }
         }
     };
 }
-scalar!(Id);
+/// A validated identifier and its cached record kind.
+#[derive(Clone, Debug, PartialEq, Eq, PartialOrd, Ord, Hash, Serialize, Deserialize)]
+#[serde(try_from = "String", into = "String")]
+pub struct Id {
+    text: String,
+    kind: RecordKind,
+}
+impl JsonSchema for Id {
+    fn schema_name() -> String {
+        "Id".to_owned()
+    }
+    fn json_schema(generator: &mut schemars::r#gen::SchemaGenerator) -> schemars::schema::Schema {
+        <String as JsonSchema>::json_schema(generator)
+    }
+}
+impl Id {
+    pub fn as_str(&self) -> &str {
+        &self.text
+    }
+    pub fn kind(&self) -> RecordKind {
+        self.kind
+    }
+}
+impl AsRef<str> for Id {
+    fn as_ref(&self) -> &str {
+        self.as_str()
+    }
+}
+impl std::fmt::Display for Id {
+    fn fmt(&self, formatter: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        formatter.write_str(self.as_str())
+    }
+}
+impl TryFrom<String> for Id {
+    type Error = Error;
+    fn try_from(text: String) -> Result<Self, Error> {
+        match parse_id(&text) {
+            Some(kind) => Ok(Self { text, kind }),
+            None => Err(Error::scalar(
+                ErrorCategory::InvalidId,
+                &text,
+                "an ID with REQ, NFR, or ADR prefix and four digits",
+            )),
+        }
+    }
+}
+impl From<Id> for String {
+    fn from(id: Id) -> Self {
+        id.text
+    }
+}
+fn parse_id(text: &str) -> Option<RecordKind> {
+    let mut parts = text.split('-');
+    let (Some(_), Some(project), Some(number), None) =
+        (parts.next(), parts.next(), parts.next(), parts.next())
+    else {
+        return None;
+    };
+    let kind = RecordKind::from_id(text)?;
+    ((2..=5).contains(&project.len())
+        && project.bytes().all(|byte| byte.is_ascii_uppercase())
+        && number.len() == 4
+        && number.bytes().all(|byte| byte.is_ascii_digit()))
+    .then_some(kind)
+}
 scalar!(Version);
 scalar!(Date);
+#[derive(Clone, Copy)]
+pub(crate) enum ScalarKind {
+    Id,
+    Version,
+    Date,
+}
+impl ScalarKind {
+    pub(crate) fn parse(name: &str) -> Option<Self> {
+        match name {
+            "Id" => Some(Self::Id),
+            "Version" => Some(Self::Version),
+            "Date" => Some(Self::Date),
+            _ => None,
+        }
+    }
+}
 pub fn validate_scalar(kind: &str, text: &str) -> Result<(), Error> {
+    match ScalarKind::parse(kind) {
+        Some(kind) => validate_typed_scalar(kind, text),
+        None => Err(Error::scalar(
+            ErrorCategory::UnknownVariant,
+            text,
+            "one of Id, Version, or Date",
+        )),
+    }
+}
+pub(crate) fn validate_typed_scalar(kind: ScalarKind, text: &str) -> Result<(), Error> {
     let digits = |part: &str| part.bytes().all(|byte| byte.is_ascii_digit());
     let parts: Vec<_> = text.split('-').collect();
     let valid = match (kind, parts.as_slice()) {
-        ("Id", [_, project, number]) => {
-            RecordKind::from_id(text).is_some()
-                && (2..=5).contains(&project.len())
-                && project.bytes().all(|byte| byte.is_ascii_uppercase())
-                && number.len() == 4
-                && digits(number)
-        }
-        ("Version", _) => {
+        (ScalarKind::Id, _) => parse_id(text).is_some(),
+        (ScalarKind::Version, _) => {
             let components: Vec<_> = text.split('.').collect();
             components.len() == 3
                 && components
                     .iter()
                     .all(|part| part.len() == 1 && digits(part))
         }
-        ("Date", [year, month, day]) => {
+        (ScalarKind::Date, [year, month, day]) => {
             let leap = year.parse::<u16>().is_ok_and(|year| {
                 year.is_multiple_of(4) && (!year.is_multiple_of(100) || year.is_multiple_of(400))
             });
@@ -65,10 +161,12 @@ pub fn validate_scalar(kind: &str, text: &str) -> Result<(), Error> {
         return Ok(());
     }
     let (category, cause) = match kind {
-        "Id" => (ErrorCategory::InvalidId, "an ID with REQ, NFR, or ADR prefix and four digits"),
-        "Version" => (ErrorCategory::InvalidVersion, "a version in N.N.N format"),
-        "Date" => (ErrorCategory::InvalidDate, "a valid YYYY-MM-DD date"),
-        _ => (ErrorCategory::UnknownVariant, "one of Id, Version, or Date"),
+        ScalarKind::Id => (
+            ErrorCategory::InvalidId,
+            "an ID with REQ, NFR, or ADR prefix and four digits",
+        ),
+        ScalarKind::Version => (ErrorCategory::InvalidVersion, "a version in N.N.N format"),
+        ScalarKind::Date => (ErrorCategory::InvalidDate, "a valid YYYY-MM-DD date"),
     };
     Err(Error::scalar(category, text, cause))
 }
@@ -83,7 +181,9 @@ pub enum Status {
     Superseded,
 }
 
-#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
+#[derive(
+    Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord, Hash, Serialize, Deserialize, JsonSchema,
+)]
 pub enum RecordKind {
     Req,
     Nfr,

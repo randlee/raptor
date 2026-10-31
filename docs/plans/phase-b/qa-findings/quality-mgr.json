@@ -1,0 +1,86 @@
+{
+  "schema_version": 1,
+  "phase": "b",
+  "reviewed_commit": "fb7ea189db3ca76d6963fec694978b6314e48917",
+  "filing_reviewer": "quality-mgr",
+  "finding_count": 4,
+  "findings": [
+    {
+      "id": "QM-1",
+      "filing_reviewer": "quality-mgr",
+      "severity": "important",
+      "owner": "lrap",
+      "original_finding": "The three Rust assignment templates are rejected by sc-compose 1.7.0 with ERR_RENDER_JSON_MALFORMED despite valid JSON; text-format copies were used.",
+      "original_acceptance_criterion": "Render the Rust reviewer assignments through their declared templates successfully, preserving the structured assignment contract.",
+      "original_evidence_refs": [
+        "https://github.com/randlee/raptor/pull/84#issuecomment-6538022716"
+      ],
+      "source_report": "PR84 quality-mgr round-1 final comment",
+      "duplicates_or_overlaps": [],
+      "status": "implemented-unverified",
+      "current_evidence": [
+        "Current candidate refactor; exact committed head and filing-reviewer closure pending.",
+        "Developer reports: raptor-rust-qa-api-migration.md, raptor-python-qa-fixes.md, raptor-qa-tooling-report.txt."
+      ],
+      "disposition_note": "Implementation supplied; this is not a verified closure. Aggregate-budget, Value-boundary and final corpus acceptance remain separate open gates.",
+      "verification": null
+    },
+    {
+      "id": "QM-2",
+      "filing_reviewer": "quality-mgr",
+      "severity": "important",
+      "owner": "crap",
+      "original_finding": "The reviewed fb7ea18 is not the later PR head 6ac6160, and no CI result exists for the pinned reviewed revision.",
+      "original_acceptance_criterion": "Supply the final pinned candidate and obtain required CI evidence for that same head; later commits require verification.",
+      "original_evidence_refs": [
+        "https://github.com/randlee/raptor/pull/84#issuecomment-6538022716"
+      ],
+      "source_report": "PR84 quality-mgr round-1 final comment",
+      "duplicates_or_overlaps": [],
+      "status": "pending",
+      "current_evidence": [],
+      "disposition_note": "No filing-reviewer closure confirmation received.",
+      "verification": null
+    },
+    {
+      "id": "QM-3",
+      "filing_reviewer": "quality-mgr",
+      "severity": "minor",
+      "owner": "crap",
+      "original_finding": "The policy says no governed interfaces yet, although the record schema/CLI contract now ships.",
+      "original_acceptance_criterion": "Update Governed Interfaces policy and reviewer applicability to the actual shipped interface scope.",
+      "original_evidence_refs": [
+        "https://github.com/randlee/raptor/pull/84#issuecomment-6538022716"
+      ],
+      "source_report": "PR84 quality-mgr round-1 final comment",
+      "duplicates_or_overlaps": [],
+      "status": "implemented-unverified",
+      "current_evidence": [
+        "Current candidate refactor; exact committed head and filing-reviewer closure pending.",
+        "Developer reports: raptor-rust-qa-api-migration.md, raptor-python-qa-fixes.md, raptor-qa-tooling-report.txt."
+      ],
+      "disposition_note": "Implementation supplied; this is not a verified closure. Aggregate-budget, Value-boundary and final corpus acceptance remain separate open gates.",
+      "verification": null
+    },
+    {
+      "id": "QM-4",
+      "filing_reviewer": "quality-mgr",
+      "severity": "minor",
+      "owner": "crap",
+      "original_finding": "The assignment requests just validate although repository policy uses other validation commands; docs/team-protocol.md does not exist.",
+      "original_acceptance_criterion": "Align the assignment references and artifact commands with repository policy and its declared protocol.",
+      "original_evidence_refs": [
+        "https://github.com/randlee/raptor/pull/84#issuecomment-6538022716"
+      ],
+      "source_report": "PR84 quality-mgr round-1 final comment",
+      "duplicates_or_overlaps": [],
+      "status": "implemented-unverified",
+      "current_evidence": [
+        "Current candidate refactor; exact committed head and filing-reviewer closure pending.",
+        "Developer reports: raptor-rust-qa-api-migration.md, raptor-python-qa-fixes.md, raptor-qa-tooling-report.txt."
+      ],
+      "disposition_note": "Implementation supplied; this is not a verified closure. Aggregate-budget, Value-boundary and final corpus acceptance remain separate open gates.",
+      "verification": null
+    }
+  ]
+}

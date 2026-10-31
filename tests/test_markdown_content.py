@@ -1,33 +1,72 @@
 """Round-trip and source-boundary checks for Markdown content reconstruction."""
+
 import json
 
 import pytest
 
-from test_extract import ROOT, project, run
-from test_qualify import document, qualify
+from corpus_support import ROOT, project, run
+from corpus_support import document, qualify
 
 
-@pytest.mark.parametrize("table,path,value", [
-    ("requirements", ("rationale",), "before\n- middle\nafter"),
-    ("requirements", ("rationale",), "first paragraph\n\nsecond paragraph"),
-    ("decisions", ("context", "background"), "before\n- middle\nafter"),
-    ("decisions", ("implementation", "code_examples"), "```text\n- literal\n```"),
-    ("decisions", ("implementation", "code_examples"),
-     "```markdown\n# literal heading\n\n**Status:** literal label\n---\n```"),
-    ("requirements", ("requirement_statement", "statements", 0, "text"), "parent\n  - nested child"),
-    ("requirements", ("requirement_statement", "statements", 0, "text"), "parent\n\nsecond paragraph"),
-    ("requirements", ("requirement_statement", "statements", 0, "text"),
-     "parent\n```markdown\n\n# literal heading\n**Status:** literal label\n- literal item\n```"),
-    ("requirements", ("success_criteria", "acceptance_criteria", 0, "text"), "first\n\nsecond paragraph"),
-    ("requirements", ("product_applicability", "applies_to", 0), "first\n\nsecond paragraph"),
-    ("decisions", ("rationale", "benefits", 0), "first\n\nsecond paragraph"),
-    ("decisions", ("alternatives", "groups", 0, "pros", 0), "first\n\nsecond paragraph"),
-    ("requirements", ("dependencies", "requires", 0, "note"), "first\n\nsecond paragraph"),
-    ("requirements", ("related_documents", "design_documents", 0, "note"), "first\n\nsecond paragraph"),
-    ("requirements", ("success_criteria", "acceptance_criteria", 0, "text"), "checked\n  continuation"),
-    ("requirements", ("dependencies", "requires", 0, "note"), "quality prerequisite\n  continuation"),
-    ("requirements", ("related_documents", "design_documents", 0, "note"), "guide note\n  continuation"),
-])
+@pytest.mark.parametrize(
+    "table,path,value",
+    [
+        ("requirements", ("rationale",), "before\n- middle\nafter"),
+        ("requirements", ("rationale",), "first paragraph\n\nsecond paragraph"),
+        ("decisions", ("context", "background"), "before\n- middle\nafter"),
+        ("decisions", ("implementation", "code_examples"), "```text\n- literal\n```"),
+        (
+            "decisions",
+            ("implementation", "code_examples"),
+            "```markdown\n# literal heading\n\n**Status:** literal label\n---\n```",
+        ),
+        (
+            "requirements",
+            ("requirement_statement", "statements", 0, "text"),
+            "parent\n  - nested child",
+        ),
+        (
+            "requirements",
+            ("requirement_statement", "statements", 0, "text"),
+            "parent\n\nsecond paragraph",
+        ),
+        (
+            "requirements",
+            ("requirement_statement", "statements", 0, "text"),
+            "parent\n```markdown\n\n# literal heading\n"
+            "**Status:** literal label\n- literal item\n```",
+        ),
+        (
+            "requirements",
+            ("success_criteria", "acceptance_criteria", 0, "text"),
+            "first\n\nsecond paragraph",
+        ),
+        ("requirements", ("product_applicability", "applies_to", 0), "first\n\nsecond paragraph"),
+        ("decisions", ("rationale", "benefits", 0), "first\n\nsecond paragraph"),
+        ("decisions", ("alternatives", "groups", 0, "pros", 0), "first\n\nsecond paragraph"),
+        ("requirements", ("dependencies", "requires", 0, "note"), "first\n\nsecond paragraph"),
+        (
+            "requirements",
+            ("related_documents", "design_documents", 0, "note"),
+            "first\n\nsecond paragraph",
+        ),
+        (
+            "requirements",
+            ("success_criteria", "acceptance_criteria", 0, "text"),
+            "checked\n  continuation",
+        ),
+        (
+            "requirements",
+            ("dependencies", "requires", 0, "note"),
+            "quality prerequisite\n  continuation",
+        ),
+        (
+            "requirements",
+            ("related_documents", "design_documents", 0, "note"),
+            "guide note\n  continuation",
+        ),
+    ],
+)
 def test_round_trip_preserves_multiline_content(tmp_path, table, path, value):
     fixture = json.loads((ROOT / "tests/fixtures/records.json").read_text())
     record = fixture[table][0]
@@ -45,8 +84,14 @@ def test_round_trip_preserves_multiline_content(tmp_path, table, path, value):
     assert result.rows[table] == [record]
 
 
-@pytest.mark.parametrize("needle", ["persist records", "NFR-FIX-0001 — quality prerequisite",
-                                    "[guide](https://example.test/guide)"])
+@pytest.mark.parametrize(
+    "needle",
+    [
+        "persist records",
+        "NFR-FIX-0001 — quality prerequisite",
+        "[guide](https://example.test/guide)",
+    ],
+)
 def test_detached_prose_is_not_absorbed_into_a_list_item(document, needle):
     root, text = document
     changed = text.replace(needle, needle + "\n\nUnrelated prose.", 1)

@@ -37,21 +37,24 @@ fn field_exports_cover_all_63_entries_with_derived_attributes() {
         let fields = field_table(table);
         let stored: Vec<_> = FIELDS
             .iter()
-            .filter(|entry| entry.2 == table || entry.2 == Table::Both)
+            .filter(|entry| entry.table == table || entry.table == Table::Both)
             .collect();
         assert_eq!(fields.len(), stored.len());
         for (field, stored) in fields.iter().zip(stored) {
-            assert_eq!((field.name, field.label), (stored.0, stored.1));
-            assert_eq!(field.required, stored.5 == Presence::Required);
-            assert_eq!(field.nullable, matches!(field.name, "supersedes" | "superseded_by"));
+            assert_eq!((field.name, field.label), (stored.name, stored.label));
+            assert_eq!(field.required, stored.presence == Presence::Required);
+            assert_eq!(
+                field.nullable,
+                matches!(field.name, "supersedes" | "superseded_by")
+            );
             assert_eq!(field.sql_type, "TEXT");
-            let scope = match stored.2 {
+            let scope = match stored.table {
                 Table::Req => "Req",
                 Table::Dec => "Dec",
                 Table::Both => "Both",
             };
-            assert_eq!(field.table, scope);
-            assert_eq!(field.section.is_some(), field.level == "Label");
+            assert_eq!(serde_json::to_value(field.table).unwrap(), scope);
+            assert_eq!(field.section.is_some(), field.level == MetaLevel::Label);
             exported.insert(serde_json::to_string(field).unwrap());
         }
     }
@@ -67,10 +70,13 @@ fn field_exports_cover_all_63_entries_with_derived_attributes() {
 
 #[test]
 fn emitted_json_schema_accepts_good_rows_and_rejects_wrong_types_and_enums() {
-    let schemas = json_schema().unwrap();
+    let schemas = json_schema();
     for (table, kind) in [("requirements", Table::Req), ("decisions", Table::Dec)] {
         let schema = serde_json::to_value(&schemas[table]).unwrap();
-        assert_eq!(schema["x-raptor-fields"], serde_json::to_value(field_table(kind)).unwrap());
+        assert_eq!(
+            schema["x-raptor-fields"],
+            serde_json::to_value(field_table(kind)).unwrap()
+        );
         let validator = jsonschema::validator_for(&schema).unwrap();
         let mut row = fixture()[table][0].clone();
         assert!(validator.is_valid(&row));
@@ -100,7 +106,10 @@ fn emitted_sql_loads_records_and_keeps_only_supersession_nullable() {
         for (name, kind, not_null) in columns {
             assert!(row.contains_key(&name));
             assert_eq!(kind, "TEXT");
-            assert_eq!(not_null, !matches!(name.as_str(), "supersedes" | "superseded_by"));
+            assert_eq!(
+                not_null,
+                !matches!(name.as_str(), "supersedes" | "superseded_by")
+            );
         }
         let names = row.keys().cloned().collect::<Vec<_>>().join(", ");
         let marks = vec!["?"; row.len()].join(", ");
@@ -115,7 +124,9 @@ fn emitted_sql_loads_records_and_keeps_only_supersession_nullable() {
         )
         .unwrap();
         let count: usize = db
-            .query_row(&format!("SELECT COUNT(*) FROM {table}"), [], |row| row.get(0))
+            .query_row(&format!("SELECT COUNT(*) FROM {table}"), [], |row| {
+                row.get(0)
+            })
             .unwrap();
         assert_eq!(count, 1);
     }
