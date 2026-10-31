@@ -139,6 +139,9 @@ template 60; `test_extract.py` 120; `test_load.py` 40;
 
 ## Acceptance
 
+Historical per-group reports are superseded by the approved audited B6 proof; see
+[final acceptance rulings](phase-b-plan.md#final-acceptance-rulings).
+
 - `cargo test -p raptor-schema`, `cargo clippy --all-targets --all-features -- -D warnings`,
   `pip install . && python -m pytest -q tests/` pass.
 - `rg -n '\*\*[A-Z][A-Za-z ]+:\*\*' scripts/` prints nothing.

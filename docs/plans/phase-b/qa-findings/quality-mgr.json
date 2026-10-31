@@ -42,10 +42,17 @@
       ],
       "source_report": "PR84 quality-mgr round-1 final comment",
       "duplicates_or_overlaps": [],
-      "status": "pending",
+      "status": "fixed-verified",
       "current_evidence": [],
-      "disposition_note": "No filing-reviewer closure confirmation received.",
-      "verification": null,
+      "disposition_note": "Quality-mgr round9 confirmed fixed under explicit user acceptance rulings.",
+      "verification": {
+        "commit": "52249dcb30e7665c496c83a017af573699ffef3b",
+        "task": "RAP-B-FINAL-ACCEPTANCE-VERIFY-20261030-9",
+        "closed_by": "quality-mgr",
+        "report": "https://github.com/randlee/raptor/pull/84#issuecomment-6540112795",
+        "source_message": "01M68AFQ18K7PFTR9H9VSJKRXG",
+        "filing_reviewer": "quality-mgr"
+      },
       "user_ruling": {
         "date": "2026-10-30",
         "source": "User yes/yes response to two explicit acceptance questions",

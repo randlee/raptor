@@ -52,6 +52,9 @@ no import skill.
 
 ## Acceptance
 
+Historical per-group reports are superseded by the approved audited B6 proof; see
+[final acceptance rulings](phase-b-plan.md#final-acceptance-rulings).
+
 - `python scripts/extract.py --project-root .` over Raptor: `issues` empty,
   exit `0`, one `requirements` row per REQ-RAP id, one `decisions` row per
   ADR-RAP id.

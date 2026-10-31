@@ -102,7 +102,7 @@ year); the fixture.
 Tests in `tests/schema.rs` that assert emitted DDL, JSON Schema or field
 table content are kept where they still hold. No other line of the old
 file is copied. The following do not come back in any form: `bind_file`,
-the `serde_json::Value` tree helpers, `id_items`, `links`, the checklist
+the old `bind_file` JSON tree helpers, `id_items`, `links`, the checklist
 prefix parser, heading text handling, the case-insensitive tree lookups
 (`same`, `named`, `string`, `label`, `section`), document-context
 diagnostics built from tree lines, `Field::modal` by table position, the
@@ -400,7 +400,8 @@ repository.
   unknown target is refused with its line; malformed links and id items;
   statement ordering across the three labels; multi-record header carry.
 - Architecture tests: no field, section, label or enum literal in
-  `scripts/`; the `rg` check in the boundary section prints nothing;
+  `scripts/`; the boundary `rg` check permits only the approved four-file
+  JSON Value exception (`accept.rs`, `emit.rs`, `boundary.rs`, `error.rs`);
   `rg -n 'unwrap\(\)|expect\(|panic!' crates/raptor-schema/src/` prints
   nothing.
 - Consumer run, read-only: `consumer-run-b6.md` records, against the
