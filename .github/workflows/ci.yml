@@ -124,7 +124,7 @@ jobs:
 
       - name: Install Rust toolchain
         if: ${{ needs.ci-scope.outputs.runtime == 'true' }}
-        uses: dtolnay/rust-toolchain@stable
+        uses: dtolnay/rust-toolchain@1.94.1
         with:
           components: rustfmt
 
@@ -146,7 +146,7 @@ jobs:
 
       - name: Install Rust toolchain
         if: ${{ needs.ci-scope.outputs.runtime == 'true' }}
-        uses: dtolnay/rust-toolchain@stable
+        uses: dtolnay/rust-toolchain@1.94.1
 
       - name: Cache cargo registry
         if: ${{ needs.ci-scope.outputs.runtime == 'true' }}
@@ -193,7 +193,7 @@ jobs:
 
       - name: Install Rust toolchain
         if: ${{ needs.ci-scope.outputs.runtime == 'true' }}
-        uses: dtolnay/rust-toolchain@stable
+        uses: dtolnay/rust-toolchain@1.94.1
 
       - name: Cache cargo registry
         if: ${{ needs.ci-scope.outputs.runtime == 'true' }}

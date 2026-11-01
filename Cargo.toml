@@ -12,7 +12,7 @@ authors = ["raptor contributors"]
 license = "MIT OR Apache-2.0"
 repository = "https://github.com/randlee/raptor"
 homepage = "https://github.com/randlee/raptor"
-rust-version = "1.85"
+rust-version = "1.94.1"
 
 [workspace.dependencies]
 # Error handling
