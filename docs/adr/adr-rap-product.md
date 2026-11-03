@@ -1,6 +1,6 @@
 # adr-rap-product - Product Shape Decisions
 
-**ID Range:** ADR-RAP-0001 through ADR-RAP-0006  
+**ID Range:** ADR-RAP-0001 through ADR-RAP-0009
 **Version:** 0.2.0  
 **Status:** Draft  
 **Created:** 2026-09-22  
@@ -368,3 +368,41 @@ table.
 - Not expressible over a JSON array; targets span two tables.
 
 **Why Rejected:** Not possible in SQL.
+
+
+## ADR-RAP-0007: explicit branch context through the shared runtime
+
+**Status:** Proposed
+**Decision Date:** 2026-11-02
+
+Every CRUD request carries an explicit database and branch resolved by the client.
+The daemon uses sc-runtime lifecycle/transport and a shared sc-dolt capability;
+selection is request-local and does not mutate a global current branch.
+SQL credentials and human/agent/team/repository attribution remain separate.
+This follows the owner's multi-client requirement and prevents pooled-session
+selection from crossing client boundaries. See [planning intent](../design/branch-runtime-reset.md).
+
+## ADR-RAP-0008: Dolt authority with read-only revision-scoped SQLite
+
+**Status:** Proposed
+**Decision Date:** 2026-11-02
+
+Dolt is the authoritative product store. SQLite is a replaceable read-only
+snapshot identified by database, branch and commit. Seed the initial database
+from validated import records; all subsequent product writes go to Dolt.
+Use native branch/clean-merge/conflict-diff operations; do not recreate a merge
+engine or reconcile SQLite writes. Fork and clone are outside initial scope.
+This preserves offline reads without introducing a second writable history.
+
+## ADR-RAP-0009: change actors and stakeholders are distinct, versioned evidence
+
+**Status:** Proposed
+**Decision Date:** 2026-11-02
+
+A change's authenticated account and claimed human/agent/team/repository context
+are distinct from the many repositories/teams that stake or consume a requirement.
+Record the context and requirement/stakeholder mappings at the relevant revision.
+An impact investigation links change commits to mappings and actual test/issue
+artifacts; a declared stakeholder alone is potential impact, not proven failure.
+Keep this application graph out of sc-dolt and out of requirement ownership
+columns, consistent with ADR-RAP-0005. See [planning intent](../design/branch-runtime-reset.md).
