@@ -43,3 +43,24 @@ def group_issues(issues):
         group["count"] += 1
         group["files"].setdefault(issue["file"], []).append(issue["line"])
     return [groups[key] for key in sorted(groups)]
+
+
+def format_text(issue):
+    """One diagnostic in rustc style: `file:line:column: error[RULE]`, source line, caret, fix."""
+    where = f"{issue['file']}:{issue['line']}:{issue['column']}"
+    gutter = " " * len(str(issue["line"]))
+    field = issue["section"] or issue["label"]
+    note = f"record {issue['record']}" if issue["record"] else "no record"
+    if field:
+        note += f", field {field}"
+    return "\n".join(
+        [
+            f"{where}: error[{issue['rule']}]: {issue['message']}",
+            f"{gutter}--> {where}",
+            f"{gutter} |",
+            f"{issue['line']} | {issue['source']}",
+            f"{gutter} | {' ' * (issue['column'] - 1)}^",
+            f"{gutter} = note: {note}",
+            f"{gutter} = help: {issue['fix']}",
+        ]
+    )

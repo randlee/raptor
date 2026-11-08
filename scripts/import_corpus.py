@@ -2,6 +2,7 @@
 
 import argparse
 import json
+import sys
 import tomllib
 from collections import Counter
 from datetime import datetime, timezone
@@ -11,11 +12,11 @@ from pathlib import Path
 import raptor_schema
 
 if __package__:
-    from .diagnostics import group_issues
+    from .diagnostics import format_text, group_issues
     from .markdown_splitter import split
     from .qualify import Qualifier
 else:
-    from diagnostics import group_issues
+    from diagnostics import format_text, group_issues
     from markdown_splitter import split
     from qualify import Qualifier
 
@@ -79,6 +80,8 @@ def run_import():
     payload = build_index(args.project_root.resolve())
     args.output.write_text(json.dumps(payload, indent=2) + "\n")
     issue_count = len(payload["diagnostics"]["issues"])
+    for issue in payload["diagnostics"]["issues"]:
+        print(format_text(issue) + "\n", file=sys.stderr)
     report = dict(
         index=str(args.output),
         files=payload["metadata"]["files"],
