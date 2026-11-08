@@ -49,3 +49,90 @@ def test_b4_group_and_supersession_diagnostics(tmp_path: Path):
             for issue in json.loads(index.read_text())["diagnostics"]["issues"]
         )
         file.write_text(original)
+
+
+DEFECTIVE = ROOT / "tests/fixtures/defective/atm-bd-shape.md"
+
+
+def defective_project(tmp_path: Path) -> Path:
+    root = project(tmp_path)
+    for old in (root / "docs").rglob("*.md"):
+        old.unlink()
+    (root / "docs/requirements/REQ-DEF.md").write_text(DEFECTIVE.read_text())
+    return root
+
+
+def import_issues(root: Path, index: Path):
+    result = extract(root, index, check=False)
+    return result, json.loads(index.read_text())["diagnostics"]["issues"]
+
+
+def apply_edits(path: Path, issues):
+    """Apply each diagnostic's machine edit, last line first so positions stay valid."""
+    lines = path.read_text().splitlines()
+    for edit in sorted((i["edit"] for i in issues), key=lambda e: e["line"], reverse=True):
+        start = edit["line"] - 1
+        stop = start + 1 if edit["op"] == "replace" else start
+        lines[start:stop] = edit["lines"]
+    path.write_text("\n".join(lines) + "\n")
+
+
+def test_empty_and_absent_sections_are_located_and_distinguished(tmp_path: Path):
+    root = defective_project(tmp_path)
+    result, issues = import_issues(root, tmp_path / "index.json")
+    text = (root / "docs/requirements/REQ-DEF.md").read_text().splitlines()
+    by = {(i["id"], i["label"]): i for i in issues}
+    empty = by[("REQ-DEF-0001", "Rationale")]
+    assert text[empty["line"] - 1] == "### Rationale" == empty["source"]
+    assert "is empty" in empty["message"] and "write at least one sentence" in empty["fix"]
+    absent = by[("REQ-DEF-0002", "Rationale")]
+    assert "is missing" in absent["message"]
+    assert text[absent["line"] - 1] == "### Success Criteria"
+    assert "add `### Rationale` before line" in absent["fix"]
+    assert absent["edit"]["lines"][0] == "### Rationale"
+    assert result.returncode == 1
+    assert f"REQ-DEF.md:{empty['line']}:{empty['column']}: error[MISSING_FIELD]" in result.stderr
+    assert "= help: " in result.stderr and "^" in result.stderr
+
+
+def test_every_defect_is_reported_in_one_run(tmp_path: Path):
+    root = defective_project(tmp_path)
+    file = root / "docs/requirements/REQ-DEF.md"
+    file.write_text(replace_present(file.read_text(), "### Rationale\n\nDefects are fixed one edit at a time.\n", "", 1))
+    _, issues = import_issues(root, tmp_path / "index.json")
+    found = {(i["id"], i["label"]) for i in issues}
+    assert found >= {
+        ("REQ-DEF-0001", "Rationale"),
+        ("REQ-DEF-0001", "Success Criteria"),
+        ("REQ-DEF-0002", "Rationale"),
+        ("REQ-DEF-0003", "Rationale"),
+    }
+    for issue in issues:
+        assert issue["file"] and issue["line"] >= 1 and issue["column"] >= 1
+        assert issue["rule"] and issue["record"] and issue["label"]
+        assert "source" in issue and issue["fix"] and issue["message"]
+
+
+def test_applying_every_fix_clears_every_diagnostic(tmp_path: Path):
+    root = defective_project(tmp_path)
+    file = root / "docs/requirements/REQ-DEF.md"
+    file.write_text(replace_present(file.read_text(), "**Status:** Approved  \n", ""))
+    file.write_text(replace_present(file.read_text(), "### Rationale\n\nDefects are fixed one edit at a time.\n", "", 1))
+    index = tmp_path / "index.json"
+    _, issues = import_issues(root, index)
+    assert any(i["label"] == "Status" and "missing" in i["message"] for i in issues)
+    apply_edits(file, issues)
+    result, after = import_issues(root, index)
+    assert after == [] and result.returncode == 0
+    assert json.loads(index.read_text())["metadata"]["records"] == 3
+
+
+def test_modal_mismatch_fix_clears_the_diagnostic(tmp_path: Path):
+    root, index = project(tmp_path), tmp_path / "index.json"
+    file = root / "docs/requirements/REQ-FIX-0001.md"
+    file.write_text(replace_present(file.read_text(), "- persist records\n", "- Records SHOULD be kept\n", 1))
+    _, issues = import_issues(root, index)
+    [issue] = [i for i in issues if i["rule"] == "MODAL_MISMATCH"]
+    assert issue["source"] == "- Records SHOULD be kept" and "`SHOULD`" in issue["fix"]
+    apply_edits(file, [issue])
+    assert import_issues(root, index)[1] == []

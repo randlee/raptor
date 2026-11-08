@@ -1,25 +1,38 @@
 """Qualify splitter trees using the crate's field metadata and JSON Schemas."""
 
 import json
+import re
 
 import raptor_schema
 
 if __package__:
     from .aliases import load_aliases
     from .diagnostics import section_for_path
-    from .markdown_content import populated
+    from .markdown_content import normal, populated
     from .record_context import RecordContext
-    from .schema_json import empty, schemas
+    from .schema_json import empty, nonnull, resolve, roles, schemas
     from .shape_content import parse_content
     from .source_inventory import SourceInventory
 else:
     from aliases import load_aliases
     from diagnostics import section_for_path
-    from markdown_content import populated
+    from markdown_content import normal, populated
     from record_context import RecordContext
-    from schema_json import empty, schemas
+    from schema_json import empty, nonnull, resolve, roles, schemas
     from shape_content import parse_content
     from source_inventory import SourceInventory
+
+
+def record_end(lines, record):
+    """Last content line of a record, ignoring blank lines and `---` separators."""
+    end = record["line"]
+    for number in range(record["line"] + 1, len(lines) + 1):
+        text = lines[number - 1]
+        if text.startswith(("# ", "## ")):
+            break
+        if text.strip() and not re.fullmatch(r"-{3,}", text.strip()):
+            end = number
+    return end
 
 
 class Qualifier:
@@ -137,13 +150,13 @@ class Qualifier:
                     else context.scalar(node["value"], prop, node)
                 )
             elif field["required"]:
-                context.issue("MISSING_FIELD", context.record, "", field["label"])
+                self.missing_header(context, field, supplied.get(field["label"]))
         self.qualify_sections(context, result, fields)
         return result
 
     def qualify_sections(self, context, result, fields):
         sections = {field["label"]: field for field in fields if field["level"] == "Section"}
-        present = set()
+        present = {}
         for node in context.record["sections"]:
             canonical = context.match("sections", node["token"], sections, node, "UNKNOWN_SECTION")
             if canonical is None:
@@ -155,12 +168,119 @@ class Qualifier:
             prop = context.schema["properties"][field["name"]]
             result[field["name"]] = parse_content(context, node, field, prop, path)
             context.section = None
-            present.add(canonical)
+            present[canonical] = node
         for label, field in sections.items():
             if field["required"] and (label not in present or not populated(result[field["name"]])):
-                context.section = label
-                context.issue("MISSING_FIELD", context.record, "", label)
-                context.section = None
+                self.missing_section(context, label, fields, present, sections)
+
+    def missing_header(self, context, field, node):
+        """Report a required header field as empty (at its label) or missing (where it belongs)."""
+        label, record, lines = field["label"], context.record, context.lines
+        prop = context.schema["properties"][field["name"]]
+        shape = resolve(nonnull(prop), context.schema)
+        kind = nonnull(prop).get("$ref", "").rsplit("/", 1)[-1]
+        if "enum" in shape:
+            expected, value = f"one of {', '.join(shape['enum'])}", shape["enum"][0]
+            alternatives = f" (or another of: {', '.join(shape['enum'][1:])})"
+        else:
+            try:
+                raptor_schema.validate_scalar(kind, "")
+                expected = "a value"
+            except raptor_schema.SchemaError as error:
+                expected = error.message.split("expected ", 1)[-1].rstrip(".")
+            value = None
+        edit = None
+        if node is not None:
+            line = node["line"]
+            state, where = "empty", f"on line {line}"
+            if value:
+                edit = dict(op="replace", line=line, lines=[f"{lines[line - 1].rstrip()} {value}"])
+            location = node
+        else:
+            after = max([n["line"] for n in record["fields"].values()] + [record["line"]])
+            line = after + 1
+            state, where = "missing", f"after line {after}"
+            if value:
+                edit = dict(op="insert", line=line, lines=[f"**{label}:** {value}"])
+            location = {"line": line, "column": 1}
+        fix = f"write `**{label}:** <value>` {where}, where <value> is {expected}"
+        if value:
+            fix = f"write `**{label}:** {value}` {where}{alternatives}"
+        context.issue(
+            "MISSING_FIELD",
+            location,
+            "",
+            label,
+            message=f"header field {label!r} of {record['token']} is {state}; expected {expected}.",
+            fix=fix,
+            edit=edit,
+        )
+
+    def missing_section(self, context, label, fields, present, sections):
+        """Report a required section as empty (at its heading) or missing (where it belongs)."""
+        lines, node = context.lines, present.get(label)
+        children = [f for f in fields if f["level"] == "Label" and f["section"] == label]
+        field = sections[label]
+        section = resolve(context.schema["properties"][field["name"]], context.schema)
+
+        def entry(prop):
+            prop = resolve(nonnull(prop), context.schema)
+            if prop.get("type") != "array":
+                return f"Describe the {label.lower()}."
+            if "selection" in roles(prop["items"], context.schema):
+                return "- [ ] Describe the criterion."
+            return "- Describe."
+
+        def child_entry(member):
+            return entry(section["properties"][member["name"]])
+
+        first = next(iter(children), None)
+        body = [f"**{first['label']}:**", "", child_entry(first)] if first else [entry(section)]
+        context.section = label
+        if node is not None:
+            if node["labels"]:
+                head = node["labels"][0]
+                token = normal(head["token"])
+                child = next((c for c in children if normal(c["label"]) == token), first)
+                line, lines_ = head["line"], ["", child_entry(child)]
+                put = f"under `**{head['token']}:**` at line {line}"
+            else:
+                line, lines_ = node["line"], ["", *body]
+                put = f"under `### {label}` at line {line}"
+            noun = "at least one sentence" if body == [entry(section)] else "at least one list item"
+            context.issue(
+                "MISSING_FIELD",
+                node,
+                "",
+                label,
+                message=f"section {label!r} of {context.record['token']} is empty; expected {noun}.",
+                fix=f"write {noun} {put}",
+                edit=dict(op="insert", line=line + 1, lines=lines_),
+            )
+            context.section = None
+            return
+        order = list(sections)
+        later = [present[name] for name in order[order.index(label) + 1 :] if name in present]
+        heading = f"### {label}"
+        if later:
+            line = later[0]["line"]
+            edit = dict(op="insert", line=line, lines=[heading, "", *body, ""])
+        else:
+            line = record_end(lines, context.record) + 1
+            edit = dict(op="insert", line=line, lines=["", heading, "", *body])
+        context.issue(
+            "MISSING_FIELD",
+            {"line": line, "column": 1},
+            "",
+            label,
+            message=(
+                f"section {label!r} of {context.record['token']} is missing; "
+                f"expected a `{heading}` section with its content."
+            ),
+            fix=f"add `{heading}` before line {line} followed by its content",
+            edit=edit,
+        )
+        context.section = None
 
     def map_error(self, error):
         context = self.sources[error["table"]][error["record_position"]]
@@ -182,4 +302,5 @@ class Qualifier:
                 f"Found {value!r}; expected valid schema input. "
                 f"{error['category']}: {error['message']}"
             ),
+            fix=f"{error['recovery']} Offending value: {value!r} at line {node['line']}.",
         )

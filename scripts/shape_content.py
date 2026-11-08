@@ -75,6 +75,17 @@ def check_modality(context, entry, metadata, raw):
         column = context.lines[line - 1].find(keyword.split()[0]) + 1 or entry["column"]
     else:
         column = entry["column"] + start
+    source = context.lines[line - 1]
+    expected = mismatch["expected"]
+    swap = (
+        None
+        if "\n" in keyword or source[column - 1 :][: len(keyword)] != keyword
+        else dict(
+            op="replace",
+            line=line,
+            lines=[source[: column - 1] + expected + source[column - 1 + len(keyword) :]],
+        )
+    )
     context.issue(
         "MODAL_MISMATCH",
         dict(entry, line=line, column=column),
@@ -85,6 +96,11 @@ def check_modality(context, entry, metadata, raw):
             f"Found {mismatch['found']!r} in a statement under {metadata['label']!r}; "
             f"expected {mismatch['expected']!r} or no keyword. The label's modal is kept."
         ),
+        fix=(
+            f"replace `{keyword}` at line {line}, column {column} with `{expected}`, "
+            "or reword the statement without a modal keyword"
+        ),
+        edit=swap,
     )
 
 
