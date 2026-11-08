@@ -68,6 +68,7 @@ def import_issues(root: Path, index: Path):
 
 
 def apply_edits(path: Path, issues):
+    issues = [i for i in issues if i["edit"]]
     """Apply each diagnostic's machine edit, last line first so positions stay valid."""
     lines = path.read_text().splitlines()
     for edit in sorted((i["edit"] for i in issues), key=lambda e: e["line"], reverse=True):
@@ -89,7 +90,7 @@ def test_empty_and_absent_sections_are_located_and_distinguished(tmp_path: Path)
     assert "is missing" in absent["message"]
     assert text[absent["line"] - 1] == "### Success Criteria"
     assert "add `### Rationale` before line" in absent["fix"]
-    assert absent["edit"]["lines"][0] == "### Rationale"
+    assert absent["edit"] is None and empty["edit"] is None
     assert result.returncode == 1
     assert f"REQ-DEF.md:{empty['line']}:{empty['column']}: error[MISSING_FIELD]" in result.stderr
     assert "= help: " in result.stderr and "^" in result.stderr
@@ -113,7 +114,21 @@ def test_every_defect_is_reported_in_one_run(tmp_path: Path):
         assert "source" in issue and issue["fix"] and issue["message"]
 
 
-def test_applying_every_fix_clears_every_diagnostic(tmp_path: Path):
+def content_keys(issues):
+    return {(i["id"], i["label"]) for i in issues if i["edit"] is None}
+
+
+def test_content_diagnostics_never_carry_placeholder_edits(tmp_path: Path):
+    root = defective_project(tmp_path)
+    _, issues = import_issues(root, tmp_path / "index.json")
+    content = [i for i in issues if i["label"] in ("Rationale", "Success Criteria") and "section" in i["message"]]
+    assert content and all(i["edit"] is None for i in content)
+    for issue in issues:
+        assert "Describe" not in json.dumps(issue["edit"])
+        assert "write" in issue["fix"] or "add" in issue["fix"] or issue["edit"]
+
+
+def test_applying_every_edit_leaves_content_errors_until_real_content_is_written(tmp_path: Path):
     root = defective_project(tmp_path)
     file = root / "docs/requirements/REQ-DEF.md"
     file.write_text(replace_present(file.read_text(), "**Status:** Approved  \n", ""))
@@ -121,10 +136,29 @@ def test_applying_every_fix_clears_every_diagnostic(tmp_path: Path):
     index = tmp_path / "index.json"
     _, issues = import_issues(root, index)
     assert any(i["label"] == "Status" and "missing" in i["message"] for i in issues)
+    before = content_keys(issues)
+    assert ("REQ-DEF-0001", "Rationale") in before
     apply_edits(file, issues)
     result, after = import_issues(root, index)
-    assert after == [] and result.returncode == 0
-    assert json.loads(index.read_text())["metadata"]["records"] == 3
+    assert result.returncode == 1
+    assert content_keys(after) == before
+    assert not any(i["label"] == "Status" for i in after)
+    assert "Describe" not in file.read_text()
+
+
+def test_writing_real_content_clears_the_content_errors(tmp_path: Path):
+    root = defective_project(tmp_path)
+    file = root / "docs/requirements/REQ-DEF.md"
+    index = tmp_path / "index.json"
+    _, issues = import_issues(root, index)
+    by = {(i["id"], i["label"]): i for i in issues}
+    empty = by[("REQ-DEF-0001", "Rationale")]
+    lines = file.read_text().splitlines()
+    lines[empty["line"]:empty["line"]] = ["", "Defects are fixed one edit at a time."]
+    file.write_text("\n".join(lines) + "\n")
+    _, after = import_issues(root, index)
+    assert ("REQ-DEF-0001", "Rationale") not in {(i["id"], i["label"]) for i in after}
+    assert ("REQ-DEF-0002", "Rationale") in {(i["id"], i["label"]) for i in after}
 
 
 def test_modal_mismatch_fix_clears_the_diagnostic(tmp_path: Path):
