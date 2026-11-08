@@ -325,6 +325,11 @@ source document is corrected, not the importer.
 - Import MUST emit diagnostics both as JSON and as human-readable text in
   `file:line:column: error[RULE]` form.
 
+**MUST NOT statements:**
+
+- A fix MUST NOT supply placeholder content for a missing or empty field;
+  the diagnostic stays until the content is written.
+
 ### Rationale
 
 Importing is how a document becomes schema compliant. Thousands of
@@ -341,6 +346,6 @@ heading, not at the section.
   as empty, not missing.
 - [ ] An absent `### Rationale` section is reported at the line where it
   belongs, with the heading to add.
-- [ ] Applying each diagnostic's fix to the atm-bd-orchestration
-  requirement documents clears that diagnostic on re-import.
+- [ ] Applying every machine edit to the atm-bd-orchestration requirement
+  documents leaves each empty-section diagnostic in place.
 - [ ] A document with three defects reports all three in one run.

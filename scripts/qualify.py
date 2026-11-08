@@ -223,31 +223,15 @@ class Qualifier:
         field = sections[label]
         section = resolve(context.schema["properties"][field["name"]], context.schema)
 
-        def entry(prop):
-            prop = resolve(nonnull(prop), context.schema)
-            if prop.get("type") != "array":
-                return f"Describe the {label.lower()}."
-            if "selection" in roles(prop["items"], context.schema):
-                return "- [ ] Describe the criterion."
-            return "- Describe."
-
-        def child_entry(member):
-            return entry(section["properties"][member["name"]])
-
-        first = next(iter(children), None)
-        body = [f"**{first['label']}:**", "", child_entry(first)] if first else [entry(section)]
+        is_text = not children and resolve(nonnull(section), context.schema).get("type") != "array"
+        noun = "at least one sentence" if is_text else "at least one list item"
         context.section = label
         if node is not None:
             if node["labels"]:
                 head = node["labels"][0]
-                token = normal(head["token"])
-                child = next((c for c in children if normal(c["label"]) == token), first)
-                line, lines_ = head["line"], ["", child_entry(child)]
-                put = f"under `**{head['token']}:**` at line {line}"
+                put = f"under `**{head['token']}:**` at line {head['line']}"
             else:
-                line, lines_ = node["line"], ["", *body]
-                put = f"under `### {label}` at line {line}"
-            noun = "at least one sentence" if body == [entry(section)] else "at least one list item"
+                put = f"under `### {label}` at line {node['line']}"
             context.issue(
                 "MISSING_FIELD",
                 node,
@@ -255,19 +239,14 @@ class Qualifier:
                 label,
                 message=f"section {label!r} of {context.record['token']} is empty; expected {noun}.",
                 fix=f"write {noun} {put}",
-                edit=dict(op="insert", line=line + 1, lines=lines_),
+                edit=None,
             )
             context.section = None
             return
         order = list(sections)
         later = [present[name] for name in order[order.index(label) + 1 :] if name in present]
         heading = f"### {label}"
-        if later:
-            line = later[0]["line"]
-            edit = dict(op="insert", line=line, lines=[heading, "", *body, ""])
-        else:
-            line = record_end(lines, context.record) + 1
-            edit = dict(op="insert", line=line, lines=["", heading, "", *body])
+        line = later[0]["line"] if later else record_end(lines, context.record) + 1
         context.issue(
             "MISSING_FIELD",
             {"line": line, "column": 1},
@@ -277,8 +256,8 @@ class Qualifier:
                 f"section {label!r} of {context.record['token']} is missing; "
                 f"expected a `{heading}` section with its content."
             ),
-            fix=f"add `{heading}` before line {line} followed by its content",
-            edit=edit,
+            fix=f"add `{heading}` before line {line} and write {noun} under it",
+            edit=None,
         )
         context.section = None
 
