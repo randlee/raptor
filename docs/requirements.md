@@ -1,6 +1,6 @@
 # Raptor Requirements
 
-**ID Range:** REQ-RAP-0001 through REQ-RAP-0011  
+**ID Range:** REQ-RAP-0001 through REQ-RAP-0012  
 **Status:** Draft  
 **Created:** 2026-09-22  
 **Last Updated:** 2026-11-07  
@@ -304,3 +304,43 @@ source document is corrected, not the importer.
 
 - [ ] A `MUST NOT` line under `MUST statements:` produces one
   `MODAL_MISMATCH` naming its file and line.
+
+## REQ-RAP-0012: Import diagnostics are compiler grade
+
+**Status:** Proposed  
+
+### Requirement Statement
+
+**MUST statements:**
+
+- Each import diagnostic MUST give the file, line and column of the
+  offending text, or of the place the missing text belongs.
+- Each import diagnostic MUST name its rule, the record id and the field.
+- Each import diagnostic MUST quote the offending source line.
+- Each import diagnostic MUST state what was found and what the schema
+  expects, distinguishing a missing section from an empty one.
+- Each import diagnostic MUST give a fix that, applied as written, clears
+  it.
+- Import MUST report every diagnostic in a run, not stop at the first.
+- Import MUST emit diagnostics both as JSON and as human-readable text in
+  `file:line:column: error[RULE]` form.
+
+### Rationale
+
+Importing is how a document becomes schema compliant. Thousands of
+records across repositories must be brought into the schema, and each
+diagnostic is the instruction for one edit. Today an empty `### Rationale`
+section is reported as "Found ''; expected Rationale." at the record
+heading, not at the section.
+
+### Success Criteria
+
+**Acceptance Criteria:**
+
+- [ ] An empty `### Rationale` section is reported at the section's line
+  as empty, not missing.
+- [ ] An absent `### Rationale` section is reported at the line where it
+  belongs, with the heading to add.
+- [ ] Applying each diagnostic's fix to the atm-bd-orchestration
+  requirement documents clears that diagnostic on re-import.
+- [ ] A document with three defects reports all three in one run.
