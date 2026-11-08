@@ -1,9 +1,9 @@
 # Raptor Requirements
 
-**ID Range:** REQ-RAP-0001 through REQ-RAP-0009  
+**ID Range:** REQ-RAP-0001 through REQ-RAP-0012  
 **Status:** Draft  
 **Created:** 2026-09-22  
-**Last Updated:** 2026-09-22  
+**Last Updated:** 2026-11-07  
 **Owner:** Rand Lee  
 **Version:** 0.2.0  
 
@@ -240,3 +240,107 @@ person reads.
 
 - [ ] `generated` in an extract index parses as ISO 8601 UTC.
 - [ ] A `**Created:** 2026-09-22` header is stored as `2026-09-22` exactly.
+
+## REQ-RAP-0010: Record query for judge-jev
+
+**Status:** Draft  
+
+### Requirement Statement
+
+**MUST statements:**
+
+- Raptor MUST return one or more REQ, NFR or ADR records by id, in the
+  order requested, with statements and acceptance criteria as structured
+  JSON.
+- Raptor MUST list records filtered by type and status.
+- Raptor MUST answer in one envelope, `{success, data, error}`, with typed
+  error codes for an unknown id, a malformed id, a missing database and a
+  database that is not Raptor's.
+- Raptor MUST open the record database read-only for queries.
+
+**MUST NOT statements:**
+
+- Raptor MUST NOT return partial data when any requested id is unknown.
+
+### Rationale
+
+judge-jev reads records only through Raptor (judge-jev REQ-JEV-0001). This
+contract is what judge-jev depends on; the Raptor team notifies judge-jev
+maintenance before changing it.
+
+### Success Criteria
+
+**Acceptance Criteria:**
+
+- [ ] `get` with two known ids returns both records in argument order.
+- [ ] `get` with one unknown id returns `UNKNOWN_ID` naming it and no data.
+- [ ] A query leaves the database file byte-identical.
+
+## REQ-RAP-0011: Statement modal mismatch is reported
+
+**Status:** Draft  
+
+### Requirement Statement
+
+**MUST statements:**
+
+- Import MUST report `MODAL_MISMATCH`, naming the file and line, when a
+  statement's own normative keyword differs from the modal of the label it
+  is listed under.
+
+**MUST NOT statements:**
+
+- Import MUST NOT change a statement's modal to match its keyword.
+
+### Rationale
+
+Raptor takes a statement's modal from its label. judge-jev judges whether a
+MUST is violated, so a MUST NOT stored as MUST gives a wrong verdict. The
+source document is corrected, not the importer.
+
+### Success Criteria
+
+**Acceptance Criteria:**
+
+- [ ] A `MUST NOT` line under `MUST statements:` produces one
+  `MODAL_MISMATCH` naming its file and line.
+
+## REQ-RAP-0012: Import diagnostics are compiler grade
+
+**Status:** Proposed  
+
+### Requirement Statement
+
+**MUST statements:**
+
+- Each import diagnostic MUST give the file, line and column of the
+  offending text, or of the place the missing text belongs.
+- Each import diagnostic MUST name its rule, the record id and the field.
+- Each import diagnostic MUST quote the offending source line.
+- Each import diagnostic MUST state what was found and what the schema
+  expects, distinguishing a missing section from an empty one.
+- Each import diagnostic MUST give a fix that, applied as written, clears
+  it.
+- Import MUST report every diagnostic in a run, not stop at the first.
+- Import MUST emit diagnostics both as JSON and as human-readable text in
+  `file:line:column: error[RULE]` form.
+
+### Rationale
+
+Importing is how a document becomes schema compliant. Thousands of
+records across repositories must be brought into the schema, and each
+diagnostic is the instruction for one edit. Today an empty `### Rationale`
+section is reported as "Found ''; expected Rationale." at the record
+heading, not at the section.
+
+### Success Criteria
+
+**Acceptance Criteria:**
+
+- [ ] An empty `### Rationale` section is reported at the section's line
+  as empty, not missing.
+- [ ] An absent `### Rationale` section is reported at the line where it
+  belongs, with the heading to add.
+- [ ] Applying each diagnostic's fix to the atm-bd-orchestration
+  requirement documents clears that diagnostic on re-import.
+- [ ] A document with three defects reports all three in one run.
