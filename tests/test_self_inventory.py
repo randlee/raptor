@@ -11,7 +11,7 @@ def test_own_inventory_is_clean(tmp_path):
     payload = json.loads(destination.read_text())
     assert result.returncode == 0
     assert payload["diagnostics"]["issues"] == []
-    assert payload["metadata"]["records"] == 15
+    assert payload["metadata"]["records"] == 18
 
 
 def test_default_output_argument_is_usable(tmp_path):

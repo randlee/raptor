@@ -181,6 +181,7 @@ class Qualifier:
         kind = nonnull(prop).get("$ref", "").rsplit("/", 1)[-1]
         if "enum" in shape:
             expected, value = f"one of {', '.join(shape['enum'])}", shape["enum"][0]
+            alternatives = f" (or another of: {', '.join(shape['enum'][1:])})"
         else:
             try:
                 raptor_schema.validate_scalar(kind, "")
@@ -204,7 +205,7 @@ class Qualifier:
             location = {"line": line, "column": 1}
         fix = f"write `**{label}:** <value>` {where}, where <value> is {expected}"
         if value:
-            fix = f"write `**{label}:** {value}` {where} (or another of: {expected})"
+            fix = f"write `**{label}:** {value}` {where}{alternatives}"
         context.issue(
             "MISSING_FIELD",
             location,
@@ -219,7 +220,8 @@ class Qualifier:
         """Report a required section as empty (at its heading) or missing (where it belongs)."""
         lines, node = context.lines, present.get(label)
         children = [f for f in fields if f["level"] == "Label" and f["section"] == label]
-        section = resolve(context.schema["properties"][sections[label]["name"]], context.schema)
+        field = sections[label]
+        section = resolve(context.schema["properties"][field["name"]], context.schema)
 
         def entry(prop):
             prop = resolve(nonnull(prop), context.schema)
@@ -229,8 +231,8 @@ class Qualifier:
                 return "- [ ] Describe the criterion."
             return "- Describe."
 
-        def child_entry(child):
-            return entry(section["properties"][child["name"]])
+        def child_entry(member):
+            return entry(section["properties"][member["name"]])
 
         first = next(iter(children), None)
         body = [f"**{first['label']}:**", "", child_entry(first)] if first else [entry(section)]
