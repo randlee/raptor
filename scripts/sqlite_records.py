@@ -68,10 +68,15 @@ def dump(database):
         for table, schema in definitions.items():
             rows = []
             for row in connection.execute(f"SELECT * FROM {table} ORDER BY rowid"):
-                record = dict(row)
-                for key, specification in schema["properties"].items():
-                    if resolve(specification, schema).get("type") in ("object", "array"):
-                        record[key] = json.loads(record[key])
-                rows.append(record)
+                rows.append(decode(row, schema))
             output[table] = rows
         return output
+
+
+def decode(row, schema):
+    """Return one stored row as a record, parsing the schema's JSON-encoded columns."""
+    record = {key: row[key] for key in schema["properties"]}
+    for key, specification in schema["properties"].items():
+        if resolve(specification, schema).get("type") in ("object", "array"):
+            record[key] = json.loads(record[key])
+    return record
