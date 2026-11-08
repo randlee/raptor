@@ -1,6 +1,9 @@
 """Qualify list, section and group content from schema semantic roles."""
 
+import json
 import re
+
+import raptor_schema
 
 if __package__:
     from .markdown_content import list_entries, source_text
@@ -29,6 +32,7 @@ def parse_items(context, node, metadata, specification, path, offset):
         item_path = f"{path}/{offset + len(output)}"
         context.locations[item_path] = (entry, raw, metadata["label"])
         if "modality" in semantic:
+            check_modality(context, entry, metadata, raw)
             item = {semantic["modality"]: metadata["modal"], semantic["content"]: text}
         elif "selection" in semantic:
             box = re.match(r"^\[([ xX])\]\s+(.*)$", text, re.DOTALL)
@@ -50,6 +54,38 @@ def parse_items(context, node, metadata, specification, path, offset):
             item = text
         output.append(item)
     return output
+
+
+def check_modality(context, entry, metadata, raw):
+    """Report a statement whose own keyword disagrees with its label's modal.
+
+    The label still decides the stored modal; this only makes the source defect
+    findable. Inline code spans are blanked first so quoted keywords do not count.
+    """
+    prose = re.sub(r"`[^`]*`", lambda span: " " * len(span[0]), raw)
+    found = raptor_schema.modal_mismatch(metadata["modal"], prose)
+    if found is None:
+        return
+    mismatch = json.loads(found)
+    start = mismatch["offset"]
+    keyword = raw[start : start + mismatch["length"]]
+    before = raw[:start]
+    line = entry["line"] + before.count("\n")
+    if "\n" in before:
+        column = context.lines[line - 1].find(keyword.split()[0]) + 1 or entry["column"]
+    else:
+        column = entry["column"] + start
+    context.issue(
+        "MODAL_MISMATCH",
+        dict(entry, line=line, column=column),
+        mismatch["found"],
+        metadata["label"],
+        allowed=[mismatch["expected"]],
+        message=(
+            f"Found {mismatch['found']!r} in a statement under {metadata['label']!r}; "
+            f"expected {mismatch['expected']!r} or no keyword. The label's modal is kept."
+        ),
+    )
 
 
 def parse_reference(context, entry, metadata, specification, semantic, path):

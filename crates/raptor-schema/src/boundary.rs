@@ -58,6 +58,12 @@ pub(crate) fn rules() -> Value {
             "rejects_record": false, "remedy": "Remove the label or use an allowed label.",
             "categories": categories(Rule::UnknownLabel)
         },
+        "MODAL_MISMATCH": {
+            "rejects_record": false,
+            "remedy": "Fix the source: move the statement under the label for its keyword, \
+                       or reword it to use the label's keyword.",
+            "categories": categories(Rule::ModalMismatch)
+        },
         "BAD_VALUE": {
             "rejects_record": true, "remedy": "Use the documented value format.",
             "categories": categories(Rule::BadValue)
