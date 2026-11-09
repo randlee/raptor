@@ -1,0 +1,25 @@
+{
+  "id": "REQ-SMP-0001",
+  "title": "Record export command",
+  "status": "Draft",
+  "version": "0.1.0",
+  "created": "2026-11-09",
+  "last_updated": "2026-11-09",
+  "owner": "Sample Team",
+  "definitions": "`smp` is the sample project's command-line tool. A record is one REQ, NFR or ADR item. The index is the JSON file of records that `smp import` writes.",
+  "must": [
+    "`smp export --output <path>` MUST write every record in the index to `<path>` as a JSON array.",
+    "`smp export` MUST exit with code 0 after it writes the file."
+  ],
+  "must_not": [
+    "`smp export` MUST NOT modify the index."
+  ],
+  "rationale": "Reviewers compare exports between versions. An export that changed the index would hide which records the reviewed change touched.",
+  "acceptance_criteria": [
+    "`smp export --output out.json` on an index of 3 records writes a JSON array of 3 records and exits 0.",
+    "The SHA-256 digest of the index is the same before and after `smp export`."
+  ],
+  "related": ["NFR-SMP-0001"],
+  "test_types": ["CLI integration test"],
+  "architecture_decisions": ["ADR-SMP-0001"]
+}

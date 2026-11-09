@@ -1,0 +1,33 @@
+{
+  "id": "ADR-SMP-0001",
+  "title": "Exports are sorted-key JSON",
+  "status": "Draft",
+  "version": "0.1.0",
+  "created": "2026-11-09",
+  "last_updated": "2026-11-09",
+  "owner": "Sample Team",
+  "decision_date": "2026-11-09",
+  "requirements": ["REQ-SMP-0001"],
+  "context": "`smp export` (REQ-SMP-0001) needs one file format.",
+  "problem_statement": "Reviewers diff exports between versions, so the same records must always produce the same bytes. Consumers are written in Python and Rust and must parse an export without a third-party library in Python.",
+  "decision": "`smp export` writes JSON with object keys sorted and two-space indentation.",
+  "rationale": "Python's standard library parses JSON, and sorted keys make the output depend only on the records.",
+  "positive": ["A diff between two exports shows only the records that changed."],
+  "negative": ["JSON has no comments, so an export cannot carry reviewer notes."],
+  "alternatives": [
+    {
+      "name": "YAML",
+      "description": "Write the records as a YAML sequence.",
+      "pros": ["Supports comments."],
+      "cons": ["Python's standard library has no YAML parser."],
+      "why_rejected": "Python consumers would need a third-party library."
+    },
+    {
+      "name": "TOML",
+      "description": "Write the records as an array of TOML tables.",
+      "pros": ["Python 3.11 and later parse it with the standard library."],
+      "cons": ["Python's standard library cannot write TOML."],
+      "why_rejected": "Python tooling that rewrites an export would need a third-party library."
+    }
+  ]
+}

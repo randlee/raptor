@@ -254,6 +254,7 @@ fn source_only_rules_are_exported_without_rust_error_categories() {
             "MISSING_FIELD",
             "UNKNOWN_SECTION",
             "UNKNOWN_LABEL",
+            "MODAL_MISMATCH",
         ];
         let rust = ["BAD_VALUE", "DUPLICATE_ID", "DANGLING_REFERENCE"];
         let expected: BTreeSet<_> = source.into_iter().chain(rust).collect();
