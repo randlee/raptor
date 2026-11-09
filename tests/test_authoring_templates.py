@@ -6,7 +6,7 @@ from pathlib import Path
 
 import pytest
 import sc_compose as sc
-from corpus_support import ROOT, extract
+from corpus_support import ROOT, extract, load_run, run
 from scripts.schema_json import schemas
 
 FIXTURES = ROOT / "tests/fixtures/authoring"
@@ -103,6 +103,25 @@ def test_samples_import_with_zero_diagnostics(tmp_path):
         "REQ-SMP-0001",
     ]
     assert [record["id"] for record in index["decisions"]] == ["ADR-SMP-0001"]
+
+
+
+def test_rendered_records_load_into_sqlite_and_query_back(tmp_path):
+    """Render, import, load and read back each kind: the path judge-jev and agents use."""
+    root = project(tmp_path)
+    index, database = tmp_path / "index.json", tmp_path / "records.sqlite"
+    extract(root, index)
+    load_run(str(index), str(database))
+    stored = json.loads(index.read_text())
+    for template, (_, table) in SAMPLES.items():
+        identifier = sample(template)["id"]
+        result = run("raptor_query.py", "get", identifier, "--db", str(database), check=False)
+        assert result.returncode == 0, result.stdout + result.stderr
+        assert result.stderr == ""
+        envelope = json.loads(result.stdout)
+        record = next(item for item in stored[table] if item["id"] == identifier)
+        kind = template.split("-")[0]
+        assert envelope == {"success": True, "data": [{**record, "type": kind}], "error": None}
 
 
 @pytest.mark.parametrize("template", SAMPLES)

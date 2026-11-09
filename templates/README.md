@@ -34,13 +34,11 @@ sample vars file per kind.
 - Required sections always render, so an empty one is reported at import.
   Empty optional sections are left out.
 
-## Render and import
+## Render, import and query
 
-Today the entrypoints are the Python scripts in `scripts/` and the
-`raptor_schema` Python module (PyO3), which they call to validate records
-(`accept`, `validate_scalar`, `json_schema`, `field_table`, `sql_ddl`,
-`modal_mismatch`). The `raptor` CLI in `crates/raptor-cli` has no commands
-yet. Install with `pip install . markdown sc-compose` from this repository.
+Install once from this repository: `pip install . markdown sc-compose`. This
+builds the `raptor_schema` module (PyO3) that the import uses to validate
+records.
 
 From the repository the record belongs to, with Raptor checked out at
 `$RAPTOR` and a `.raptor/` inventory that includes the new file:
@@ -50,20 +48,18 @@ sc-compose render --root "$RAPTOR" --file templates/req-new.md.j2 \
   --var-file req.json --strict --unknown-var-mode error \
   --output docs/requirements/REQ-ABC-0001.md
 python "$RAPTOR/scripts/extract.py" --project-root . --output index.json
-```
-
-`extract.py` writes the import index and exits nonzero, printing each
-diagnostic, when a record does not import cleanly. To load the database and
-read records back:
-
-```sh
 python "$RAPTOR/scripts/load_sqlite.py" index.json requirements.sqlite
 python "$RAPTOR/scripts/raptor_query.py" get REQ-ABC-0001 --db requirements.sqlite
 ```
 
+`extract.py` writes the import index and exits 0 when every record imports
+with no diagnostics; otherwise it prints each diagnostic and exits 1.
+`load_sqlite.py` loads the index into the Raptor SQLite database, and
+`raptor_query.py get` returns the stored record as JSON.
+
 ## judge-jev
 
-judge-jev reads records from the import index, not from SQLite:
+judge-jev judges records from the import index that `extract.py` writes:
 
 ```sh
 jev_judge.py quality --req REQ-ABC-0001 --index index.json
