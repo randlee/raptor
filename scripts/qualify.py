@@ -2,6 +2,8 @@
 
 import json
 import re
+import tomllib
+from pathlib import Path
 
 import raptor_schema
 
@@ -33,6 +35,31 @@ def record_end(lines, record):
         if text.strip() and not re.fullmatch(r"-{3,}", text.strip()):
             end = number
     return end
+
+
+def load_optional_sections(root, fields):
+    """Return the required sections `.raptor/raptor.toml` lets this repository omit.
+
+    `optional_sections = ["Success Criteria"]` lets a record leave out that
+    `###` section entirely; a section that is present must still have content.
+    """
+    path = Path(root) / ".raptor/raptor.toml"
+    data = tomllib.loads(path.read_text()) if path.exists() else {}
+    names = data.get("optional_sections", [])
+    if not isinstance(names, list) or not all(isinstance(name, str) for name in names):
+        raise ValueError(f"{path}: optional_sections must be a list of section names")
+    required = {
+        field["label"]
+        for table in fields.values()
+        for field in table
+        if field["level"] == "Section" and field["required"]
+    }
+    unknown = sorted(set(names) - required)
+    if unknown:
+        raise ValueError(
+            f"{path}: optional_sections names {unknown}; expected required sections {sorted(required)}"
+        )
+    return frozenset(names)
 
 
 class Qualifier:
@@ -68,6 +95,7 @@ class Qualifier:
         self.issues, self.counts = [], {}
         self.source_inventory = SourceInventory()
         self.aliases = load_aliases(root, self.schemas, self.fields)
+        self.optional_sections = load_optional_sections(root, self.fields)
         self.rules = next(iter(self.schemas.values()))["x-raptor-rules"]
         self.error_rules = {
             category: rule
@@ -170,6 +198,8 @@ class Qualifier:
             context.section = None
             present[canonical] = node
         for label, field in sections.items():
+            if label in self.optional_sections and label not in present:
+                continue
             if field["required"] and (label not in present or not populated(result[field["name"]])):
                 self.missing_section(context, label, fields, present, sections)
 

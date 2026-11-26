@@ -27,6 +27,12 @@ generated runtime state.
 accepts and ignores both values. Its `[files]` table names `scan`, `routing`,
 and `identity` artifacts relative to `.raptor/`.
 
+`raptor.toml` may set `optional_sections`, a list of required section names
+(for example `["Success Criteria"]`) that this repository's records may leave
+out entirely. A listed section that is present must still have content; any
+other name, or a value that is not a list of strings, is refused before
+Markdown is read.
+
 `sources.toml` accepts `schema_version` and contains `[[sources]]` entries with a unique `name`, a
 repository-relative `root`, non-empty `include` globs, and optional `exclude`
 globs. The extractor reads only Markdown files selected by an include glob and
