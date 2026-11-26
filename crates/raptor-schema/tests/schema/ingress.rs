@@ -133,7 +133,13 @@ fn strict_values_have_structured_errors() {
         ("/status", json!("active"), "UnknownVariant", None),
         ("/status", json!("Actve"), "UnknownVariant", None),
         ("/id", json!("REQ-X-1"), "InvalidId", None),
-        ("/version", json!("1.10.0"), "InvalidVersion", None),
+        ("/version", json!("1.0"), "InvalidVersion", None),
+        ("/version", json!("1.0.0.0"), "InvalidVersion", None),
+        ("/version", json!("1.a.0"), "InvalidVersion", None),
+        ("/version", json!("1..0"), "InvalidVersion", None),
+        ("/version", json!("01.0.0"), "InvalidVersion", None),
+        ("/version", json!("1.00.0"), "InvalidVersion", None),
+        ("/version", json!("-1.0.0"), "InvalidVersion", None),
         ("/created", json!("2026-13-01"), "InvalidDate", None),
         ("/created", json!("2025-02-29"), "InvalidDate", None),
         ("/created", json!("1900-02-29"), "InvalidDate", None),
@@ -156,6 +162,12 @@ fn strict_values_have_structured_errors() {
         let mut input = fixture();
         input["decisions"][0]["decision_date"] = json!(date);
         assert!(accept(&input.to_string()).errors.is_empty());
+    }
+    for version in ["0.14.0", "1.10.0", "10.0.0", "0.0.0", "123.456.789"] {
+        let mut input = fixture();
+        input["requirements"][0]["version"] = json!(version);
+        let result = accept(&input.to_string());
+        assert!(result.errors.is_empty(), "{version}: {:?}", result.errors);
     }
 }
 #[test]
