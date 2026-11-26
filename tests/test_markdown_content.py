@@ -100,3 +100,40 @@ def test_detached_prose_is_not_absorbed_into_a_list_item(document, needle):
     assert issue["value"] == "Unrelated prose."
     assert issue["line"] == changed.splitlines().index("Unrelated prose.") + 1
     assert not result.rows["requirements"]
+
+
+EMPTY_OPTIONAL = {
+    "dependencies": {"text": "", "requires": [], "related": []},
+    "test_strategy": {"text": "", "test_types": []},
+}
+
+
+def test_empty_optional_sections_are_not_rendered(tmp_path):
+    fixture = json.loads((ROOT / "tests/fixtures/records.json").read_text())
+    record = fixture["requirements"][0]
+    record.update(EMPTY_OPTIONAL)
+    source = tmp_path / "records.json"
+    source.write_text(json.dumps(fixture))
+    root = project(tmp_path)
+    run("render.py", str(source), "--output-dir", str(root / "docs"))
+    text = (root / "docs" / "requirements" / f"{record['id']}.md").read_text()
+    assert "### Dependencies" not in text
+    assert "### Test Strategy" not in text
+    assert "**Requires:**" not in text
+    result = qualify(root, text)
+    assert result.issues == []
+    assert result.rows["requirements"] == [record]
+
+
+def test_empty_required_section_is_rendered_for_import_to_report(tmp_path):
+    fixture = json.loads((ROOT / "tests/fixtures/records.json").read_text())
+    record = fixture["requirements"][0]
+    record["rationale"] = ""
+    source = tmp_path / "records.json"
+    source.write_text(json.dumps(fixture))
+    root = project(tmp_path)
+    run("render.py", str(source), "--output-dir", str(root / "docs"))
+    text = (root / "docs" / "requirements" / f"{record['id']}.md").read_text()
+    assert "### Rationale" in text
+    result = qualify(root, text)
+    assert [issue["rule"] for issue in result.issues] == ["MISSING_FIELD"]

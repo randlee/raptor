@@ -1,0 +1,23 @@
+{
+  "id": "NFR-SMP-0001",
+  "title": "Export time and memory",
+  "status": "Draft",
+  "version": "0.1.0",
+  "created": "2026-11-09",
+  "last_updated": "2026-11-09",
+  "owner": "Sample Team",
+  "definitions": "`smp` is the sample project's command-line tool. The index is the JSON file of records that `smp import` writes. The reference machine has 4 CPU cores and 8 GiB of memory. Peak resident memory is the `maximum resident set size` that `/usr/bin/time -v` reports.",
+  "must": [
+    "`smp export` MUST finish within 2 seconds of wall time for an index of 10,000 records on the reference machine."
+  ],
+  "must_not": [
+    "`smp export` MUST NOT exceed 512 MiB of peak resident memory for an index of 10,000 records."
+  ],
+  "rationale": "Exports run as one step of the pre-merge check, and each step has a 2-second budget on the reference machine.",
+  "acceptance_criteria": [
+    "Exporting a generated 10,000-record index on the reference machine takes less than 2 seconds of wall time.",
+    "`/usr/bin/time -v smp export` on the same index reports a maximum resident set size below 512 MiB."
+  ],
+  "related": ["REQ-SMP-0001"],
+  "test_types": ["benchmark"]
+}

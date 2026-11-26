@@ -134,9 +134,9 @@ pub(crate) fn validate_typed_scalar(kind: ScalarKind, text: &str) -> Result<(), 
         (ScalarKind::Version, _) => {
             let components: Vec<_> = text.split('.').collect();
             components.len() == 3
-                && components
-                    .iter()
-                    .all(|part| part.len() == 1 && digits(part))
+                && components.iter().all(|part| {
+                    !part.is_empty() && digits(part) && (part.len() == 1 || !part.starts_with('0'))
+                })
         }
         (ScalarKind::Date, [year, month, day]) => {
             let leap = year.parse::<u16>().is_ok_and(|year| {

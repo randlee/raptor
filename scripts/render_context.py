@@ -58,6 +58,25 @@ def section_nodes(value, field, specification, schema, fields, table_info):
     return nodes
 
 
+def prune(nodes):
+    """Drop empty prose, then labels and subheadings left with no content."""
+    kept = [n for n in nodes if n["kind"] != "prose" or str(n["body"]).strip()]
+    result = []
+    for index, node in enumerate(kept):
+        if node["kind"] in ("label", "subheading"):
+            rank = ("subheading", "label").index(node["kind"])
+            following = next(
+                (n for n in kept[index + 1 :]
+                 if n["kind"] not in ("label", "subheading")
+                 or ("subheading", "label").index(n["kind"]) <= rank),
+                None,
+            )
+            if following is None or following["kind"] in ("label", "subheading"):
+                continue
+        result.append(node)
+    return result
+
+
 def document_context(record, table, definitions):
     schema = definitions[table]
     fields = schema["x-raptor-fields"]
@@ -82,10 +101,13 @@ def document_context(record, table, definitions):
         elif field["level"] == "Item" and field["role"] not in heading_roles.values():
             items.append({"caption": field["label"], "body": record[key]})
         elif field["level"] == "Section":
-            nodes = section_nodes(
-                record[key], field, schema["properties"][key], schema, fields, info
+            nodes = prune(
+                section_nodes(
+                    record[key], field, schema["properties"][key], schema, fields, info
+                )
             )
-            sections.append({"caption": field["label"], "nodes": nodes})
+            if nodes or field["required"]:
+                sections.append({"caption": field["label"], "nodes": nodes})
     document = dict(
         heading_label=info["heading_label"],
         headers=headers,

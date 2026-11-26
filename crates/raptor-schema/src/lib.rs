@@ -6,6 +6,7 @@ mod error;
 mod fields;
 mod inventory;
 mod metadata;
+mod normative;
 mod protocol;
 mod rule;
 mod schema;
@@ -16,6 +17,7 @@ pub use emit::{FieldMeta, MetaLevel, MetaShape, Role, field_table, json_schema, 
 pub use error::{Error, ErrorCategory, ItemIndex, RecordPosition, TableId};
 pub use inventory::Summary;
 pub use metadata::FieldScope;
+pub use normative::{ModalMismatch, modal_mismatch};
 pub use rule::Rule;
 pub use schema::{
     Alternative, Alternatives, CheckItem, Consequences, Context, Date, Decision, DecisionRationale,
@@ -84,6 +86,25 @@ mod python {
         }
     }
     #[pyfunction]
+    fn modal_mismatch(py: Python<'_>, modal: &str, text: &str) -> PyResult<Option<String>> {
+        let label = match serde_json::from_value(serde_json::json!(modal)) {
+            Ok(label) => label,
+            Err(_) => {
+                return fail(
+                    py,
+                    Error::scalar(
+                        ErrorCategory::UnknownVariant,
+                        modal,
+                        "one of Must, Should, or MustNot",
+                    ),
+                );
+            }
+        };
+        crate::modal_mismatch(label, text)
+            .map(|mismatch| json(py, mismatch))
+            .transpose()
+    }
+    #[pyfunction]
     fn accept(py: Python<'_>, input: &str) -> PyResult<String> {
         json(py, crate::accept(input))
     }
@@ -94,6 +115,7 @@ mod python {
         module.add_function(wrap_pyfunction!(json_schema, module)?)?;
         module.add_function(wrap_pyfunction!(field_table, module)?)?;
         module.add_function(wrap_pyfunction!(validate_scalar, module)?)?;
+        module.add_function(wrap_pyfunction!(modal_mismatch, module)?)?;
         module.add_function(wrap_pyfunction!(accept, module)?)
     }
 }

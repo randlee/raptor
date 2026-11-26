@@ -26,3 +26,8 @@ python scripts/render.py requirements-index.json --output-dir rendered
 Extraction reports structured diagnostics and exits nonzero when issues are
 present. SQLite is the import fixture; the Dolt-backed product is planned.
 See [the project plan](docs/project-plan.md) for phase status.
+
+## Authoring new records
+
+[templates/README.md](templates/README.md) covers the per-kind templates that
+write new REQ, NFR and ADR records.

@@ -3,7 +3,8 @@ use serde::Serialize;
 
 /// Diagnostic taxonomy shared with the Python source qualifier.
 ///
-/// `MissingId`, `MissingField`, `UnknownSection`, and `UnknownLabel` are
+/// `MissingId`, `MissingField`, `UnknownSection`, `UnknownLabel`, and
+/// `ModalMismatch` are
 /// source-only rules: the `x-raptor-rules` schema extension exports them for
 /// the qualifier, but `ErrorCategory::rule` never returns them. Rust error
 /// summaries therefore count only `BadValue`, `DuplicateId`, and
@@ -16,6 +17,8 @@ pub enum Rule {
     MissingField,
     UnknownSection,
     UnknownLabel,
+    /// A statement's own normative keyword disagrees with its label's modal.
+    ModalMismatch,
     BadValue,
     DuplicateId,
     DanglingReference,

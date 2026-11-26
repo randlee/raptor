@@ -25,9 +25,25 @@ class RecordContext:
     section: str | None = None
     bad: bool = False
 
-    def issue(self, rule, node, value, label=None, allowed=None, message=None):
+    def fix_for(self, rule, line, value, allowed):
+        """The edit that clears a diagnostic whose caller supplied no specific fix."""
+        shown = f"`{value.strip()}`" if value and value.strip() else "the text"
+        options = ", ".join(f"`{choice}`" for choice in allowed or [])
+        if rule in ("UNKNOWN_SECTION", "UNKNOWN_LABEL"):
+            if allowed:
+                return f"rename {shown} on line {line} to one of {options}, or delete line {line}"
+            return f"delete {shown} on line {line}; no such entry is allowed here"
+        if rule == "BAD_VALUE" and allowed:
+            return f"replace {shown} on line {line} with one of {options}"
+        if rule == "DUPLICATE_ID":
+            return f"rename {shown} on line {line} to an identifier no other record uses"
+        return f"{self.owner.rules[rule]['remedy'].rstrip('.')} (line {line})"
+
+    def issue(
+        self, rule, node, value, label=None, allowed=None, message=None, fix=None, edit=None
+    ):
         line, column = node["line"], node["column"]
-        if line < 1 or column < 1 or line > max(1, len(self.lines)):
+        if line < 1 or column < 1 or line > len(self.lines) + 1:
             raise ValueError(f"Invalid diagnostic source position: {line}:{column}")
         policy = self.owner.rules[rule]
         self.owner.issues.append(
@@ -37,12 +53,16 @@ class RecordContext:
                 column=column,
                 rule=rule,
                 id=self.record.get("token"),
+                record=self.record.get("token"),
                 section=self.section,
                 label=label,
                 value=value,
                 allowed=allowed,
                 message=message or f"Found {value!r}; expected {allowed or label or rule.lower()}.",
                 remedy=policy["remedy"],
+                source=self.lines[line - 1] if line <= len(self.lines) else "",
+                fix=fix or self.fix_for(rule, line, value, allowed),
+                edit=edit,
             )
         )
         self.bad |= policy["rejects_record"]
